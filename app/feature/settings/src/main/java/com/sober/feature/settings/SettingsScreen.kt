@@ -710,10 +710,13 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                 )
                 PrivacySection(
                     heading = "What leaves the device",
-                    body = "Nothing automatically. Sober has no internet permission, no " +
-                        "analytics and no advertising. Data is only shared when you choose " +
-                        "\"Export usage data\" and pick a destination in the share sheet; you " +
-                        "decide who receives that file."
+                    body = "Sober sends nothing anywhere: it has no internet permission, no " +
+                        "analytics and no advertising. Two things can still move data, and " +
+                        "both are your choice. \"Export usage data\" writes a CSV and opens " +
+                        "the share sheet, so you pick the destination. And if backup is on " +
+                        "in your Google account, Android may copy Sober's data to your own " +
+                        "backup — the operating system acting on your account, not Sober " +
+                        "sending anything to us."
                 )
                 PrivacySection(
                     heading = "Why each permission is used",
@@ -721,9 +724,11 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                         "the block screen. Notifications report sessions and limits. " +
                         "Notification access is optional and only silences notifications " +
                         "during a session — their content is never stored or sent. " +
-                        "Accessibility is optional and off by default. Device admin is " +
-                        "optional and only prevents uninstallation; it is never used to lock " +
-                        "or wipe the device."
+                        "Accessibility is optional and off by default: it reads which app is " +
+                        "open and the structure of the screen so a single section can be " +
+                        "closed, never text fields or what you type, and nothing on screen " +
+                        "is stored. Device admin is optional and only prevents " +
+                        "uninstallation; it is never used to lock or wipe the device."
                 )
                 PrivacySection(
                     heading = "Deleting your data",
@@ -731,6 +736,11 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                         "Uninstalling the app, or clearing its data in Android settings, " +
                         "removes all of it. Exported CSV files in the app cache are replaced " +
                         "on the next export and can be cleared by Android at any time."
+                )
+                PrivacySection(
+                    heading = "Full policy",
+                    body = "The complete policy, including how to contact us, is published " +
+                        "at rishabhx29.github.io/Sober/privacy.html"
                 )
             }
         },
