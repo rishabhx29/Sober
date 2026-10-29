@@ -685,6 +685,27 @@ See `AGENTS.md` for full agent definitions. Summary:
 **Learning**: Robolectric runs the real Android framework classes on the JVM, so `Settings.Secure`, `AppOpsManager` and runtime-permission state behave like Android rather than like a stub. Compose rides on top: `createComposeRule()` works under `RobolectricTestRunner` when the module sets `testOptions { unitTests { isIncludeAndroidResources = true } }` and puts `ui-test-junit4` **and** `ui-test-manifest` on `testImplementation` (the manifest AAR is what declares the host activity). Pin the test to a released API with `@Config(sdk = [35])` instead of inheriting `compileSdk = 37`: Robolectric ships shadowed runtimes only for released Android versions, and an unsupported default is a startup error, not a silent fallback. Espresso is the wrong tool here — with one Activity and no View hierarchy it has nothing to query, while the Compose rule sees every semantics node. One trap matters for this app: a screen with `LaunchedEffect { while (true) { delay(1_000) } }` never reaches idle. Setting `composeRule.mainClock.autoAdvance = false` before `setContent` parks the ticker at the first frame, so the test asserts copy instead of waiting forever.  
 **Solution/Pattern**: For each module that needs UI or framework tests, add Robolectric + Compose test dependencies and the resources flag once, then write tests that assert user-visible text and semantics rather than implementation details. When a screen owns an infinite timer, freeze the clock.
 
+### 11.11 A Switch Inside a Clickable Row Survives Merging
+
+**Date**: 2026-10-30  
+**Context**: 1.10 needed a per-row "enable/disable limit" switch inside a row that already opened the detail sheet on tap.  
+**Learning**: `Modifier.clickable` sets `mergeDescendants = true`, so the row and its texts collapse into one semantics node; the Material `Switch`'s own `toggleable` is a second boundary. Compose hit-testing is positional, so the switch consumes its own tap and the row does not fire — that part is free. What is not free is *finding* the switch in a test: without a distinguishing label, `onNodeWithText("60m").performClick()` may land on the merged row. Passing `Modifier.semantics { contentDescription = "Limit for $name" }` into the switch gives it a stable, unique handle and reads correctly to TalkBack. The tests then assert both halves of the contract: flipping the switch reports the new value with zero row clicks, and tapping the name counts one row click.  
+**Solution/Pattern**: When two tap targets share a line, give the inner control its own content description and test both directions. Do not put a raw `Switch` inside a `clickable` row without one.
+
+### 11.12 Test Rules Against the Asset That Ships
+
+**Date**: 2026-10-30  
+**Context**: Phase 6 rules were already JSON; unit tests only exercised hand-built snapshots, so a typo in `detection_rules.json` could still ship.  
+**Learning**: A JVM unit test can read `src/main/assets/...` with a plain `File(...)` because Gradle runs tests with the module directory as the working directory. Parsing that real file and feeding each `DetectionRule` through the production matcher proves the document and the schema agree — the failure mode a fixture never catches. Assert three things per rule: it matches its own package, it matches no other package, and a visible-but-unselected tab does not match. Uniqueness of rule ids and non-blank overlay copy are cheap invariants that pay off because ids are persisted as preference keys.  
+**Solution/Pattern**: Have at least one test per shipped data file that loads the file itself, not a copy. Treat rule ids as persisted API — renaming one disables a user's existing choice.
+
+### 11.13 GitHub Pages Is Not a Free Host for a Project Site Here
+
+**Date**: 2026-10-30  
+**Context**: The privacy policy needed a public URL (ticket 5.8). Pages was enabled for the `Sober` repo and served a 404.  
+**Learning**: A project site inherits the user site's custom domain. `rishabhx29.github.io` is configured with `rishabhx29.me`, whose DNS points at a different host, so every `rishabhx29.github.io/Sober/...` request 301s to `www.rishabhx29.me/Sober/...` and dies. Raw-file proxies do not rescue it either: jsDelivr and raw.githack serve `.html` as `text/plain` with `nosniff`. What actually works is the file GitHub renders itself — `docs/PRIVACY.md` at `github.com/.../blob/main/...` — which returns 200 and stays in the repo history.  
+**Solution/Pattern**: For a policy page, point at the Markdown blob URL until a domain is chosen deliberately; only treat Pages as live after `curl -L` shows 200 on the final host.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
