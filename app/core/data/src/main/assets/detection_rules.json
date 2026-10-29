@@ -1,0 +1,110 @@
+{
+  "_comment": "Section detection rules. Values are data, not code: correcting a renamed tab is a file change, not a release. Resource ids below are the best available information and MUST be validated on a device with each app version before relying on them; a wrong id simply never matches, it does not block the wrong screen. SELECTED_TAB is used for tabs because the tab's icon/label is present on every tab, so mere presence proves nothing.",
+  "version": 1,
+  "apps": [
+    {
+      "packageName": "com.instagram.android",
+      "appName": "Instagram",
+      "sections": [
+        {
+          "id": "reels",
+          "name": "Reels",
+          "activity": "com.instagram.android.activity.MainTabActivity",
+          "match": "SELECTED_TAB",
+          "value": "com.instagram.android:id/reels_tab",
+          "title": "Reels is blocked",
+          "subtitle": "You set this rule in Sober. The rest of Instagram still works."
+        },
+        {
+          "id": "explore",
+          "name": "Explore",
+          "activity": "com.instagram.android.activity.MainTabActivity",
+          "match": "SELECTED_TAB",
+          "value": "com.instagram.android:id/search_tab",
+          "title": "Explore is blocked",
+          "subtitle": "You set this rule in Sober. Feed, DMs and your profile stay open."
+        }
+      ]
+    },
+    {
+      "packageName": "com.google.android.youtube",
+      "appName": "YouTube",
+      "sections": [
+        {
+          "id": "shorts",
+          "name": "Shorts",
+          "activity": "com.google.android.apps.youtube.app.watchwhile.MainActivity",
+          "match": "SELECTED_TAB",
+          "value": "com.google.android.youtube:id/shorts_tab",
+          "title": "Shorts is blocked",
+          "subtitle": "You set this rule in Sober. Subscriptions, search and history still work."
+        },
+        {
+          "id": "home",
+          "name": "Home feed",
+          "activity": "com.google.android.apps.youtube.app.watchwhile.MainActivity",
+          "match": "SELECTED_TAB",
+          "value": "com.google.android.youtube:id/home_tab",
+          "title": "The home feed is blocked",
+          "subtitle": "You set this rule in Sober. Search and your subscriptions are one tap away."
+        }
+      ]
+    },
+    {
+      "packageName": "com.zhiliaoapp.musically",
+      "appName": "TikTok",
+      "sections": [
+        {
+          "id": "home",
+          "name": "For You feed",
+          "match": "SELECTED_TAB",
+          "value": "com.zhiliaoapp.musically:id/home_tab",
+          "title": "The For You feed is blocked",
+          "subtitle": "You set this rule in Sober. Search and your profile stay open."
+        }
+      ]
+    },
+    {
+      "packageName": "com.twitter.android",
+      "appName": "X",
+      "sections": [
+        {
+          "id": "home",
+          "name": "For You timeline",
+          "match": "SELECTED_TAB",
+          "value": "com.twitter.android:id/home_tab",
+          "title": "The For You timeline is blocked",
+          "subtitle": "You set this rule in Sober. Search and messages stay open."
+        }
+      ]
+    },
+    {
+      "packageName": "com.reddit.frontpage",
+      "appName": "Reddit",
+      "sections": [
+        {
+          "id": "home",
+          "name": "Home feed",
+          "match": "SELECTED_TAB",
+          "value": "com.reddit.frontpage:id/home_tab",
+          "title": "The Reddit home feed is blocked",
+          "subtitle": "You set this rule in Sober. Search and your subscriptions stay open."
+        }
+      ]
+    },
+    {
+      "packageName": "com.snapchat.android",
+      "appName": "Snapchat",
+      "sections": [
+        {
+          "id": "discover",
+          "name": "Discover",
+          "match": "SELECTED_TAB",
+          "value": "com.snapchat.android:id/discover_tab",
+          "title": "Discover is blocked",
+          "subtitle": "You set this rule in Sober. Chats and the camera stay open."
+        }
+      ]
+    }
+  ]
+}
