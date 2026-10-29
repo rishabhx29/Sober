@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      The overlay module declares its host theme in its own manifest and wraps
+      its ComposeView context in it. Library modules cannot reference resources
+      defined in :app, so this has to exist here too; the previous version
+      pointed at @style/Theme.Sober while this module had no res/ directory at
+      all, which fails at manifest merge.
+    -->
+    <style name="Theme.Sober" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/sober_background</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <color name="sober_background">#F7F4EF</color>
+
+</resources>

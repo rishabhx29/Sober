@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Required to draw the block overlay on top of other apps via WindowManager
+      (TYPE_APPLICATION_OVERLAY). Requested during onboarding.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <application>
+        <!--
+          The block screen is no longer an Activity: it renders inside a
+          WindowManager overlay window owned by BlockOverlayController, so
+          there is no component to declare here. The previous Activity entry
+          referenced @style/Theme.Sober in this module while the module had no
+          res/ directory, which broke manifest merging.
+        -->
+    </application>
+</manifest>
