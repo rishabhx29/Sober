@@ -161,6 +161,27 @@ class AppsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Enables or disables an existing limit. The minutes are kept, so turning a
+     * limit back on does not ask the user to re-enter it, and the enforcement
+     * layer treats an inactive limit as no limit at all.
+     *
+     * A package with no limit is a no-op: the row only offers this switch when
+     * there is something to switch.
+     */
+    fun setLimitEnabled(packageName: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val existing = appLimitRepository.getLimit(packageName) ?: return@launch
+            if (existing.isActive == enabled) return@launch
+            appLimitRepository.updateLimit(existing.copy(isActive = enabled))
+            _apps.value = _apps.value.map { app ->
+                if (app.packageName == packageName) {
+                    app.copy(isLimited = enabled)
+                } else app
+            }
+        }
+    }
+
     fun setAppLimit(packageName: String, appName: String, limitMinutes: Int) {
         viewModelScope.launch {
             val existing = appLimitRepository.getLimit(packageName)

@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -336,93 +338,126 @@ fun AppsScreen(
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 items(apps, key = { it.packageName }) { app ->
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedApp = app
-                                    sheetLimitHours = (app.limitMinutes ?: 60) / 60
-                                    sheetLimitMinutes = (app.limitMinutes ?: 60) % 60
-                                    viewModel.loadHistory(app.packageName)
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // App icon
-                            if (app.icon != null) {
-                                Image(
-                                    painter = rememberDrawablePainter(drawable = app.icon),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            SoberTheme.colors.divider,
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            // Name + usage
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = app.name,
-                                    fontSize = 15.sp,
-                                    color = SoberTheme.colors.primary,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                if (app.usageMinutes > 0) {
-                                    Text(
-                                        text = "${app.usageMinutes}m today",
-                                        fontSize = 12.sp,
-                                        color = SoberTheme.colors.textSecondary
-                                    )
-                                }
-                            }
-
-                            // Limit indicator or lock
-                            if (app.isLimited) {
-                                val atLimit = app.usageMinutes >= (app.limitMinutes ?: Int.MAX_VALUE)
-                                if (atLimit) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Lock,
-                                        contentDescription = "Blocked",
-                                        tint = SoberTheme.colors.danger,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                }
-                                Text(
-                                    text = "${app.limitMinutes}m",
-                                    fontSize = 13.sp,
-                                    color = if (atLimit) SoberTheme.colors.danger else SoberTheme.colors.textMuted,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+                    AppRow(
+                        app = app,
+                        onClick = {
+                            selectedApp = app
+                            sheetLimitHours = (app.limitMinutes ?: 60) / 60
+                            sheetLimitMinutes = (app.limitMinutes ?: 60) % 60
+                            viewModel.loadHistory(app.packageName)
+                        },
+                        onLimitToggle = { enabled ->
+                            viewModel.setLimitEnabled(app.packageName, enabled)
                         }
-
-                        // Progress bar for limited apps
-                        if (app.isLimited && app.limitMinutes != null && app.limitMinutes > 0) {
-                            val progress = (app.usageMinutes.toFloat() / app.limitMinutes).coerceAtMost(1f)
-                            SoberProgressBar(
-                                progress = progress,
-                                isDanger = progress >= 1f
-                            )
-                        }
-
-                        HorizontalDivider(color = SoberTheme.colors.divider)
-                    }
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * One installed app. The switch is the quick control the PRD asks for: it
+ * enables or disables an existing limit without opening the sheet, and the
+ * configured minutes are kept so turning it back on needs no re-entry.
+ *
+ * The switch sits inside the row's clickable area but consumes its own taps,
+ * so flipping it never opens the detail sheet.
+ */
+@Composable
+internal fun AppRow(
+    app: InstalledApp,
+    onClick: () -> Unit,
+    onLimitToggle: (Boolean) -> Unit
+) {
+    val colors = SoberTheme.colors
+    val hasLimit = app.limitMinutes != null
+    val atLimit = app.isLimited &&
+        app.usageMinutes >= (app.limitMinutes ?: Int.MAX_VALUE)
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (app.icon != null) {
+                Image(
+                    painter = rememberDrawablePainter(drawable = app.icon),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(colors.divider, RoundedCornerShape(8.dp))
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = app.name,
+                    fontSize = 15.sp,
+                    color = colors.primary,
+                    fontWeight = FontWeight.Medium
+                )
+                if (app.usageMinutes > 0) {
+                    Text(
+                        text = "${app.usageMinutes}m today",
+                        fontSize = 12.sp,
+                        color = colors.textSecondary
+                    )
+                }
+            }
+
+            if (hasLimit) {
+                if (atLimit) {
+                    Icon(
+                        imageVector = Icons.Rounded.Lock,
+                        contentDescription = "Blocked",
+                        tint = colors.danger,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Text(
+                    text = "${app.limitMinutes}m",
+                    fontSize = 13.sp,
+                    color = when {
+                        atLimit -> colors.danger
+                        app.isLimited -> colors.textMuted
+                        else -> colors.textMuted.copy(alpha = 0.6f)
+                    },
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                SoberToggleSwitch(
+                    checked = app.isLimited,
+                    onCheckedChange = onLimitToggle,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Limit for ${app.name}"
+                    }
+                )
+            }
+        }
+
+        // Progress bar for limited apps
+        if (app.isLimited && app.limitMinutes != null && app.limitMinutes > 0) {
+            val progress = (app.usageMinutes.toFloat() / app.limitMinutes).coerceAtMost(1f)
+            SoberProgressBar(
+                progress = progress,
+                isDanger = progress >= 1f
+            )
+        }
+
+        HorizontalDivider(color = colors.divider)
     }
 }
 
