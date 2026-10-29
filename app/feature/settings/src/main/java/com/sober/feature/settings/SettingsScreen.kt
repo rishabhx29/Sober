@@ -740,7 +740,7 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                 PrivacySection(
                     heading = "Full policy",
                     body = "The complete policy, including how to contact us, is published " +
-                        "at rishabhx29.github.io/Sober/privacy.html"
+                        "at github.com/rishabhx29/Sober/blob/main/docs/PRIVACY.md"
                 )
             }
         },
