@@ -1,0 +1,540 @@
+
+Sober
+Your phone is not the problem. The apps are.
+Product Requirements Document
+Complete Architecture · Design · Feature Specification · Tech Stack
+Visual Theme: Manuscript
+
+Version 1.0
+Platform: Android (Primary) · iOS (Phase 2)
+Status: Draft — Ready for Development
+
+1. Executive Summary
+Sober is a deep-system Android application built on a single honest premise: smartphone addiction is real, and willpower alone doesn't beat it. Sober gives users complete, unbypassable control over their digital habits — hard app-usage limits, focus session locking, in-app content section filtering, and intelligent scheduling — all in one calm, minimal interface. Unlike existing screen-time tools that can be circumvented in seconds through Settings, Sober uses Android's Device Administration, Accessibility, and VPN service layers to stay active even when the user tries to force-stop or uninstall it during an active block.
+
+The name is intentional. "Stay Sober" reframes phone use the same way sobriety reframes drinking — not as a failure of character, but as something that requires a system. Sober is that system. Once a rule is in place, it stays in place, even if the user changes their mind in a moment of weakness.
+
+1.1 Key Goals
+Block entire apps when daily time limits are reached — hard lock, no tap-to-dismiss dialog
+Lock the phone into a Focus Session for a set duration with no easy exit
+Block specific sections inside apps (Instagram Reels, YouTube Shorts, Explore, TikTok FYP)
+Run as a persistent background service that survives app removal from recents and phone reboots
+Show clear, honest usage data — no sugarcoating how much time is actually being lost
+Stay out of the way when not blocking — a minimal UI that never becomes its own distraction
+
+1.2 Platform Decision
+Sober is built natively for Android first because Android's open permission model exposes the system APIs needed for deep blocking: UsageStatsManager, AccessibilityService, DevicePolicyManager, and VpnService. These APIs simply do not exist on iOS due to sandbox restrictions. An iOS Phase 2 using Apple's Screen Time framework is planned but will have reduced enforcement power.
+
+
+2. Problem Statement
+The average smartphone user spends 4–6 hours per day on their device. A significant portion goes toward passive, algorithmically-driven consumption — Reels, Shorts, TikTok feeds — designed specifically to make you stay longer than you intended. The user knows this. They set a limit. Then they ignore it. The willpower-only approach fails consistently and predictably because:
+
+Every existing screen-time tool (Digital Wellbeing, Screen Time) can be disabled in Settings in under 10 seconds
+Limits surface a dialog the user can tap "Ignore for today" on — one tap and the rule is gone
+There is no way to block specific sections of apps without blocking the entire app — users won't block Instagram entirely because they need DMs
+Focus timers don't survive being swiped away from the Recents screen
+There is no single honest view of where time is actually going — Digital Wellbeing buries the data
+
+Sober solves all five of these at the system level. The rules you set stay set.
+
+
+3. Target Users & Personas
+
+
+
+4. Feature Specifications
+4.1 App Usage Limits
+The foundational feature. Users set a daily time budget per app. When the budget is exhausted, Sober overlays a full-screen block that cannot be dismissed until midnight (reset time).
+
+4.1.1 Overall Daily Screen Time Limit
+User sets a total daily phone usage cap (e.g., 3 hours)
+A persistent notification shows remaining time
+At 80% usage a gentle warning notification fires
+At 100% usage, Sober launches an overlay over every app opened (cannot be dismissed)
+The overlay shows: time remaining until midnight reset, a motivational message, and a "cooldown" progress ring
+
+4.1.2 Per-App Daily Time Limits
+User can set individual limits for each installed app
+Example: Instagram → 30 min/day, YouTube → 1 hour/day
+When the per-app limit is hit, that specific app is blocked (overlay appears when user tries to open it)
+Other apps remain accessible
+Per-app limit is independent of the overall screen time limit — either one can trigger a block
+
+4.1.3 Block Overlay
+Overlay Screen Contents:
+App icon + name with a red lock icon badge
+Message: "You've used your [app name] time for today."
+Remaining time until midnight reset (countdown ring)
+Optional motivational quote (rotates daily)
+Emergency override button (see Anti-Circumvention section for delay logic)
+
+4.2 Focus Sessions
+A Focus Session is a time-boxed lock where the user commits to avoiding distractions for a set duration. During a Focus Session, the user cannot open blocked apps, cannot receive notifications from those apps, and the session cannot be cancelled without a significant cooldown penalty.
+
+4.2.1 Session Configuration
+Duration: 15 min, 25 min (Pomodoro), 30 min, 45 min, 1 hour, 90 min, 2 hours, Custom
+App blocklist: user selects which apps are blocked for this session
+Notification silencing: silence all / silence selected apps / silence all except calls
+Session label: "Study", "Work", "Gym", "Reading" (custom labels too)
+
+4.2.2 Session Runtime Behavior
+Foreground Service starts immediately — persists even when app is removed from Recents
+Persistent notification (cannot be swiped away) with a countdown timer is shown
+When user opens a blocked app → instant overlay with session timer countdown
+Notification from blocked apps are intercepted by NotificationListenerService and suppressed
+If the user tries to disable Accessibility/Notification access, Sober detects this and warns
+
+4.2.3 Focus Mode (Light Version)
+Focus Mode is a non-timed variant of Focus Session — it stays active indefinitely until manually turned off. Useful for "I want to focus right now with no timer." Disabling Focus Mode requires no cooldown.
+
+4.2.4 Session Completion
+When timer ends, a celebration screen appears: session duration, apps avoided, streak update
+Option to immediately start another session
+Session logged to history for stats
+
+4.2.5 Cancellation & Penalty System
+To prevent impulsive cancellation:
+Cancel button requires 5-second hold (no accidental taps)
+After hold, a 60-second "regret timer" starts — user can revert during this window
+If cancelled, the cancelled session is marked in history with a broken streak indicator
+Three cancellations in one day triggers a "Streak Warning" notification
+
+4.3 In-App Content Section Blocking
+This is Sober's most unique feature. Rather than blocking entire apps, it blocks specific addictive sections within apps while leaving the useful parts accessible.
+
+4.3.1 How It Works (Technical)
+Sober's AccessibilityService monitors active app packages and Activity/window labels in real time. When the user navigates to a blocked section (detected by activity class name, content description, or UI node resource IDs), the service launches a transparent overlay window blocking interaction.
+
+4.3.2 Supported Apps & Blocked Sections — v1.0
+
+
+4.3.3 Block Overlay for Sections
+Semi-transparent blur overlay covers the blocked section
+Shows section name, lock icon, and a brief reason ("Reels is blocked — you set this rule")
+Back button to return to a safe section of the app
+Not dismissible unless user goes to Sober settings and disables the rule
+
+4.3.4 Custom Block Rules (Advanced)
+User can create custom rules using keyword matching in notification content
+User can block any specific app package name entirely
+
+4.4 Smart Scheduling
+
+4.4.1 Schedule-Based Blocking
+User defines time windows where specific apps are automatically blocked
+Example: Block Instagram every day from 10:00 PM – 8:00 AM
+Example: Block all social apps Monday–Friday 9 AM – 6 PM (Work Mode)
+Schedules run via 
+AlarmManager for precise timing
+WorkManager for resilience across reboots
+
+4.4.2 Preset Modes
+
+4.4.3 Smart Suggestions (Phase 2)
+Sober analyzes usage patterns and suggests: "You usually open Instagram at 11 PM for 45 min. Want to schedule a block?"
+Powered by on-device ML — no data leaves the phone
+
+4.5 Statistics & Insights
+
+4.5.1 Today's Dashboard
+Total screen time used vs daily limit (ring chart)
+Top 3 apps by usage today (mini bar chart)
+Active focus session status (if running)
+Daily streak counter
+Quick-start Focus Session button
+
+4.5.2 Weekly/Monthly View
+Bar chart: daily screen time per day for past 7/30 days
+Heatmap: time-of-day usage patterns (which hours you use your phone most)
+Per-app usage breakdown: pie chart + list
+Focus Sessions completed vs cancelled
+Most productive day of the week (lowest screen time)
+
+4.5.3 Streaks & Achievements
+
+4.6 Anti-Circumvention System
+This is what separates Sober from ordinary screen-time tools. Every vector by which a user could bypass their own rules is closed off.
+
+4.6.1 Device Administration
+Sober requests Device Administrator privileges on first launch
+With Device Admin, Sober cannot be uninstalled without first revoking admin — which requires opening Sober settings
+During an active Focus Session, Sober's settings are PIN-locked
+
+4.6.2 Accessibility Service Persistence
+If the user navigates to Settings → Accessibility and tries to disable Sober, the app detects this and immediately re-opens the Accessibility settings toggle
+This behavior is disabled when no Focus Session or hard limit block is active
+
+4.6.3 Foreground Service (Survives Recents Clear)
+Sober runs a persistent 
+[object Object] with a non-dismissible notification
+Service restarts automatically via a broadcast receiver if killed by the system
+Registered for BOOT_COMPLETED to restart after phone reboot
+
+4.6.4 Emergency Override
+An emergency override exists but is intentionally difficult:
+Hold override button for 10 seconds
+Enter PIN + solve a simple math problem (prevents reflexive override)
+A 5-minute wait timer starts
+After 5 minutes, the block lifts for 15 minutes only
+Override usage is logged in stats with a visual flag (you can't hide that you broke the rule)
+
+4.6.5 VPN-Based Content Blocking (Phase 2)
+Sober sets up a local VPN tunnel (no internet traffic leaves device) to intercept DNS requests
+Blocked app domains are resolved to a local null IP, preventing network access
+This provides a second layer of blocking that works even if Accessibility Service is somehow disabled
+
+4.7 Notifications & Alerts
+
+
+
+5. Technical Architecture
+5.1 High-Level Architecture Overview
+
+Sober follows a Clean Architecture pattern with distinct layers: Presentation (Compose UI) → Domain (Use Cases) → Data (Room + DataStore + UsageStats). All business logic is separated from Android framework classes for testability.
+
+5.1.1 Core Android System Services Used
+
+
+5.2 Service Architecture
+
+SoberCoreService (ForegroundService)
+The heart of the app — runs at all times
+Polls UsageStatsManager every 30 seconds to check current app usage against limits
+Communicates with AccessibilityService to trigger overlays
+Manages Focus Session timer via CountDownTimer backed by saved state
+Handles midnight resets (resets usage counters in Room DB)
+
+SoberAccessibilityService (AccessibilityService)
+Listens for window state change events and content change events
+Checks foreground app package against blocked app list
+For in-app section blocking: inspects UI node tree to find blocked section indicators
+Launches overlay Activity when blocked section is detected
+Detects Settings → Accessibility screen and handles re-protection logic
+
+SoberNotificationService (NotificationListenerService)
+Intercepts all incoming notifications
+During active Focus Session, cancels notifications from apps on the blocklist
+During non-session hours, allows all notifications through
+
+SoberBootReceiver (BroadcastReceiver)
+Registered for ACTION_BOOT_COMPLETED
+On boot, restarts SoberCoreService and re-applies all active blocks
+
+5.3 Data Architecture
+
+5.3.1 Room Database Schema
+
+AppLimit Table
+
+UsageSession Table
+
+FocusSession Table
+
+ScheduleRule Table
+
+OverrideLog Table
+
+5.3.2 DataStore (Preferences)
+Overall daily screen time limit
+Emergency PIN hash
+Theme preference (light/dark/system)
+First-launch onboarding flag
+Streak data (current streak, longest streak, last success date)
+Feature flags
+
+5.4 In-App Section Detection Logic
+
+The section detection system works by inspecting the Accessibility node tree when a window state change event fires. Each blocked section has a DetectionRule:
+
+
+The AccessibilityService loops through its detection rule list on every window event and fires the overlay if any rule matches. New rules can be added via an app update without touching the service code.
+
+
+6. Technology Stack
+
+6.1 Core Language & Framework
+
+
+6.2 Data Layer
+
+
+6.3 UI & Design
+
+
+6.4 System-Level APIs (No Third-Party)
+
+
+6.5 Testing
+
+
+6.6 CI/CD & Distribution
+
+
+
+7. Design System
+Sober uses the Manuscript visual theme — a light-dominant, editorially-restrained design language inspired by quality paper planners and analog notebooks. Every colour appears for a functional reason. There are no gradients, no glows, no decorative shadows. The result feels like a tool you trust, not an app trying to impress you.
+
+7.1 Visual Identity
+
+7.1.1 Colour Palette — Manuscript
+
+
+Colour discipline: Signal red (#C0392B) appears in at most one place per screen at any time. Its rarity is what gives it weight — when a user sees it, they immediately know something is blocked or at its limit.
+
+7.1.2 Typography
+
+
+Section labels (e.g. "TODAY'S APPS") use Label Small in all-caps with +1sp letter-spacing, sitting directly on the cream background with no card behind them — like chapter headings in a printed document.
+
+7.1.3 Spacing & Shape System
+Base unit: 4dp — every margin, padding, and gap is a multiple of 4
+Corner radii: 4dp (filter chips), 14dp (cards), 16dp (bottom sheets), 28dp (pill buttons)
+Card border: 1px solid #E8E0D5 — no shadow in default state
+Pressed state: card border darkens to #C8BFB4, background dims to #F0EBE3
+Button: solid navy #1A1A2E fill, white label, 28dp radius, 52dp height, no border
+Outlined button: 1px navy border, transparent fill, navy label
+Minimum touch target: 48×48dp (Material 3 spec)
+Content gutters: 20dp horizontal padding on all screens
+
+7.1.4 Iconography
+Icon library: Material Symbols — Outlined weight for unselected, Filled for selected/active
+Icon size: 22dp in nav bar, 20dp in list rows, 24dp in headings
+Colour: navy #1A1A2E when active, muted #9C9490 when inactive, red #C0392B on block states
+Block overlay: lock icon with no badge — red tint on the entire icon, not a separate badge
+Streak icon: outlined flame, navy fill — never animated unless session just completed
+App icons in lists: loaded via PackageManager, displayed at 36dp with 8dp corner clip
+
+7.2 Navigation Structure
+
+Sober uses a bottom navigation bar with 4 tabs. All top-level destinations are reachable in one tap from anywhere.
+
+
+Bottom nav bar: white #FFFFFF, 1px top border #E8E0D5. Icons are thin-stroke Material Symbols. Selected: icon turns solid navy, label turns navy 11sp medium. Unselected: icon and label both muted gray #9C9490. No background pill or indicator bar — just the colour change. This keeps the nav bar invisible until you need it.
+
+Settings is accessed via a gear icon in the top-right of the Home screen only — not a tab. Five destinations, four tabs.
+
+7.3 Screen-by-Screen Design Specification
+
+Screen 1: Home (Dashboard)
+Top bar (cream background, no card):
+Left: day name in 11sp medium navy, below it date in 22sp semibold navy — e.g. "Wednesday / August 19"
+Right: gear icon in muted #9C9490, tapping opens Settings
+No colorful header block. Cream background continues edge to edge.
+
+Streak row (sits on background, no card):
+Thin navy pill outline, flame icon (outlined), "Day 7 Streak" in 12sp navy medium
+Understated — not a banner, just a quiet indicator
+
+Main Usage Card (white, 14dp radius, navy 1px border):
+Large stroke-only ring — navy arc on cream track, showing % of daily limit used
+Center: usage number in 28sp semibold navy ("2h 14m"), below it "of 4h limit" in 12sp secondary gray
+1px divider below ring, then 3 app rows: icon + name, usage time right-aligned, thin progress bar below each row
+App at limit: progress bar turns red #C0392B, small lock icon appears beside the time — this is the only red on the screen
+
+Action buttons (below card, on cream background):
+"Start Focus Session" — full-width solid navy pill button, white label, 52dp tall
+"Focus Mode" — full-width outlined navy pill, same height, toggles on/off instantly
+
+Active Session widget (replaces action buttons when session is running):
+White card, navy border, showing session label + countdown in JetBrains Mono
+"End Session" text button in small red — requires 5-second hold
+
+Screen 2: Apps
+Top: search bar (white, 1px navy border, 14dp radius) + filter chips below it
+Filter chips: "All", "Limited", "Blocked" — cream background, navy border, 4dp radius
+Selected chip: navy fill, white label — same as buttons, consistent language
+
+App list (white card, full width, 14dp radius):
+Section label above card: "INSTALLED APPS" in 11sp uppercase muted gray, on cream background
+Each row: 36dp app icon, app name in 15sp navy medium, usage time right-aligned in 14sp secondary gray
+Slim 4dp progress bar full-width below the name row — navy fill on cream track
+At or near limit: bar turns red, lock icon appears inline with the time
+Right edge: toggle switch (navy when on, gray when off) — quick enable/disable limit
+1px divider #E8E0D5 between rows. No card shadow.
+Tap anywhere on row (except toggle) → opens App Detail bottom sheet
+
+App Detail Bottom Sheet (white, 16dp top corners):
+App icon + name as sheet header, small pill showing "48 min today" in navy
+Daily limit picker: drum-scroll style, navy selected value, muted unselected
+"Section Blocks" section (only for supported apps): toggle rows for Reels, Explore, Shorts
+Mini 7-day usage bar chart: navy bars on cream, compact, no axis labels
+"Save Changes" solid navy button, full width, at bottom of sheet
+
+Screen 3: Focus
+Section label: "START A SESSION" (uppercase, muted gray, cream background)
+
+Session config card (white, navy border):
+Duration row: segmented control — "15m  25m  30m  1h  Custom". Selected segment: navy fill, white label. Unselected: cream fill, navy text.
+Label row: text input with placeholder "Name this session..." — thin navy underline only, no box
+Apps row: "Block Apps" label left, small app icon chips right (tappable to expand multi-select sheet)
+"Silence notifications" toggle row: label in 14sp navy, toggle right-aligned
+"Start Session" solid navy pill button, full width, 52dp, at card bottom
+
+Section label: "QUICK MODES" — then horizontal scroll of preset cards:
+Each card: white, navy 1px border, 14dp radius, 120×80dp
+Single word label centered ("Study", "Work", "Sleep", "Gym", "Break") in 15sp semibold navy
+Below label: tiny description "2h · Social blocked" in 11sp muted gray
+No icons, no emoji — text only, clean
+
+Section label: "RECENT SESSIONS" — then list:
+Each row: session label left, duration center, status right (small navy checkmark or red x)
+Date in 11sp muted gray below session label
+1px divider between rows. No card wrapping — rows sit directly on cream background.
+
+Screen 4: Stats
+Timeframe toggle at top: segmented control "Today / 7 Days / 30 Days" — navy + cream, no pills
+
+Screen Time Chart (white card, navy border):
+Bar chart — one bar per day, navy fill for days under limit, red #C0392B fill for days over
+No gridlines — just the bars on a white card background. Y-axis label in muted gray.
+Tap a bar to show that day's breakdown as a tooltip in a small white navy-bordered bubble
+
+App Breakdown (white card, navy border):
+Section label "TOP APPS" uppercase muted gray above card
+Each row: app icon, name, usage time right-aligned, thin navy progress bar underneath
+At-limit app row: red progress bar, red usage time — the only color break
+
+Usage Heatmap (white card, navy border):
+7 rows (days) × 24 columns (hours), each cell 10×10dp, 2dp gap
+Cell fill: cream (#F7F4EF) for no usage, progressively darker navy tints for higher usage
+No axis labels except "12am" and "12pm" at the ends — minimal
+"You use your phone most at 10PM – 12AM" label below in 13sp secondary gray
+
+Achievements (white card, navy border):
+2-column grid of achievement tiles
+Unlocked: white background, navy icon, achievement name in 13sp navy semibold, description in 11sp gray
+Locked: entire tile in cream #F0EBE3, icon and text in muted gray — no lock icon overlay, just faded
+
+Screen 5: Settings
+No card wrappers — settings rows sit directly on cream background with 1px dividers between them.
+
+Overall daily screen time limit — tap to open number picker sheet
+Emergency override PIN — tap to set/change, masked input
+Notification preferences — toggle rows
+Streak preferences — what counts as a successful day
+Permissions status — each permission row shows a small navy dot (granted) or red dot (missing)
+Export usage data — triggers CSV share sheet
+About · Privacy Policy — plain text links, navy color
+
+Overlay Screen: Block Screen
+This is the most important screen in the app. It must feel like a wall — not a dialog, not a bottom sheet, not something that can be tapped around. It is intentionally heavy and intentionally calm.
+
+Full-screen cream background #F7F4EF. The blocked app disappears completely — no blur, no peek-through.
+Top-left: small "Sober" wordmark in 12sp muted gray — quiet, just identifying who's in charge
+Center: app icon at 64dp with a 2dp red ring around it — subtle signal, not a badge
+"You've had enough Instagram for today." — 22sp semibold navy. Sentence case. Written like a person said it, not a system error.
+Reason line: one of — "Daily limit reached.", "Focus Session is running.", or "Sober has this section blocked." — 14sp secondary gray
+Thin 1px divider, then the countdown:
+Daily limit: stroke ring in navy, center text "Back at midnight" with exact time in JetBrains Mono below it
+Focus Session: stroke ring counting down, center text session label + time remaining
+Very bottom: "Need an override?" in 11sp muted gray — tapping opens the hold + PIN + wait flow. Styled like a footnote.
+No back button. No close X. The only navigation is the Android system back gesture, which returns to home screen — not to the blocked app.
+
+
+8. Permissions & Onboarding Flow
+
+8.1 Required Permissions
+
+
+8.2 Onboarding Flow (6 Steps)
+
+Each step shows a progress dot indicator (e.g. ● ● ○ ○ ○ ○). Steps 2–5 cannot be skipped. The copy is written in plain English — no "grant permissions" language, no technical jargon.
+
+
+9. Project Structure (Modular Architecture)
+
+:app
+├── :core
+│   ├── :core:data       — Room DB, DataStore, Repositories impl
+│   ├── :core:domain     — Use cases, Models, Repository interfaces
+│   ├── :core:ui         — Design system: Colors, Type, Components
+│   └── :core:common     — Extensions, utils, constants
+├── :feature
+│   ├── :feature:home    — Dashboard, stats ring
+│   ├── :feature:apps    — App list, per-app settings
+│   ├── :feature:focus   — Focus session start, history
+│   ├── :feature:stats   — Charts, heatmap, achievements
+│   └── :feature:settings— Settings, permissions, onboarding
+└── :system
+    ├── :system:services — ForegroundService, AccessibilityService
+    ├── :system:overlay  — Block overlay Activity + ViewModel
+    └── :system:receivers— BootReceiver, AlarmReceiver
+
+
+10. Development Roadmap
+
+Phase 1 — Core MVP (Weeks 1–4)
+  TARGET: Hard app limits + basic overlay  
+
+Project setup: Hilt, Room, Navigation, Clean Architecture modules
+Onboarding flow + all 5 permission grants
+UsageStatsManager integration — per-app daily tracking
+Overall + per-app daily limits in Room DB
+Block overlay Activity (SYSTEM_ALERT_WINDOW)
+ForegroundService + BootReceiver
+Home screen: usage ring, top app breakdown
+Apps screen: app list with limits, progress bars
+
+Phase 2 — Focus Sessions (Weeks 5–7)
+  TARGET: Full focus session system  
+
+Focus Session UI (duration picker, app selector, label)
+Session service logic (timer, state persistence)
+NotificationListenerService integration
+Cancellation penalty system (hold + regret timer)
+Preset modes (Study, Work, Sleep, Gym)
+Session history log
+
+Phase 3 — Section Blocking (Weeks 8–10)
+  TARGET: Instagram Reels + YouTube Shorts blocked  
+
+AccessibilityService event handling framework
+Detection rule engine (JSON-driven rules)
+Instagram: Reels tab + Explore tab detection
+YouTube: Shorts tab + Home feed detection
+Section block overlay (semi-transparent, with back button)
+App detail sheet: section toggle controls
+
+Phase 4 — Scheduling & Stats (Weeks 11–13)
+  TARGET: Complete stats + scheduled blocking  
+
+Smart scheduling UI (days/times picker)
+AlarmManager + WorkManager schedule enforcement
+Stats screen: bar chart, app breakdown, heatmap
+Achievements system + streak tracking
+Streak UI on home screen
+
+Phase 5 — Anti-Circumvention & Polish (Weeks 14–16)
+  TARGET: Production-ready hardening  
+
+Device Admin integration (opt-in)
+Accessibility re-protection logic
+Emergency override with PIN + math + wait timer
+Settings screen polish
+Dark mode QA pass
+Performance profiling (service battery impact)
+Play Store submission prep
+
+Phase 6 — TikTok, Twitter, Reddit + VPN Layer (Post-Launch)
+TikTok FYP blocking
+Twitter For You blocking
+Reddit Home feed blocking
+VPN-based DNS blocking layer
+iOS Screen Time API exploration
+
+
+11. Success Metrics
+
+
+
+12. Risks & Mitigations
+
+
+
+Appendix A: Key Third-Party Libraries Summary
+
+
+Appendix B: Competitive Analysis
+
+
+Sober — Product Requirements Document v1.0 — End of Document

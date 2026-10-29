@@ -1,0 +1,26 @@
+# Local agent tooling (skills, per-machine MCP config)
+/.agents/
+/.perch/
+
+# Gradle, Kotlin, Android Studio, and generated build outputs
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/build/
+**/captures/
+**/.externalNativeBuild/
+**/.cxx/
+*.iml
+.DS_Store
+
+# Machine-specific Android SDK configuration
+**/local.properties
+
+# Signing credentials and keystores
+**/keystore.properties
+**/key.properties
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+**/*.pem
