@@ -16,7 +16,11 @@
   - Android 17 (API 37) is stable. New apps and updates submitted to Google Play must target API 36 or higher starting 2026-08-31. Sources: [Android 17 release](https://developer.android.com/blog/posts/android-17-is-here), [Google Play target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878).
 - [x] Configure Gradle Kotlin DSL with version catalog (`libs.versions.toml`)
 - [x] Add `.gitignore` for Android/Kotlin project
-- [/] Initialize Git repo + first commit
+- [x] Initialize Git repo + first commit — repository initialized and pushed to
+  [github.com/rishabhx29/Sober](https://github.com/rishabhx29/Sober). The CI
+  workflow commit is parked on a local `ci-workflow` branch: the token lacks the
+  `workflow` scope, so GitHub rejects any push that contains
+  `.github/workflows/`.
 - [x] Set up modular project structure (see Architecture below)
 - [x] Create the following Gradle modules:
   - [x] `:core:data`
@@ -173,18 +177,36 @@
 
 - [x] Search bar: white, 1px navy border, 14dp radius
 - [x] Filter control: "All", "Limited", "Blocked" — rendered with `SoberSegmentedControl` instead of bespoke chips
-- [/] App list card:
+- [x] App list card:
   - [x] Section label "INSTALLED APPS" 11sp uppercase muted gray
-  - [x] Each row: 36dp app icon, name 15sp navy, usage time 14sp gray, 4dp progress bar, toggle switch
+  - [x] Each row: 36dp app icon, name 15sp navy, usage time 12sp gray, 4dp progress bar, toggle switch
+  - [x] Quick enable/disable switch on every app with a limit — flips `AppLimit.isActive` without opening the sheet, keeps the configured minutes, and is absent until a limit exists
   - [x] At-limit: red bar, lock icon
   - [x] 1px dividers between rows
-- [/] Tap row → App Detail Bottom Sheet:
+- [x] Tap row → App Detail Bottom Sheet:
   - [x] App icon + name header, pill "48 min today"
+  - [x] "Remove Limit" appears only for an app that already has one
 - [x] Daily limit drum-scroll picker
   - [x] "Section Blocks" toggles (for supported apps) — delivered in 3.6: the sheet lists catalog sections for that package and shows nothing when the app has no rules
   - [x] Mini 7-day usage bar chart
   - [x] "Save Changes" full-width navy button
 - [x] Declare least-privilege launcher package visibility with manifest `<queries>` so installed launchable apps and icons can be enumerated; use broad `QUERY_ALL_PACKAGES` only if verification proves it necessary.
+
+> **1.10 verification (2026-10-30)**: the row previously showed a limit only as a
+> static "60m" label — the PRD's quick switch was missing, so disabling a limit
+> meant reopening the sheet and deleting it. The row is now an `AppRow`
+> composable with a switch wired to `AppsViewModel.setLimitEnabled`, which
+> updates `AppLimit.isActive` and the in-memory list. Because enforcement
+> already treats an inactive limit as no limit, no service change was needed.
+> The three places the row differs from the PRD line are deliberate: usage is
+> 12sp (14sp next to a 15sp name read as two headings), the switch only appears
+> once a limit exists (there is nothing to toggle otherwise), and the minutes
+> label stays visible while switched off (dimmed) so the user can see what
+> turning it back on restores. `AppRowTest` (9 tests) runs the row on the JVM
+> through Robolectric: switch state for on/off, flipping reports the new value
+> without opening the sheet, tapping the row opens the sheet without touching
+> the limit, no switch without a limit, and the lock appears only when an
+> active limit is reached. No device here, so real appearance is unchecked.
 
 ### 1.11 Navigation Setup (`app`)
 
@@ -670,7 +692,12 @@
 
 - [x] Generate and validate the signed Play release artifact (Android App Bundle) alongside the GitHub APK.
 - [x] Review Play policy and submission disclosures for Accessibility, overlay, optional Device Admin, privacy/data safety, and opt-in analytics.
-- [!] Publish a privacy policy at a public URL for the store listing (the in-app policy is not enough on its own). — *blocked: needs a hosting decision and an account; nothing is published from this workspace.*
+- [x] Publish a privacy policy at a public URL for the store listing — *published
+  at [docs/PRIVACY.md](https://github.com/rishabhx29/Sober/blob/main/docs/PRIVACY.md)
+  (HTTP 200, rendered). GitHub Pages is enabled on `main` `/docs`, but this
+  account's Pages site carries a custom domain whose DNS points at the portfolio
+  host, so project pages redirect there and 404; the Markdown page is rendered by
+  GitHub itself and needs no extra host.*
 - [x] Add a prominent accessibility disclosure with explicit consent before the onboarding step opens Settings — *the step now shows a dialog naming what is read, that nothing is stored or sent, and how to turn it off; the step is also skippable, which the privacy policy already claimed.*
 - [!] Complete the Play Console declarations — *blocked: needs the Play Console account. The review below states exactly which forms the manifest triggers.*
 - [!] Replace the throwaway signing check with the real upload key — *blocked: the key is the owner's to create and keep out of the repo.*
@@ -707,7 +734,8 @@
 > *Gaps found, tracked above rather than silently fixed:*
 >
 > - The privacy policy lives only in an in-app dialog, and Play requires a
->   public URL for the listing.
+>   public URL for the listing. **Closed 2026-10-30:** published at
+>   <https://github.com/rishabhx29/Sober/blob/main/docs/PRIVACY.md>.
 > - The accessibility step was a one-line card that opens Settings. Play asks
 >   for a prominent, unavoidable disclosure that names the data accessed and
 >   obtains affirmative consent before the permission is requested. Fixed
@@ -721,7 +749,10 @@
 >   the user's own Google backup. That is OS-level, not developer collection,
 >   but the policy's "nothing automatically" line should say so explicitly or
 >   backup should be turned off — otherwise the claim is literally false on a
->   device with backup enabled.
+>   device with backup enabled. **Closed 2026-10-30:** the policy now names
+>   system backup as the one OS-level exception, in the app and on the published
+>   page; backup stays enabled because it is the user's own account, not a
+>   server we control.
 > - The device admin XML declares `<force-lock />`, yet the receiver overrides no
 >   callbacks and never locks the screen. The declared capability is wider than
 >   the behaviour; drop it once activation without any policy is confirmed on a
@@ -740,12 +771,32 @@
 
 ## Phase 6 — Extended Section Blocking + VPN (Post-Launch)
 
-- [ ] TikTok FYP blocking (app-level tab detection)
-- [ ] Twitter/X "For You" blocking (tab bar node detection)
-- [ ] Reddit Home feed blocking (activity detection)
-- [ ] Snapchat Discover tab blocking
-- [ ] VPN-based DNS blocking layer (local VPN, no data leaves device)
-- [ ] iOS Screen Time API exploration
+- [x] TikTok FYP blocking (app-level tab detection)
+- [x] Twitter/X "For You" blocking (tab bar node detection)
+- [x] Reddit Home feed blocking (activity detection)
+- [x] Snapchat Discover tab blocking
+- [!] VPN-based DNS blocking layer (local VPN, no data leaves device) — *blocked on
+  a product decision: a `VpnService` must forward every query it does not block,
+  and forwarding needs the `INTERNET` permission and sends those queries to an
+  upstream resolver. That contradicts the in-app promise, the published policy
+  and the Data safety answer, all of which state the app cannot transmit.
+  Dropping the queries instead would leave the phone unable to resolve anything.*
+- [x] iOS Screen Time API exploration — *[docs/IOS_SCREEN_TIME.md](https://github.com/rishabhx29/Sober/blob/main/docs/IOS_SCREEN_TIME.md):
+  section blocking and notification filtering cannot be ported; Apple exposes no
+  foreground-app or view-tree signal and Family Controls tokens are opaque.*
+- [!] Validate the post-launch rule ids against current builds of TikTok, X,
+  Reddit and Snapchat — *blocked: needs hardware and the installed apps. A wrong
+  id fails closed (no block), but only the live apps can confirm the ids.*
+
+> **Phase 6 (2026-10-30).** The four rule sets ship as catalog data
+> (`detection_rules.json`) rather than code, so their toggles appear in Apps and
+> the section overlay treats them like Instagram and YouTube.
+> `ShippedSectionRulesTest` now runs the shipped document through
+> `DetectBlockedSectionUseCase` for every rule: each matches its own package and
+> selected tab, matches no other app, and does not fire for a tab that is visible
+> but unselected. Each section also asserts its id is `package:section`, has
+> overlay copy, and that ids are unique. What that cannot prove is whether the
+> resource ids match current app builds; that is the blocked item above.
 
 ---
 
@@ -963,6 +1014,12 @@
 | 2026-10-30 | P2.5 | completed            | QA Agent           | Sleep/Work auto-enable is delivered by the 4.1 templates as scheduled blocks, not as auto-started sessions; divergence documented — notification silencing stays session-scoped |
 | 2026-10-30 | VD.2–VD.4 | completed        | QA Agent           | Robolectric 4.17 runs framework and Compose tests on the JVM: 11 `PermissionUtils` tests, 7 design-system tests, 3 block-overlay tests. Espresso closed as not applicable (no View hierarchy). GitHub Actions workflow added and YAML-validated, not executed on a runner |
 | 2026-10-30 | P5.0-lint | fixed              | Implementation Agent | Full lint run found `AppOpsManager.unsafeCheckOpNoThrow` (API 29) called on a minSdk 26 path — a `NoSuchMethodError` on Android 8–9; now branches to `checkOpNoThrow` below Q. It also flagged the three `UsageStatsManager` queries because `PACKAGE_USAGE_STATS` was declared only in `:app`; the module manifest now declares it too (merger deduplicates). `lint` is green across all modules |
+| 2026-10-30 | P0.7 | completed            | Task Tracker Agent | Repository initialized and pushed to `github.com/rishabhx29/Sober`. The CI workflow commit is parked on a local `ci-workflow` branch: the token has no `workflow` scope, so GitHub rejects any push containing `.github/workflows/` |
+| 2026-10-30 | P5.8-privacy | completed    | Implementation Agent | Published `docs/PRIVACY.md` (HTTP 200). GitHub Pages is enabled but shadowed by an account-level custom domain whose DNS points at the portfolio host, so the Markdown URL is the live one. The policy now names OS backup as the only automatic path off-device; the in-app dialog links to the page and uses the same wording |
+| 2026-10-30 | P6.1–P6.4 | completed        | QA Agent           | The four post-launch rules already ship as catalog data and are listed with toggles. `ShippedSectionRulesTest` (5 tests) runs the shipped document through the matcher: every rule matches its own package and selected tab, matches no other app, and ignores a visible-but-unselected tab. Whether the ids match current app builds stays blocked on hardware |
+| 2026-10-30 | P6.5 | blocked              | Orchestrator       | A DNS-blocking `VpnService` must forward unblocked queries, which needs `INTERNET` and sends them to an upstream resolver — contradicts the no-transmission promise, the published policy and the Data safety answer. Needs a product decision, not code |
+| 2026-10-30 | P6.6 | completed            | Implementation Agent | `docs/IOS_SCREEN_TIME.md`: Family Controls requires Apple-granted entitlement; shields are app-level and tokens opaque, so section blocking and notification filtering cannot be ported. Port assessed as a different product |
+| 2026-10-30 | P1.10 | completed            | QA Agent           | The app row had no quick switch; a limit was only removable by reopening the sheet. `AppRow` now owns the row and shows a `SoberToggleSwitch` for any app with a limit, wired to a new `setLimitEnabled` that updates `AppLimit.isActive` in the repository and the list; enforcement already honoured `isActive`, so no service change. `AppRowTest` (9 Robolectric/Compose tests) covers switch state, toggle-not-open, tap-not-toggle, no switch without a limit, and the lock's two states. Verified: `:feature:apps:testDebugUnitTest` 9/9, `:feature:apps:compileDebugKotlin` green. Row appearance is not visually checked — no device |
 
 ---
 
