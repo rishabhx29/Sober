@@ -192,7 +192,7 @@ fun HomeScreen(
                             color = SoberTheme.colors.primary
                         )
                         Text(
-                            text = "of ${uiState.dailyLimitMinutes / 60}h limit",
+                            text = "of ${limitLabel(uiState.dailyLimitMinutes)} limit",
                             fontSize = 12.sp,
                             color = SoberTheme.colors.textMuted
                         )
@@ -399,5 +399,19 @@ fun HomeScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+/**
+ * The cap is adjustable in 30-minute steps, so whole hours cannot be assumed:
+ * 90 minutes must read "1h 30m", not "1h".
+ */
+internal fun limitLabel(minutes: Int): String {
+    val hours = minutes / 60
+    val rest = minutes % 60
+    return when {
+        hours == 0 -> "${rest}m"
+        rest == 0 -> "${hours}h"
+        else -> "${hours}h ${rest}m"
     }
 }
