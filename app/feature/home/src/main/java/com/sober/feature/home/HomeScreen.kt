@@ -276,7 +276,10 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    SoberSectionLabel("Pickups")
+                    // Labelled "apps used", not "pickups": the number comes from
+                    // today's usage rows, and counting unlocks would need a
+                    // separate screen-interactive event query.
+                    SoberSectionLabel("Apps used")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "${uiState.topApps.size}",
@@ -285,7 +288,7 @@ fun HomeScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "apps used",
+                        text = "today",
                         fontSize = 12.sp,
                         color = SoberTheme.colors.textSecondary
                     )
