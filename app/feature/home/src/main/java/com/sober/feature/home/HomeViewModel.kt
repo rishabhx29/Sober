@@ -6,6 +6,7 @@ import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.data.local.datastore.SoberPreferences
+import com.sober.core.domain.model.AppUsage
 import com.sober.core.domain.model.NotificationSilenceScope
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.EnforcementController
@@ -53,6 +54,7 @@ data class HomeUiState(
     val totalScreenTimeMinutes: Int = 0,
     val dailyLimitMinutes: Int = SoberPreferences.DEFAULT_DAILY_SCREEN_TIME_LIMIT,
     val topApps: List<TopAppInfo> = emptyList(),
+    val appsUsedToday: Int = 0,
     val streakDays: Int = 0,
     /** Best streak ever, which can predate the history window. */
     val longestStreakDays: Int = 0,
@@ -109,6 +111,7 @@ class HomeViewModel @Inject constructor(
             try {
                 val usageList = usageStatsRepository.getUsageStatsForToday()
                 val totalMinutes = usageList.sumOf { it.totalTimeInForeground / 60000 }.toInt()
+                val appsUsed = countAppsUsed(usageList, context.packageName)
                 val topApps = usageList
                     // Filter before taking, otherwise a filtered-out app eats one
                     // of the five slots and the card shows fewer than three rows.
@@ -151,6 +154,7 @@ class HomeViewModel @Inject constructor(
                         totalScreenTimeMinutes = totalMinutes,
                         dailyLimitMinutes = limit,
                         topApps = topApps,
+                        appsUsedToday = appsUsed,
                         streakDays = streakDays,
                         longestStreakDays = maxOf(longestStreak, streakDays),
                         isLoading = false
@@ -316,3 +320,11 @@ class HomeViewModel @Inject constructor(
         const val FOCUS_MODE_LABEL = "Focus Mode"
     }
 }
+
+/**
+ * The app count on Home must not come from `topApps`, which is capped at three
+ * for the card. Zero-foreground rows are apps paused onscreen and Sober itself
+ * is not usage the user chose.
+ */
+internal fun countAppsUsed(usage: List<AppUsage>, selfPackage: String): Int =
+    usage.count { it.totalTimeInForeground > 0 && it.packageName != selfPackage }

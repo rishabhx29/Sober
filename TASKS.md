@@ -184,8 +184,10 @@
 > steps, so a 90-minute cap advertised itself as "of 1h limit". The caption now
 > formats hours and minutes together, with `LimitLabelTest` pinning the formatter.
 > The quick-stats card that read "Pickups" over `topApps.size` was mislabelled —
-> it counts apps used, not unlocks — and is now titled "Apps used · today"
-> rather than inventing a pickup count from usage rows.
+> it counts apps used, not unlocks — and is now titled "Apps used · today".
+> Its number also came from a list capped at three rows, so the tile read "3"
+> for anyone using more; `appsUsedToday` is now counted from the full usage list
+> (excluding Sober and zero-foreground rows).
 - [x] Active Session widget (replaces buttons when session running):
   - [x] White card, navy border, session label + countdown JetBrains Mono
   - [x] "End Session" text in small red — requires 5-second hold (shared `SoberHoldToCancelButton` also carries the 60s regret timer)
@@ -1053,6 +1055,7 @@
 | 2026-10-30 | P1.4 | completed            | Task Tracker Agent | Checklist brought back in line with the code: the flow is 8 pages (Welcome, notifications, usage, accessibility, listener, overlay, battery, device admin), and only usage/listener/overlay are unskippable. Accessibility became optional when its disclosure landed; the checklist still claimed steps 2–5 could not be skipped |
 | 2026-10-30 | P4.3 | completed            | Task Tracker Agent | Recorded two intentional divergences while auditing: locked achievement cards use the page background rather than fixed cream for dark mode, and TOP APPS bars scale to the busiest app while red still marks a limit breach. Also noted that 4.4 now makes unlocked cards reachable |
 | 2026-10-30 | P1.9 | completed            | QA Agent           | The ring caption divided the cap by 60 and appended "h", so every 30-minute setting above the hour was rounded down: 90 minutes read "of 1h limit", 150 read "2h". It now formats hours and minutes; `LimitLabelTest` (2 tests) pins whole hours and half hours. Also relabelled the "Pickups" card, which displayed the count of apps used rather than unlocks. Verified: `:feature:home:testDebugUnitTest` green |
+| 2026-10-30 | P1.9a | completed           | QA Agent           | The relabelled tile still printed `topApps.size`, and `topApps` is capped at 3 rows, so heavy users read "3". `appsUsedToday` now counts the full usage list, excluding Sober and zero-foreground rows; `AppsUsedCountTest` (3 tests) pins the rule. Verified: `:feature:home:testDebugUnitTest` green |
 | 2026-10-30 | P2.1a | completed           | QA Agent           | Custom-duration state was remembered separately from the selection: after setting 50m and then tapping the 25m chip, the Custom button still read "Custom · 50m" even though 25m would start. The extra state is removed and the button derives from `selectedDuration`; `DurationSelectionTest` (2 tests) pins preset vs custom. Verified: `:feature:focus:testDebugUnitTest` green |
 
 ---

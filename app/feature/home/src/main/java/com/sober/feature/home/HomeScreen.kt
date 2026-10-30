@@ -276,13 +276,12 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Labelled "apps used", not "pickups": the number comes from
-                    // today's usage rows, and counting unlocks would need a
-                    // separate screen-interactive event query.
+                    // Counts every app with foreground time today, not the three
+                    // rows the card shows.
                     SoberSectionLabel("Apps used")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "${uiState.topApps.size}",
+                        text = "${uiState.appsUsedToday}",
                         fontSize = 24.sp,
                         color = SoberTheme.colors.primary,
                         fontWeight = FontWeight.Bold
