@@ -455,7 +455,7 @@ fun FocusScreen(
                             )
                             val df = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
                             Text(
-                                text = df.format(Date(session.startedAt)),
+                                text = "${sessionLengthLabel(session.durationMinutes)} · ${df.format(Date(session.startedAt))}",
                                 fontSize = 12.sp,
                                 color = SoberTheme.colors.textSecondary
                             )
@@ -652,6 +652,10 @@ private fun durationLabel(minutes: Int): String = when {
     minutes % 60 == 0 -> "${minutes / 60}h"
     else -> "${minutes / 60}h ${minutes % 60}m"
 }
+
+/** History rows need to tell an open-ended session apart from a zero-length one. */
+internal fun sessionLengthLabel(minutes: Int): String =
+    if (minutes <= 0) "Open-ended" else durationLabel(minutes)
 
 /**
  * Validated custom duration. The drums allow any minute value, but a session
