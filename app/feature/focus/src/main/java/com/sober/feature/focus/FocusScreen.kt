@@ -51,9 +51,10 @@ fun FocusScreen(
     var sessionLabel by remember { mutableStateOf("") }
     var selectedDuration by remember { mutableIntStateOf(25) }
     var showCustomDuration by remember { mutableStateOf(false) }
-    var customDurationMinutes by remember { mutableIntStateOf(0) }
     var openEnded by remember { mutableStateOf(false) }
-    val isCustomDuration = customDurationMinutes > 0 && customDurationMinutes !in DURATION_PRESETS
+    // Derived, not stored: keeping a separate "custom minutes" value let the
+    // Custom button keep advertising 50m after the user tapped a 25m preset.
+    val isCustomDuration = !isPresetDuration(selectedDuration)
 
     val scrollState = rememberScrollState()
 
@@ -239,7 +240,6 @@ fun FocusScreen(
                                 initialMinutes = selectedDuration,
                                 onDismiss = { showCustomDuration = false },
                                 onConfirm = { minutes ->
-                                    customDurationMinutes = minutes
                                     selectedDuration = minutes
                                     showCustomDuration = false
                                 }
@@ -643,6 +643,9 @@ private fun CelebrationStat(value: String, label: String) {
 
 /** Preset durations from PRD 4.2.1. Custom durations sit outside this list. */
 private val DURATION_PRESETS = listOf(15, 25, 30, 45, 60, 90, 120)
+
+/** A chip is selected exactly when the duration is one of the preset values. */
+internal fun isPresetDuration(minutes: Int): Boolean = minutes in DURATION_PRESETS
 
 private const val MIN_CUSTOM_MINUTES = 5
 private const val MAX_CUSTOM_MINUTES = 12 * 60

@@ -252,6 +252,13 @@
 - [x] "RECENT SESSIONS" List
   - [x] Show past 5 sessions, duration, and status (Completed/Cancelled)
 
+> **2.1 duration state (2026-10-30)**: the Custom-duration button derived its
+> "active" look from a remembered custom value instead of the current
+> selection. Choosing 50m and then tapping the 25m chip left the button reading
+> "Custom · 50m" while 25m was what would start. The remembered value is gone;
+> the button is active exactly when `selectedDuration` is outside the preset
+> list, and a 2-test predicate pins that rule.
+
 ### 2.2 Session Service Logic (`system:services`)
 
 - [x] Persist active focus-session metadata and recover the remaining timer after process or service recreation.
@@ -1046,6 +1053,7 @@
 | 2026-10-30 | P1.4 | completed            | Task Tracker Agent | Checklist brought back in line with the code: the flow is 8 pages (Welcome, notifications, usage, accessibility, listener, overlay, battery, device admin), and only usage/listener/overlay are unskippable. Accessibility became optional when its disclosure landed; the checklist still claimed steps 2–5 could not be skipped |
 | 2026-10-30 | P4.3 | completed            | Task Tracker Agent | Recorded two intentional divergences while auditing: locked achievement cards use the page background rather than fixed cream for dark mode, and TOP APPS bars scale to the busiest app while red still marks a limit breach. Also noted that 4.4 now makes unlocked cards reachable |
 | 2026-10-30 | P1.9 | completed            | QA Agent           | The ring caption divided the cap by 60 and appended "h", so every 30-minute setting above the hour was rounded down: 90 minutes read "of 1h limit", 150 read "2h". It now formats hours and minutes; `LimitLabelTest` (2 tests) pins whole hours and half hours. Also relabelled the "Pickups" card, which displayed the count of apps used rather than unlocks. Verified: `:feature:home:testDebugUnitTest` green |
+| 2026-10-30 | P2.1a | completed           | QA Agent           | Custom-duration state was remembered separately from the selection: after setting 50m and then tapping the 25m chip, the Custom button still read "Custom · 50m" even though 25m would start. The extra state is removed and the button derives from `selectedDuration`; `DurationSelectionTest` (2 tests) pins preset vs custom. Verified: `:feature:focus:testDebugUnitTest` green |
 
 ---
 
