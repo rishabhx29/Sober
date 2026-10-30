@@ -99,17 +99,26 @@
 
 ### 1.4 Onboarding (`feature:settings`)
 
-- [x] Create `OnboardingScreen` — 7-step flow with progress dots
-- [x] Step 1 — Welcome: "Sober." wordmark + tagline + "Let's fix that →" CTA
-- [x] Step 2 — Usage Stats permission grant (PACKAGE_USAGE_STATS → system settings intent)
-- [x] Step 3 — Accessibility Service grant (BIND_ACCESSIBILITY_SERVICE → system settings)
-- [x] Step 4 — Notification Listener grant (BIND_NOTIFICATION_LISTENER_SERVICE → system settings)
-- [x] Step 5 — Overlay permission grant (SYSTEM_ALERT_WINDOW → system settings)
-- [x] Step 6 — Device Admin (optional, skippable)
+- [x] Create `OnboardingScreen` — 8-page flow with progress dots
+- [x] Page 1 — Welcome: "Sober." wordmark + tagline + "Let's fix that →" CTA
+- [x] Page 2 — `POST_NOTIFICATIONS` runtime request on API 33+, with a settings link after a permanent denial
+- [x] Page 3 — Usage Stats permission grant (PACKAGE_USAGE_STATS → system settings intent)
+- [x] Page 4 — Accessibility Service grant (BIND_ACCESSIBILITY_SERVICE → system settings), behind a disclosure that names what is read and what is never stored; skippable, because section blocking degrades to whole-app blocking
+- [x] Page 5 — Notification Listener grant (BIND_NOTIFICATION_LISTENER_SERVICE → system settings)
+- [x] Page 6 — Overlay permission grant (SYSTEM_ALERT_WINDOW → system settings)
+- [x] Page 7 — Battery optimisation exemption, plus a vendor autostart panel only when the device resolves one; skippable
+- [x] Page 8 — Device Admin (optional, skippable)
 - [x] Auto-detect when permission is granted and advance to next step
-- [x] Steps 2–5 cannot be skipped
+- [x] Usage Access, Notification Listener and Overlay cannot be skipped; Accessibility, Battery and Device Admin can
 - [x] Plain English copy — no technical jargon
-- [x] Request `POST_NOTIFICATIONS` at runtime on API 33+, explain why notifications are needed, handle denial, and re-check permission state when the app resumes.
+- [x] Re-check permission state when the app resumes and handle notification denial.
+
+> **1.4 note (2026-10-30)**: the flow grew from the PRD's six steps to eight:
+> the runtime notification request (1.4's own addition) sits right after
+> Welcome, and the battery step (5.6) sits before Device Admin. Accessibility
+> moved from "cannot be skipped" to optional when the disclosure was added —
+> asking for a sensitive grant and then refusing to proceed without it would
+> contradict the policy that calls Accessibility optional.
 
 ### 1.5 UsageStats Integration (`system:services`)
 
@@ -481,7 +490,12 @@
 >
 > The unlocked achievement styling is implemented but was unreachable until 4.4
 > supplied unlock evaluation; every card rendered locked at the time of this
-> note.
+> note. 4.4 now supplies that evaluation, so both states are reachable.
+> Two deliberate divergences from the checklist: locked cards use the page
+> background instead of a fixed cream `#F0EBE3`, which would be a pale block in
+> dark mode; and each TOP APPS progress bar scales against the busiest app
+> rather than that app's own limit, so the list compares apps while red still
+> marks an actual limit breach.
 > Verification: `test` 130/130, `:app:assembleDebug` green. No device/emulator
 > exists here, so no visual QA is claimed.
 
@@ -1020,6 +1034,9 @@
 | 2026-10-30 | P6.5 | blocked              | Orchestrator       | A DNS-blocking `VpnService` must forward unblocked queries, which needs `INTERNET` and sends them to an upstream resolver — contradicts the no-transmission promise, the published policy and the Data safety answer. Needs a product decision, not code |
 | 2026-10-30 | P6.6 | completed            | Implementation Agent | `docs/IOS_SCREEN_TIME.md`: Family Controls requires Apple-granted entitlement; shields are app-level and tokens opaque, so section blocking and notification filtering cannot be ported. Port assessed as a different product |
 | 2026-10-30 | P1.10 | completed            | QA Agent           | The app row had no quick switch; a limit was only removable by reopening the sheet. `AppRow` now owns the row and shows a `SoberToggleSwitch` for any app with a limit, wired to a new `setLimitEnabled` that updates `AppLimit.isActive` in the repository and the list; enforcement already honoured `isActive`, so no service change. `AppRowTest` (9 Robolectric/Compose tests) covers switch state, toggle-not-open, tap-not-toggle, no switch without a limit, and the lock's two states. Verified: `:feature:apps:testDebugUnitTest` 9/9, `:feature:apps:compileDebugKotlin` green. Row appearance is not visually checked — no device |
+| 2026-10-30 | P2.1 | completed            | QA Agent           | RECENT SESSIONS was missing the duration the checklist asks for, so a 90-minute completion and a 5-minute cancellation looked alike. History rows now read "1h 30m · Oct 28, 2026", and `sessionLengthLabel` maps duration 0 to "Open-ended" instead of "0m" (2.6 sessions have no window). 4 JVM tests on the formatter. Verified: `:feature:focus:testDebugUnitTest` green |
+| 2026-10-30 | P1.4 | completed            | Task Tracker Agent | Checklist brought back in line with the code: the flow is 8 pages (Welcome, notifications, usage, accessibility, listener, overlay, battery, device admin), and only usage/listener/overlay are unskippable. Accessibility became optional when its disclosure landed; the checklist still claimed steps 2–5 could not be skipped |
+| 2026-10-30 | P4.3 | completed            | Task Tracker Agent | Recorded two intentional divergences while auditing: locked achievement cards use the page background rather than fixed cream for dark mode, and TOP APPS bars scale to the busiest app while red still marks a limit breach. Also noted that 4.4 now makes unlocked cards reachable |
 
 ---
 
