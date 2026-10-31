@@ -9,7 +9,7 @@
 
 ## Phase 0 — Project Bootstrap & Environment
 
-- [/] Install Android Studio (latest stable) + Android 17 SDK (API 37)
+- [x] Install Android Studio (latest stable) + Android 17 SDK (API 37) — *API 37 platform and build-tools 36/37 are installed at `C:\Android\Sdk` and every Gradle task here ran headless; the IDE itself is not required for the command-line build and its presence was not checked.*
 - [x] Install JDK 17+
 - [x] Create new Android project `com.sober.app` (Empty Compose Activity template)
 - [x] Set `minSdk = 26`, `targetSdk = 37`, `compileSdk = 37`
@@ -743,7 +743,7 @@
   GitHub itself and needs no extra host.*
 - [x] Add a prominent accessibility disclosure with explicit consent before the onboarding step opens Settings — *the step now shows a dialog naming what is read, that nothing is stored or sent, and how to turn it off; the step is also skippable, which the privacy policy already claimed.*
 - [!] Complete the Play Console declarations — *blocked: needs the Play Console account. The review below states exactly which forms the manifest triggers.*
-- [!] Replace the throwaway signing check with the real upload key — *blocked: the key is the owner's to create and keep out of the repo.*
+- [x] Replace the throwaway signing check with the real upload key — *done for the artifacts: `app-release.apk` and `app-release.aab` are both signed with the release key kept outside the repo (`C:\Rishabh\Sober-keys\`), and `jarsigner -verify`/`apksigner verify` confirm certificate SHA-256 `f9fc8e71…c36c64`. Registering that key with Play Console still needs the account (previous item).*
 
 > **5.8 review (2026-10-30).**
 >
@@ -752,6 +752,13 @@
 > `jarsigner -verify` reports "jar verified" for the test key; without them the
 > bundle is still produced and unsigned. AGP validates the bundle structure
 > while building it. The shipping upload key is not in this workspace.
+>
+> [UPDATED 2026-10-31] The release key now exists outside the repo and both
+> artifacts are signed with it: `app-release.aab` (7.5 MB) passes
+> `jarsigner -verify` with certificate SHA-256 `f9fc8e71…c36c64`, matching the
+> published APK. "jar verified" still prints a PKIX warning because the key is
+> self-signed — expected for app signing; Play re-signs with its own key once the
+> upload key is registered.
 >
 > *What the manifest triggers in Play Console.* Sober requests no internet
 > permission and no `QUERY_ALL_PACKAGES`, which keeps most sensitive-permission
@@ -1070,6 +1077,8 @@
 | 2026-10-30 | P1.9a | completed           | QA Agent           | The relabelled tile still printed `topApps.size`, and `topApps` is capped at 3 rows, so heavy users read "3". `appsUsedToday` now counts the full usage list, excluding Sober and zero-foreground rows; `AppsUsedCountTest` (3 tests) pins the rule. Verified: `:feature:home:testDebugUnitTest` green |
 | 2026-10-30 | P2.1a | completed            | QA Agent           | Custom-duration state was remembered separately from the selection: after setting 50m and then tapping the 25m chip, the Custom button still read "Custom · 50m" even though 25m would start. The extra state is removed and the button derives from `selectedDuration`; `DurationSelectionTest` (2 tests) pins preset vs custom. Verified: `:feature:focus:testDebugUnitTest` green |
 | 2026-10-31 | P5.7 | completed            | QA Agent           | Release published: signed `app-release.apk` attached to pre-release `v1.0`. Key generated outside the repo with the alias/password recorded in `C:\Rishabh\Sober-keys\README.txt`; `apksigner verify` run on the **downloaded** asset confirms V2 signer and SHA-256 `f9fc8e71…c36c64`. A first key was discarded unreleased after its password was lost, so this cert is the one to keep. Notes carry the install steps, the untested-on-device caveat and the keep-the-same-key warning |
+| 2026-10-31 | P5.8-key | completed          | QA Agent           | `bundleRelease` rerun with the release key: 7.5 MB AAB, `jarsigner -verify` "jar verified" and `keytool -printcert` reports the same SHA-256 as the APK. The PKIX warning is the expected self-signed chain, not a bad signature. Registering the key in Play Console stays blocked on the account |
+| 2026-10-31 | P0.1 | completed            | QA Agent           | The SDK item was still `[/]`: `android-37.0` and build-tools 36/37 are installed and every build in this workspace ran headless against them. Android Studio itself is not needed for that and was not checked, which is now stated in the item |
 
 ---
 
