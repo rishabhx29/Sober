@@ -152,6 +152,7 @@
 - [x] Service restart via `START_STICKY`
 - [x] Enforce the overall daily usage cap independently of per-app limits, blocking any app opened after the total cap is reached.
 - [x] Show remaining time for the overall daily cap in a persistent notification distinct from the Focus Session countdown.
+- [x] Start the enforcement loops once per service instance — *`start()` is called from the boot receiver, every app launch and every session action, and a running service receives each call as another `onStartCommand`; launching the loops there stacked a poll, a countdown ticker and a window-hint collector per launch. They now start in `onCreate`.*
 
 ### 1.8 Boot Receiver (`system:receivers`)
 
@@ -1079,6 +1080,7 @@
 | 2026-10-31 | P5.7 | completed            | QA Agent           | Release published: signed `app-release.apk` attached to pre-release `v1.0`. Key generated outside the repo with the alias/password recorded in `C:\Rishabh\Sober-keys\README.txt`; `apksigner verify` run on the **downloaded** asset confirms V2 signer and SHA-256 `f9fc8e71…c36c64`. A first key was discarded unreleased after its password was lost, so this cert is the one to keep. Notes carry the install steps, the untested-on-device caveat and the keep-the-same-key warning |
 | 2026-10-31 | P5.8-key | completed          | QA Agent           | `bundleRelease` rerun with the release key: 7.5 MB AAB, `jarsigner -verify` "jar verified" and `keytool -printcert` reports the same SHA-256 as the APK. The PKIX warning is the expected self-signed chain, not a bad signature. Registering the key in Play Console stays blocked on the account |
 | 2026-10-31 | P0.1 | completed            | QA Agent           | The SDK item was still `[/]`: `android-37.0` and build-tools 36/37 are installed and every build in this workspace ran headless against them. Android Studio itself is not needed for that and was not checked, which is now stated in the item |
+| 2026-11-01 | P1.7a | completed            | QA Agent           | `SoberCoreService.start()` is called by the boot receiver, by `SoberNavHost` on every launch and by `ensureRunning()` on every session action; because a running service gets another `onStartCommand` (not another `onCreate`), each call added a poll loop, a countdown ticker and a window-hint collector. The loops now start in `onCreate`. Also corrected the Settings doc comment that claimed notification and streak controls were absent (they are present and wired), dropped a mangled comment terminator, and switched the two back arrows to the auto-mirrored icon. Verified: `:system:services`/`:feature:settings` compile, `test` 349/349, `:app:assembleDebug` green. Battery effect of the duplicate loops is unmeasured — no device |
 
 ---
 

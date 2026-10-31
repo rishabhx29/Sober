@@ -706,6 +706,13 @@ See `AGENTS.md` for full agent definitions. Summary:
 **Learning**: A project site inherits the user site's custom domain. `rishabhx29.github.io` is configured with `rishabhx29.me`, whose DNS points at a different host, so every `rishabhx29.github.io/Sober/...` request 301s to `www.rishabhx29.me/Sober/...` and dies. Raw-file proxies do not rescue it either: jsDelivr and raw.githack serve `.html` as `text/plain` with `nosniff`. What actually works is the file GitHub renders itself — `docs/PRIVACY.md` at `github.com/.../blob/main/...` — which returns 200 and stays in the repo history.  
 **Solution/Pattern**: For a policy page, point at the Markdown blob URL until a domain is chosen deliberately; only treat Pages as live after `curl -L` shows 200 on the final host.
 
+### 11.14 `onStartCommand` Runs Again on Every `startService` Call
+
+**Date**: 2026-11-01  
+**Context**: Auditing `SoberCoreService` (ticket 1.7) after the release upload.  
+**Learning**: Starting an already-running service with `Context.startForegroundService`/`startService` does not call `onCreate` again — it delivers another `onStartCommand` to the same instance. `SoberCoreService.start()` is called from the boot receiver, from `SoberNavHost` on every app launch and from `ensureRunning()` on every session start/stop, so launching the engine loops from `onStartCommand` added a second 15-second poll, a second session countdown ticker and a second window-hint collector each time. Nothing crashes: the poll is mutex-guarded and completion is idempotent, which is exactly why it stays invisible until you look at battery and Database writes.  
+**Solution/Pattern**: Put anything that must have one owner per service instance (poll loops, tickers, flow collectors) in `onCreate`, which runs once per instance, and keep `onStartCommand` for `startForeground` and the return value. `START_STICKY` recreations still get a fresh `onCreate`.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
