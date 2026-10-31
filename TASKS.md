@@ -686,7 +686,7 @@
 
 - [x] Configure ProGuard / R8 rules for shrinking
 - [x] APK signing + release build generation (`assembleRelease`)
-- [!] Create GitHub Release and attach `.apk` — *blocked: publishing needs GitHub credentials and an explicit go-ahead. This workspace never pushes or uploads.*
+- [x] Create GitHub Release and attach `.apk` — *published as pre-release `v1.0` with `app-release.apk` (V2-signed, 3.9 MB). Device-unverified, so it is flagged as a pre-release with the untested areas listed.*
 
 > **5.7 implementation (2026-10-30).**
 >
@@ -718,6 +718,18 @@
 > and the APK came out as `app-release.apk`. The throwaway key was deleted after
 > the check and no credential is stored anywhere. The shipping key is the user's
 > to supply; uploading the APK stays `[!]`.
+>
+> **5.7 release upload (2026-10-31).** The user asked for an installable file, so
+> a real release key was generated outside the repo (`C:\Rishabh\Sober-keys\`),
+> the release was built with it, and `app-release.apk` was attached to
+> [v1.0](https://github.com/rishabhx29/Sober/releases/tag/v1.0) as a
+> **pre-release**. `apksigner verify` on the downloaded asset reports the V2
+> signer with SHA-256 `f9fc8e71…c36c64`; no credential is in git. The first key
+> generated for this upload had its password lost before any APK was built with
+> it, so it was discarded and replaced — nothing was ever distributed under it,
+> and the notes state that future updates must use the same key. The release body
+> says plainly that the build has not run on a device and lists what that leaves
+> unverified (Doze accuracy, section-rule ids, dark mode, battery).
 
 ### 5.8 Google Play Submission Prep
 
@@ -1056,7 +1068,8 @@
 | 2026-10-30 | P4.3 | completed            | Task Tracker Agent | Recorded two intentional divergences while auditing: locked achievement cards use the page background rather than fixed cream for dark mode, and TOP APPS bars scale to the busiest app while red still marks a limit breach. Also noted that 4.4 now makes unlocked cards reachable |
 | 2026-10-30 | P1.9 | completed            | QA Agent           | The ring caption divided the cap by 60 and appended "h", so every 30-minute setting above the hour was rounded down: 90 minutes read "of 1h limit", 150 read "2h". It now formats hours and minutes; `LimitLabelTest` (2 tests) pins whole hours and half hours. Also relabelled the "Pickups" card, which displayed the count of apps used rather than unlocks. Verified: `:feature:home:testDebugUnitTest` green |
 | 2026-10-30 | P1.9a | completed           | QA Agent           | The relabelled tile still printed `topApps.size`, and `topApps` is capped at 3 rows, so heavy users read "3". `appsUsedToday` now counts the full usage list, excluding Sober and zero-foreground rows; `AppsUsedCountTest` (3 tests) pins the rule. Verified: `:feature:home:testDebugUnitTest` green |
-| 2026-10-30 | P2.1a | completed           | QA Agent           | Custom-duration state was remembered separately from the selection: after setting 50m and then tapping the 25m chip, the Custom button still read "Custom · 50m" even though 25m would start. The extra state is removed and the button derives from `selectedDuration`; `DurationSelectionTest` (2 tests) pins preset vs custom. Verified: `:feature:focus:testDebugUnitTest` green |
+| 2026-10-30 | P2.1a | completed            | QA Agent           | Custom-duration state was remembered separately from the selection: after setting 50m and then tapping the 25m chip, the Custom button still read "Custom · 50m" even though 25m would start. The extra state is removed and the button derives from `selectedDuration`; `DurationSelectionTest` (2 tests) pins preset vs custom. Verified: `:feature:focus:testDebugUnitTest` green |
+| 2026-10-31 | P5.7 | completed            | QA Agent           | Release published: signed `app-release.apk` attached to pre-release `v1.0`. Key generated outside the repo with the alias/password recorded in `C:\Rishabh\Sober-keys\README.txt`; `apksigner verify` run on the **downloaded** asset confirms V2 signer and SHA-256 `f9fc8e71…c36c64`. A first key was discarded unreleased after its password was lost, so this cert is the one to keep. Notes carry the install steps, the untested-on-device caveat and the keep-the-same-key warning |
 
 ---
 
