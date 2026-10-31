@@ -17,7 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -64,11 +64,9 @@ import com.sober.feature.settings.admin.SoberDeviceAdminReceiver
  * Settings.
  *
  * Scope note: this screen exposes only what is wired to real enforcement — the
- * overall daily cap, the override PIN, uninstall protection and permission
- * status, which the engine depends on. Controls that would look functional but
- * change nothing (notification preferences, streak rules) are deliberately
- * absent: a toggle that does nothing is worse than a missing one. The usage
- * export is included because it reads the same history Stats charts.
+ * overall daily cap, the override PIN, alert toggles the notifier reads, the
+ * streak rule, uninstall protection and permission status. The usage export is
+ * included because it reads the same history Stats charts.
  *
  * The PIN serves two purposes: it authorises emergency overrides, and while a
  * focus session runs it gates this screen. The gate is per-visit — leaving and
@@ -154,7 +152,7 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.ArrowBack,
+                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Back",
                 tint = colors.primary,
                 modifier = Modifier.clickable { onBack() }
@@ -685,7 +683,8 @@ fun SettingsScreen(
  * The policy is shipped in the app rather than opened over the network: there
  * is no internet permission to fetch a hosted page with, and a policy the user
  * can only read while online is a policy they may not be able to read at all.
- */@Composable
+ */
+@Composable
 private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
     val colors = SoberTheme.colors
 
@@ -835,7 +834,7 @@ private fun SettingsLockScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Rounded.ArrowBack,
+                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Back",
                 tint = colors.primary,
                 modifier = Modifier.clickable { onBack() }

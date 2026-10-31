@@ -130,6 +130,13 @@ class SoberCoreService : Service() {
         super.onCreate()
         createNotificationChannel()
         createDailyCapChannel()
+        // Started here, not in onStartCommand: each start() call delivers another
+        // onStartCommand to a running service, and launching the loops there
+        // added a second poll, a second countdown ticker and a second window-hint
+        // collector every time the app opened or a session was started or
+        // stopped. onCreate runs once per service instance, so the loops have
+        // exactly one owner.
+        startEnforcementLoop()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -152,7 +159,6 @@ class SoberCoreService : Service() {
             else -> startForeground(NOTIFICATION_ID, notification)
         }
 
-        startEnforcementLoop()
         return START_STICKY
     }
 
