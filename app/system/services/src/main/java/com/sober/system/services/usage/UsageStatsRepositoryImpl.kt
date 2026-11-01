@@ -46,6 +46,28 @@ class UsageStatsRepositoryImpl @Inject constructor(
             ?.packageName
     }
 
+    /** Sober's own UI and the launcher are never block targets. */
+    private val ignoredPackages: Set<String> by lazy {
+        buildSet {
+            add(context.packageName)
+            homePackage?.let(::add)
+        }
+    }
+
+    /**
+     * The answer from the previous poll.
+     *
+     * Usage events only describe *changes*. A user watching a long video emits
+     * no event at all, so a fixed look-back window stops containing the resume
+     * and the app would be reported as "nothing on screen" a few minutes in.
+     * That is not merely a missed block: the poll clears the overlay for an
+     * unknown screen, so a block that had already landed would vanish by
+     * itself. Seeding each replay with the previous answer keeps the steady
+     * state correct without widening the query every cycle.
+     */
+    private var cachedForeground: String? = null
+    private var cacheInitialized = false
+
     override fun getUsageStatsForToday(): List<AppUsage> {
         val startTime = startOfToday()
         val endTime = System.currentTimeMillis()
@@ -73,71 +95,62 @@ class UsageStatsRepositoryImpl @Inject constructor(
      * Returns the package currently in the foreground, or null when it cannot
      * be determined.
      *
-     * We replay the last few minutes of events rather than the whole day: the
-     * window only needs to be long enough to contain the most recent
-     * transition, and a short window keeps this cheap enough to call every
-     * poll. Events are applied in timestamp order, so the final state wins.
+     * The first poll after the process starts replays a long history, because
+     * the resume that put the current app on screen may be hours old and only
+     * events *since* then can be replayed. Every later poll applies just the
+     * recent window on top of the previous answer, which is both cheap enough
+     * to run every cycle and correct while the screen is not changing.
      */
     override fun getForegroundPackage(): String? {
         val endTime = System.currentTimeMillis()
-        val startTime = endTime - FOREGROUND_LOOKBACK_MS
 
+        if (!cacheInitialized) {
+            val history = readEvents(endTime - INITIAL_LOOKBACK_MS, endTime) ?: return null
+            cacheInitialized = true
+            cachedForeground = replayForeground(history, initial = null, ignoredPackages)
+            return cachedForeground
+        }
+
+        val recent = readEvents(endTime - FOREGROUND_LOOKBACK_MS, endTime) ?: return null
+        // Nothing happened: whatever was on screen when the last poll ran still
+        // is. Replaying an empty window would only repeat the cached answer.
+        if (recent.isEmpty()) return cachedForeground
+
+        cachedForeground = replayForeground(recent, cachedForeground, ignoredPackages)
+        return cachedForeground
+    }
+
+    /** Foreground-relevant transitions in [fromMillis, toMillis], or null when unavailable. */
+    private fun readEvents(fromMillis: Long, toMillis: Long): List<ForegroundEvent>? {
         val events = try {
-            usageStatsManager.queryEvents(startTime, endTime)
+            usageStatsManager.queryEvents(fromMillis, toMillis)
         } catch (e: SecurityException) {
             // Usage access revoked between checks; report unknown rather than
             // guessing a foreground app we cannot verify.
             return null
         } ?: return null
 
-        var foreground: String? = null
+        val transitions = ArrayList<ForegroundEvent>()
         val event = UsageEvents.Event()
-
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-
-            when (event.eventType) {
-                // MOVE_TO_FOREGROUND / MOVE_TO_BACKGROUND are the API 21+
-                // constants. ACTIVITY_RESUMED / ACTIVITY_PAUSED are the API 29+
-                // renamings of the same values (1 / 2) — using the older names
-                // keeps this correct for minSdk 26 without a version branch.
-                UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                    // Sober's own UI is never blocked. Neither is the launcher:
-                    // the overall cap applies to apps, and blocking the home
-                    // screen would leave a full-screen overlay with no way to
-                    // navigate anywhere.
-                    foreground = if (
-                        event.packageName == context.packageName ||
-                        event.packageName == homePackage
-                    ) {
-                        null
-                    } else {
-                        event.packageName
-                    }
-                }
-                UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                    // Only clear if the pausing app is the one we think is on
-                    // screen; a stale background event from another app must not
-                    // wipe it.
-                    if (event.packageName == foreground) {
-                        foreground = null
-                    }
-                }
-
-                // SCREEN_NON_INTERACTIVE is API 28+ (minSdk is 26), so this is
-                // checked behind a version guard rather than as a branch label.
-                else -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                        event.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE
-                    ) {
-                        // Screen off: nothing is meaningfully foreground.
-                        foreground = null
-                    }
-                }
+            // MOVE_TO_FOREGROUND / MOVE_TO_BACKGROUND are the API 21+
+            // constants. ACTIVITY_RESUMED / ACTIVITY_PAUSED are the API 29+
+            // renamings of the same values (1 / 2) — using the older names
+            // keeps this correct for minSdk 26 without a version branch.
+            // SCREEN_NON_INTERACTIVE is API 28+, so it is checked behind a
+            // version guard rather than as a branch label.
+            val kind = when {
+                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> ForegroundEventKind.RESUMED
+                event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> ForegroundEventKind.PAUSED
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                    event.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE ->
+                    ForegroundEventKind.SCREEN_OFF
+                else -> continue
             }
+            transitions += ForegroundEvent(kind, event.packageName.orEmpty())
         }
-
-        return foreground
+        return transitions
     }
 
     /**
@@ -232,10 +245,54 @@ class UsageStatsRepositoryImpl @Inject constructor(
 
     companion object {
         /**
-         * How far back to replay events. Comfortably longer than a poll
-         * interval so a transition can never fall outside the window, while
-         * staying cheap to query every cycle.
+         * How far back to replay events once the cached foreground is known.
+         * Comfortably longer than a poll interval so a transition can never
+         * fall outside the window, while staying cheap to query every cycle.
          */
         private const val FOREGROUND_LOOKBACK_MS = 10 * 60 * 1000L
+
+        /**
+         * How far back the first poll after a process start looks. A day covers
+         * an app opened at any point today, including one opened just before
+         * midnight and still open now.
+         */
+        private const val INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000L
     }
+}
+
+internal enum class ForegroundEventKind { RESUMED, PAUSED, SCREEN_OFF }
+
+internal data class ForegroundEvent(
+    val kind: ForegroundEventKind,
+    val packageName: String = ""
+)
+
+/**
+ * Folds [events], in timestamp order, into the package on screen.
+ *
+ * [initial] is the answer from the previous call. Events only report changes,
+ * so starting from the last known screen is what keeps an eventless stretch of
+ * use resolving to the app that is open. [ignoredPackages] (Sober itself and
+ * the launcher) map to "nothing to block".
+ */
+internal fun replayForeground(
+    events: List<ForegroundEvent>,
+    initial: String?,
+    ignoredPackages: Set<String>
+): String? {
+    var foreground = initial
+    events.forEach { event ->
+        when (event.kind) {
+            ForegroundEventKind.RESUMED ->
+                foreground = event.packageName.takeUnless {
+                    it.isEmpty() || it in ignoredPackages
+                }
+            // Only clear if the pausing app is the one we think is on screen; a
+            // stale background event from another app must not wipe it.
+            ForegroundEventKind.PAUSED ->
+                if (event.packageName == foreground) foreground = null
+            ForegroundEventKind.SCREEN_OFF -> foreground = null
+        }
+    }
+    return foreground
 }
