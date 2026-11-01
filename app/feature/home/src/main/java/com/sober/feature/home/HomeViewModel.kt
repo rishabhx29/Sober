@@ -106,22 +106,48 @@ class HomeViewModel @Inject constructor(
         observeSessionsToday()
     }
 
+    /**
+     * Packages whose usage is on the Home card but is not an app the user chose
+     * to open: Sober itself, and the launcher, whose foreground time is time
+     * spent with no app open. Both show up in `queryUsageStats`, and without
+     * this the card can name "Launcher" as a top app and count it as used.
+     */
+    private val nonAppPackages: Set<String> by lazy {
+        val home = try {
+            context.packageManager.resolveActivity(
+                android.content.Intent(android.content.Intent.ACTION_MAIN)
+                    .addCategory(android.content.Intent.CATEGORY_HOME),
+                PackageManager.MATCH_DEFAULT_ONLY
+            )?.activityInfo?.packageName
+        } catch (e: Exception) {
+            null
+        }
+        buildSet {
+            add(context.packageName)
+            home?.let(::add)
+        }
+    }
+
     fun loadUsageData() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val usageList = usageStatsRepository.getUsageStatsForToday()
                 val totalMinutes = usageList.sumOf { it.totalTimeInForeground / 60000 }.toInt()
-                val appsUsed = countAppsUsed(usageList, context.packageName)
+                val appsUsed = countAppsUsed(usageList, nonAppPackages)
                 val topApps = usageList
                     // Filter before taking, otherwise a filtered-out app eats one
                     // of the five slots and the card shows fewer than three rows.
                     .filter { it.totalTimeInForeground > 60000 }
-                    .filter { it.packageName != context.packageName }
+                    .filter { it.packageName !in nonAppPackages }
                     .sortedByDescending { it.totalTimeInForeground }
                     .take(TOP_APP_COUNT)
                     .map { usage ->
                         val limit = try {
                             appLimitRepository.getLimit(usage.packageName)
+                                // A switched-off limit is no limit: the engine
+                                // does not block on it, so the card must not
+                                // draw a bar or a lock for it either.
+                                ?.takeIf { it.isActive }
                                 ?.dailyLimitMinutes
                                 ?.takeIf { it > 0 }
                         } catch (e: Exception) {
@@ -323,8 +349,8 @@ class HomeViewModel @Inject constructor(
 
 /**
  * The app count on Home must not come from `topApps`, which is capped at three
- * for the card. Zero-foreground rows are apps paused onscreen and Sober itself
- * is not usage the user chose.
+ * for the card. Zero-foreground rows are apps paused onscreen while Sober and
+ * the launcher are not apps the user opened.
  */
-internal fun countAppsUsed(usage: List<AppUsage>, selfPackage: String): Int =
-    usage.count { it.totalTimeInForeground > 0 && it.packageName != selfPackage }
+internal fun countAppsUsed(usage: List<AppUsage>, ignoredPackages: Set<String>): Int =
+    usage.count { it.totalTimeInForeground > 0 && it.packageName !in ignoredPackages }

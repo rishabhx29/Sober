@@ -80,6 +80,24 @@ class StatsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(StatsUiState())
     val uiState: StateFlow<StatsUiState> = _uiState
 
+    /**
+     * Sober itself and the launcher: both show up in usage stats, neither is an
+     * app the user opened, and naming "Launcher" in a top-apps list is wrong.
+     */
+    private val nonAppPackages: Set<String> by lazy {
+        val home = runCatching {
+            context.packageManager.resolveActivity(
+                android.content.Intent(android.content.Intent.ACTION_MAIN)
+                    .addCategory(android.content.Intent.CATEGORY_HOME),
+                android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+            )?.activityInfo?.packageName
+        }.getOrNull()
+        buildSet {
+            add(context.packageName)
+            home?.let(::add)
+        }
+    }
+
     init {
         loadStats(Timeframe.TODAY)
     }
@@ -166,7 +184,9 @@ class StatsViewModel @Inject constructor(
                 totalScreenTimeMinutes = total,
                 averageDailyMinutes = if (totals.isEmpty()) 0 else total / totals.size,
                 topApps = perApp.entries
-                    .filter { it.value > 0 }
+                    .filter { (packageName, minutes) ->
+                        minutes > 0 && packageName !in nonAppPackages
+                    }
                     .sortedByDescending { it.value }
                     .take(10)
                     .map { (packageName, minutes) ->
