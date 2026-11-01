@@ -713,6 +713,13 @@ See `AGENTS.md` for full agent definitions. Summary:
 **Learning**: Starting an already-running service with `Context.startForegroundService`/`startService` does not call `onCreate` again — it delivers another `onStartCommand` to the same instance. `SoberCoreService.start()` is called from the boot receiver, from `SoberNavHost` on every app launch and from `ensureRunning()` on every session start/stop, so launching the engine loops from `onStartCommand` added a second 15-second poll, a second session countdown ticker and a second window-hint collector each time. Nothing crashes: the poll is mutex-guarded and completion is idempotent, which is exactly why it stays invisible until you look at battery and Database writes.  
 **Solution/Pattern**: Put anything that must have one owner per service instance (poll loops, tickers, flow collectors) in `onCreate`, which runs once per instance, and keep `onStartCommand` for `startForeground` and the return value. `START_STICKY` recreations still get a fresh `onCreate`.
 
+### 11.15 A ViewModel Outlives the Tab, So `init` Is Not a Refresh
+
+**Date**: 2026-11-01  
+**Context**: Auditing Home, Stats and Apps (tickets 1.9, 4.3, 1.10) after the release upload.  
+**Learning**: All three read their data once in the ViewModel's `init`. Navigation Compose keeps the destination's ViewModel across tab switches (`saveState`/`restoreState`), so returning to Home or Stats showed the numbers from when the app was opened — the ring, the app rows, the "today" chart and the per-app minutes all froze. Nothing looks broken, which is why it survives review: the screen renders fine, it just renders the past. A composition-local `Date()` has the same shape of problem: no recomposition, no new date, so an app left open overnight still says yesterday.  
+**Solution/Pattern**: Anything that describes "now" (usage totals, today's date, permission state read from system Settings) belongs behind an `ON_RESUME` observer on `LocalLifecycleOwner`, which fires again when the back-stack entry returns to the foreground. Keep the `init` load for first paint, make the refresh non-destructive (no loading spinner if data already exists), and hold the date in state if the header depends on it.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

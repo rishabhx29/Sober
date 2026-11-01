@@ -25,6 +25,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberHoldToCancelButton
@@ -49,7 +52,25 @@ fun HomeScreen(
 
     val dayFormat = SimpleDateFormat("EEEE", Locale.getDefault())
     val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
-    val today = Date()
+    // Re-read on resume as well: an app left open overnight would otherwise
+    // keep yesterday's date in the header, since nothing else here recomposes.
+    var today by remember { mutableStateOf(Date()) }
+
+    // Usage is read once per ViewModel otherwise, so every figure on this screen
+    // froze at the moment the app was opened — the ring could still say "42m
+    // used" after an hour elsewhere. The back-stack entry goes RESUMED again on
+    // returning to this tab or to the app, which is exactly when to re-read.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadUsageData()
+                today = Date()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier

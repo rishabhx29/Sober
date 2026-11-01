@@ -246,7 +246,8 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
      * catalog load (cached by the repository after the first call) cost
      * nothing on the path where section detection is working.
      */
-    private suspend fun hasEnabledSectionRule(packageName: String): Boolean {        val enabled = runCatching { sectionRulePreferencesRepository.enabledRuleIds().first() }
+    private suspend fun hasEnabledSectionRule(packageName: String): Boolean {
+        val enabled = runCatching { sectionRulePreferencesRepository.enabledRuleIds().first() }
             .getOrDefault(emptySet())
         if (enabled.isEmpty()) return false
 

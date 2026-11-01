@@ -66,11 +66,16 @@ fun AppsScreen(
     }
 
     // The Accessibility grant lives in system Settings; coming back must not
-    // leave a stale "access needed" notice on screen.
+    // leave a stale "access needed" notice on screen. The usage minutes on each
+    // row are refreshed for the same reason: they were read once when the list
+    // was built and would otherwise freeze for the life of the ViewModel.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshAccessibilityStatus()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshAccessibilityStatus()
+                viewModel.loadApps(context.packageManager)
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }

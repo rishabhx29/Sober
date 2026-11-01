@@ -171,6 +171,7 @@
   - [x] App at limit: red progress bar, lock icon beside time
 - [x] "Start Focus Session" — full-width solid navy pill button (navigates to the Focus tab with the same options as the bottom bar)
 - [x] "Focus Mode" — full-width outlined navy pill, toggles on/off — starts an open-ended session (duration 0) that blocks the same entertainment set the Study preset resolves, and the pill becomes a solid "tap to turn off" control while it runs; stopping records a cancellation, like every other stop path
+- [x] Re-read usage when the screen resumes — *`loadUsageData` ran only in `init`, and the ViewModel outlives tab switches, so the ring and app rows could still show the numbers from when the app was opened. The header date is now state too, so an app left open overnight does not keep yesterday's date.*
 
 > **1.9 note (2026-10-30):** the pill was withheld until 2.6 made duration 0
 > meaningful, then built on the existing session plumbing rather than a second
@@ -203,6 +204,7 @@
   - [x] Quick enable/disable switch on every app with a limit — flips `AppLimit.isActive` without opening the sheet, keeps the configured minutes, and is absent until a limit exists
   - [x] At-limit: red bar, lock icon
   - [x] 1px dividers between rows
+  - [x] Usage minutes re-read on resume — *the list was built once per ViewModel, so "48 min today" kept its value for the life of the tab; `ON_RESUME` now reloads the rows alongside the Accessibility status*
 - [x] Tap row → App Detail Bottom Sheet:
   - [x] App icon + name header, pill "48 min today"
   - [x] "Remove Limit" appears only for an app that already has one
@@ -483,6 +485,7 @@
   - [x] Locked: cream `#F0EBE3`, muted gray text — no lock icon, just faded
 - [x] Show Focus Sessions completed versus cancelled for the selected stats period.
 - [x] Identify the most productive weekday by lowest screen time.
+- [x] Re-read the selected range when the screen resumes — *all figures were computed once per ViewModel, which outlives the tab, so "Today" could describe the moment the app was opened. The screen now calls the existing `refresh()` on `ON_RESUME`.*
 - [x] Calculate week-over-week screen-time change locally from `UsageSession` history.
 - [x] Calculate daily limit adherence from local `UsageSession` and `AppLimit` history for post-launch measurement.
 
@@ -1081,6 +1084,7 @@
 | 2026-10-31 | P5.8-key | completed          | QA Agent           | `bundleRelease` rerun with the release key: 7.5 MB AAB, `jarsigner -verify` "jar verified" and `keytool -printcert` reports the same SHA-256 as the APK. The PKIX warning is the expected self-signed chain, not a bad signature. Registering the key in Play Console stays blocked on the account |
 | 2026-10-31 | P0.1 | completed            | QA Agent           | The SDK item was still `[/]`: `android-37.0` and build-tools 36/37 are installed and every build in this workspace ran headless against them. Android Studio itself is not needed for that and was not checked, which is now stated in the item |
 | 2026-11-01 | P1.7a | completed            | QA Agent           | `SoberCoreService.start()` is called by the boot receiver, by `SoberNavHost` on every launch and by `ensureRunning()` on every session action; because a running service gets another `onStartCommand` (not another `onCreate`), each call added a poll loop, a countdown ticker and a window-hint collector. The loops now start in `onCreate`. Also corrected the Settings doc comment that claimed notification and streak controls were absent (they are present and wired), dropped a mangled comment terminator, and switched the two back arrows to the auto-mirrored icon. Verified: `:system:services`/`:feature:settings` compile, `test` 349/349, `:app:assembleDebug` green. Battery effect of the duplicate loops is unmeasured — no device |
+| 2026-11-01 | P1.9b/P4.3a/P1.10b | completed | QA Agent           | Home, Stats and Apps each loaded their numbers in the ViewModel `init` and never again; because the ViewModel outlives the tab, "today" and every usage minute stayed frozen at the moment the app was opened. All three now re-read on `ON_RESUME` (Apps also keeps its Accessibility check), and Home's header date is state rather than a composition-local `Date()`, so an app left open overnight no longer shows yesterday. Also repaired a mangled line in `EvaluateBlockDecisionUseCase.hasEnabledSectionRule`. Verified: modules compile, `test` 349/349, `:app:assembleDebug` green. The refresh itself is lifecycle wiring and is not covered by a JVM test — no device, no visual check |
 
 ---
 
