@@ -720,6 +720,13 @@ See `AGENTS.md` for full agent definitions. Summary:
 **Learning**: All three read their data once in the ViewModel's `init`. Navigation Compose keeps the destination's ViewModel across tab switches (`saveState`/`restoreState`), so returning to Home or Stats showed the numbers from when the app was opened — the ring, the app rows, the "today" chart and the per-app minutes all froze. Nothing looks broken, which is why it survives review: the screen renders fine, it just renders the past. A composition-local `Date()` has the same shape of problem: no recomposition, no new date, so an app left open overnight still says yesterday.  
 **Solution/Pattern**: Anything that describes "now" (usage totals, today's date, permission state read from system Settings) belongs behind an `ON_RESUME` observer on `LocalLifecycleOwner`, which fires again when the back-stack entry returns to the foreground. Keep the `init` load for first paint, make the refresh non-destructive (no loading spinner if data already exists), and hold the date in state if the header depends on it.
 
+### 11.16 Usage Events Report Changes, Not State
+
+**Date**: 2026-11-01  
+**Context**: Auditing foreground detection while picking up the enforcement path (tickets 1.5, 1.7).  
+**Learning**: `UsageStatsManager.queryEvents` only contains transitions — a resume when an app comes forward, a pause when it leaves. The engine replayed a fixed 10-minute window and took the last transition as "the app on screen". That is correct for ten minutes and wrong after: a user watching a video emits no events at all, so the resume falls outside the window, the replay finds nothing, and the engine reports "unknown". The damage is worse than a missed block, because the poll treats an unknown screen as "the user switched to something allowed" and tears down an overlay that was already covering the blocked app. Fixed-window polling of an event stream has to start from a known state.  
+**Solution/Pattern**: Keep the last answer and apply only new events to it; re-establish that state once when the process starts (here, one 24-hour replay) rather than widening the window on every poll. An empty event list means "nothing changed", not "nothing is there". When writing the fold, keep it a pure function of `(events, previousAnswer)` so the steady-state case — the one that breaks — is directly testable without a device.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

@@ -127,6 +127,7 @@
 - [x] Handle API 26+ requirements
 - [x] Sync usage data to Room DB (`UsageSession` table) on every engine poll (15s, tighter than the 30s spec)
 - [x] Handle edge cases: midnight rollover, app not in stats yet, system apps (unknown app reports no usage instead of blocking; system apps count toward total screen time but cannot be limited from the UI)
+- [x] Keep foreground detection correct during uninterrupted use — *usage events only report changes, so the 10-minute look-back stopped containing the resume after ten minutes in the same app; the poll then reported "nothing on screen" and cleared any overlay already shown. The first poll in a process now replays 24 hours to establish the current screen, and each later poll applies the recent window on top of that answer. `ForegroundReplayTest` (9 tests) pins the fold, including the empty-window case.*
 
 ### 1.6 Block Overlay (`system:overlay`)
 
@@ -172,6 +173,7 @@
 - [x] "Start Focus Session" — full-width solid navy pill button (navigates to the Focus tab with the same options as the bottom bar)
 - [x] "Focus Mode" — full-width outlined navy pill, toggles on/off — starts an open-ended session (duration 0) that blocks the same entertainment set the Study preset resolves, and the pill becomes a solid "tap to turn off" control while it runs; stopping records a cancellation, like every other stop path
 - [x] Re-read usage when the screen resumes — *`loadUsageData` ran only in `init`, and the ViewModel outlives tab switches, so the ring and app rows could still show the numbers from when the app was opened. The header date is now state too, so an app left open overnight does not keep yesterday's date.*
+- [x] Exclude the launcher and switched-off limits from the usage card — *`queryUsageStats` reports home-screen time as an app, so "Launcher" could take a top row and count toward "Apps used"; and a limit toggled off in Apps still drew its bar and lock here because the card read `dailyLimitMinutes` without `isActive`.*
 
 > **1.9 note (2026-10-30):** the pill was withheld until 2.6 made duration 0
 > meaningful, then built on the existing session plumbing rather than a second
@@ -475,6 +477,7 @@
   - [x] "TOP APPS" section label
   - [x] Each row: icon, name, usage time, progress bar
   - [x] At-limit: red progress bar + red time
+  - [x] Exclude Sober and the launcher from the list — *both appear in `queryUsageStats`; the launcher's foreground time is time with no app open, so "Launcher" was a possible top app. Totals still count every package, matching what enforcement measures.*
 - [x] Usage Heatmap:
   - [x] 7×24 grid, cream no-usage → darker navy tints for higher usage
   - [x] "12am" / "12pm" axis labels only
@@ -1085,6 +1088,7 @@
 | 2026-10-31 | P0.1 | completed            | QA Agent           | The SDK item was still `[/]`: `android-37.0` and build-tools 36/37 are installed and every build in this workspace ran headless against them. Android Studio itself is not needed for that and was not checked, which is now stated in the item |
 | 2026-11-01 | P1.7a | completed            | QA Agent           | `SoberCoreService.start()` is called by the boot receiver, by `SoberNavHost` on every launch and by `ensureRunning()` on every session action; because a running service gets another `onStartCommand` (not another `onCreate`), each call added a poll loop, a countdown ticker and a window-hint collector. The loops now start in `onCreate`. Also corrected the Settings doc comment that claimed notification and streak controls were absent (they are present and wired), dropped a mangled comment terminator, and switched the two back arrows to the auto-mirrored icon. Verified: `:system:services`/`:feature:settings` compile, `test` 349/349, `:app:assembleDebug` green. Battery effect of the duplicate loops is unmeasured — no device |
 | 2026-11-01 | P1.9b/P4.3a/P1.10b | completed | QA Agent           | Home, Stats and Apps each loaded their numbers in the ViewModel `init` and never again; because the ViewModel outlives the tab, "today" and every usage minute stayed frozen at the moment the app was opened. All three now re-read on `ON_RESUME` (Apps also keeps its Accessibility check), and Home's header date is state rather than a composition-local `Date()`, so an app left open overnight no longer shows yesterday. Also repaired a mangled line in `EvaluateBlockDecisionUseCase.hasEnabledSectionRule`. Verified: modules compile, `test` 349/349, `:app:assembleDebug` green. The refresh itself is lifecycle wiring and is not covered by a JVM test — no device, no visual check |
+| 2026-11-01 | P1.5a/P1.9c/P4.3b | completed | QA Agent           | Audit of the enforcement path found foreground detection went blind after ten uninterrupted minutes: `getForegroundPackage` replayed a fixed 10-minute window, and events only report *changes*, so the resume fell out of the window and the poll answered null — which `applyPolicy` treats as "switch to an allowed app" and hides the overlay it had already shown. Detection now seeds each replay with the previous answer, re-established once per process from a 24-hour query; `ForegroundReplayTest` (9 tests) pins the fold. Also excluded the launcher (home-screen time is an app in `queryUsageStats`) and Sober from Home's top rows, the "Apps used" count and Stats' TOP APPS, and made Home stop drawing a bar/lock for a limit whose `isActive` is false. `:app:lintDebug` is clean of errors (57 warnings: dependency versions, Compose-template colour resources, launcher icon assets). Verified: `test` 359/359, `:app:assembleDebug` green. Nothing ran on a device, so the overlay behaviour after ten minutes is reasoned from the code, not observed |
 
 ---
 
