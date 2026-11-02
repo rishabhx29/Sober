@@ -47,11 +47,14 @@ class FocusViewModel @Inject constructor(
             initialValue = null
         )
 
+    // Eager, not WhileSubscribed: the countdown loop only reads `.value`, which
+    // never attaches a subscriber, so a lazy share would leave these at null
+    // and the screen stuck on "--:--" for the whole session.
     private val activeSessionStartTime: StateFlow<Long?> = soberPreferences.activeSessionStartTime
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val activeSessionDuration: StateFlow<Long?> = soberPreferences.activeSessionDuration
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
      * Silence scope of the running session. The Focus screen needs it to know
@@ -98,8 +101,9 @@ class FocusViewModel @Inject constructor(
     private val _presetNotice = MutableStateFlow<String?>(null)
     val presetNotice: StateFlow<String?> = _presetNotice
 
+    // Read through `.value` by the ticker below, so it must collect eagerly.
     private val mealBreakUntil: StateFlow<Long?> = manageMealBreakUseCase.until
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Remaining meal-break time as mm:ss, or null when no break is running. */
     private val _mealBreakRemainingText = MutableStateFlow<String?>(null)

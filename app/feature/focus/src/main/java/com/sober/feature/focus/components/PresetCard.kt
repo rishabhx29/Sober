@@ -29,8 +29,10 @@ fun PresetCard(
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, SoberTheme.colors.primary),
         color = SoberTheme.colors.surface,
+        // Tall enough for a two-line description ("2h · Social blocked");
+        // 80dp clipped the second line in the Study card.
         modifier = Modifier
-            .size(width = 120.dp, height = 80.dp)
+            .size(width = 120.dp, height = 92.dp)
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -48,6 +50,8 @@ fun PresetCard(
             Text(
                 text = description,
                 fontSize = 11.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
                 color = SoberTheme.colors.textSecondary
             )
         }
