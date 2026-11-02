@@ -8,7 +8,7 @@
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%204.0%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/version-1.3-B3432F?style=flat-square" alt="Version 1.3">
-  <img src="https://img.shields.io/badge/tests-374%20passing-4C7A5C?style=flat-square" alt="374 unit tests passing">
+  <img src="https://img.shields.io/badge/tests-401%20passing-4C7A5C?style=flat-square" alt="401 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -85,7 +85,7 @@ over the previous version.
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
-   and download `Sober-1.2.apk`.
+   and download `Sober-1.3.apk`.
 2. Open your **Downloads** notification, or the **Files** app, and tap the APK.
 3. Android will say the source is not allowed to install unknown apps. Tap
    **Settings**, enable **Allow from this source**, then go back and tap
@@ -141,7 +141,7 @@ the phone is idle.
 ### Install over ADB (optional)
 
 ```bash
-adb install -r Sober-1.2.apk
+adb install -r Sober-1.3.apk
 ```
 
 ADB skips the unknown-source prompt, but Play Protect can still show its
@@ -149,16 +149,16 @@ warning.
 
 ### Verify the download
 
-Release 1.2's APK has these properties:
+Release 1.3's APK has these properties:
 
 ```text
-SHA-256 (file):  b5888a7e9a541f6fcd051ee9cd3b13b7c6bb631d13a7e96538043faf603b169c
+SHA-256 (file):  4df30fda9632dea311d6699fdfe3b4e6078175e29ed885a929d0f48fd4d364cd
 SHA-256 (cert):  f9fc8e710485179fbad428689d72d949dea925129ff3ea5ddbef9fac63836c64
 Signer:          CN=Sober, O=Sober, C=IN
 ```
 
 ```bash
-sha256sum Sober-1.2.apk     # macOS: shasum -a 256
+sha256sum Sober-1.3.apk     # macOS: shasum -a 256
 ```
 
 ---
