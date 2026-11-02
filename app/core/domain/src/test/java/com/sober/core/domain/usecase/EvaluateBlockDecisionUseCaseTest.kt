@@ -23,7 +23,10 @@ class EvaluateBlockDecisionUseCaseTest {
         sectionRules: FakeSectionRulePreferencesRepository =
             FakeSectionRulePreferencesRepository(),
         customRules: FakeCustomRuleRepository = FakeCustomRuleRepository(),
-        blockableApps: FakeBlockableAppsRepository = FakeBlockableAppsRepository()
+        blockableApps: FakeBlockableAppsRepository = FakeBlockableAppsRepository(),
+        protection: FakeProtectionSettingsRepository = FakeProtectionSettingsRepository(),
+        opens: FakeAppOpenRepository = FakeAppOpenRepository(),
+        categories: FakeAppCategoryRepository = FakeAppCategoryRepository()
     ) = EvaluateBlockDecisionUseCase(
         appLimitRepository = limits,
         usageSessionRepository = FakeUsageSessionRepository(),
@@ -38,7 +41,10 @@ class EvaluateBlockDecisionUseCaseTest {
         detectionRuleRepository = rules,
         sectionRulePreferencesRepository = sectionRules,
         customRuleRepository = customRules,
-        blockableAppsRepository = blockableApps
+        blockableAppsRepository = blockableApps,
+        protectionSettingsRepository = protection,
+        appOpenRepository = opens,
+        appCategoryRepository = categories
     )
 
     private fun activeSession(vararg blocked: String) = FakeSessionStateRepository().apply {
@@ -540,5 +546,198 @@ class EvaluateBlockDecisionUseCaseTest {
         )
 
         assertEquals(BlockReason.FOCUS_SESSION, decision?.reason)
+    }
+
+    // ---- Pause everything (F9) --------------------------------------
+
+    @Test
+    fun `pause everything lifts a running focus session`() = runTest {
+        val state = activeSession("com.instagram.android")
+        val protection = FakeProtectionSettingsRepository().apply {
+            pausedUntil.value = System.currentTimeMillis() + 60_000L
+        }
+
+        assertNull(useCase(state = state, protection = protection)("com.instagram.android"))
+    }
+
+    @Test
+    fun `an expired pause restores enforcement`() = runTest {
+        val state = activeSession("com.instagram.android")
+        val protection = FakeProtectionSettingsRepository().apply {
+            pausedUntil.value = System.currentTimeMillis() - 1_000L
+        }
+
+        assertEquals(
+            BlockReason.FOCUS_SESSION,
+            useCase(state = state, protection = protection)("com.instagram.android")?.reason
+        )
+    }
+
+    // ---- Allow-only mode (F5) ---------------------------------------
+
+    @Test
+    fun `allow-only blocks an app that is not on its list`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            allowOnly.value = com.sober.core.domain.model.AllowOnlyMode(
+                enabled = true,
+                allowedPackages = setOf("com.example.notes")
+            )
+        }
+
+        val decision = useCase(protection = protection)("com.instagram.android")
+
+        assertEquals(BlockReason.ALLOW_ONLY, decision?.reason)
+    }
+
+    @Test
+    fun `allow-only permits a listed app`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            allowOnly.value = com.sober.core.domain.model.AllowOnlyMode(
+                enabled = true,
+                allowedPackages = setOf("com.example.notes")
+            )
+        }
+
+        assertNull(useCase(protection = protection)("com.example.notes"))
+    }
+
+    @Test
+    fun `a disabled allow-only mode leaves apps alone`() = runTest {
+        assertNull(useCase()("com.instagram.android"))
+    }
+
+    // ---- Bedtime (F8) -----------------------------------------------
+
+    private fun bedtimeCoveringNow() = FakeProtectionSettingsRepository().apply {
+        bedtime.value = com.sober.core.domain.model.BedtimeSettings(
+            enabled = true,
+            startMinuteOfDay = 0,
+            endMinuteOfDay = 23 * 60 + 58,
+            allowedPackages = setOf("com.example.alarm")
+        )
+    }
+
+    @Test
+    fun `bedtime blocks an app outside its allowlist`() = runTest {
+        val decision = useCase(protection = bedtimeCoveringNow())("com.instagram.android")
+
+        assertEquals(BlockReason.BEDTIME, decision?.reason)
+        assertTrue((decision?.bedtimeEndsAt ?: 0L) > System.currentTimeMillis())
+    }
+
+    @Test
+    fun `bedtime permits its allowlisted apps`() = runTest {
+        assertNull(useCase(protection = bedtimeCoveringNow())("com.example.alarm"))
+    }
+
+    @Test
+    fun `a focus session outranks bedtime copy`() = runTest {
+        val decision = useCase(
+            state = activeSession("com.instagram.android"),
+            protection = bedtimeCoveringNow()
+        )("com.instagram.android")
+
+        assertEquals(BlockReason.FOCUS_SESSION, decision?.reason)
+    }
+
+    // ---- Opens per day (F3) -----------------------------------------
+
+    @Test
+    fun `an open budget blocks once it is used up`() = runTest {
+        val limits = FakeAppLimitRepository(
+            listOf(
+                com.sober.core.domain.model.AppLimit(
+                    packageName = "com.instagram.android",
+                    appName = "Instagram",
+                    dailyLimitMinutes = 60,
+                    dailyOpenLimit = 5
+                )
+            )
+        )
+
+        val decision = useCase(
+            limits = limits,
+            opens = FakeAppOpenRepository(mapOf("com.instagram.android" to 5))
+        )("com.instagram.android")
+
+        assertEquals(BlockReason.APP_OPEN_LIMIT, decision?.reason)
+        assertEquals(5, decision?.openCount)
+        assertEquals(5, decision?.openLimit)
+    }
+
+    @Test
+    fun `an open budget below its count lets the app through`() = runTest {
+        val limits = FakeAppLimitRepository(
+            listOf(
+                com.sober.core.domain.model.AppLimit(
+                    packageName = "com.instagram.android",
+                    appName = "Instagram",
+                    dailyLimitMinutes = 60,
+                    dailyOpenLimit = 5
+                )
+            )
+        )
+
+        assertNull(
+            useCase(
+                limits = limits,
+                opens = FakeAppOpenRepository(mapOf("com.instagram.android" to 4))
+            )("com.instagram.android")
+        )
+    }
+
+    // ---- Category limits (F5) ---------------------------------------
+
+    @Test
+    fun `a category budget counts every app in the bucket`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            categoryLimits.value = listOf(
+                com.sober.core.domain.model.CategoryLimit(
+                    category = com.sober.core.domain.model.AppCategory.SOCIAL,
+                    dailyLimitMinutes = 30
+                )
+            )
+        }
+        val categories = FakeAppCategoryRepository(
+            categories = mapOf(
+                "com.instagram.android" to com.sober.core.domain.model.AppCategory.SOCIAL,
+                "com.example.tiktok" to com.sober.core.domain.model.AppCategory.SOCIAL
+            )
+        )
+
+        val decision = useCase(
+            protection = protection,
+            categories = categories,
+            usage = usageOf("com.instagram.android" to 20, "com.example.tiktok" to 15)
+        )("com.instagram.android")
+
+        assertEquals(BlockReason.CATEGORY_LIMIT, decision?.reason)
+        assertEquals(35, decision?.usedMinutes)
+        assertEquals(30, decision?.limitMinutes)
+    }
+
+    @Test
+    fun `a category budget does not cover another category`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            categoryLimits.value = listOf(
+                com.sober.core.domain.model.CategoryLimit(
+                    category = com.sober.core.domain.model.AppCategory.SOCIAL,
+                    dailyLimitMinutes = 30
+                )
+            )
+        }
+        val categories = FakeAppCategoryRepository(
+            categories = mapOf(
+                "com.google.android.youtube" to com.sober.core.domain.model.AppCategory.VIDEO
+            )
+        )
+
+        assertNull(
+            useCase(
+                protection = protection,
+                categories = categories,
+                usage = usageOf("com.google.android.youtube" to 60)
+            )("com.google.android.youtube")
+        )
     }
 }

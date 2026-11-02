@@ -4,6 +4,7 @@ import com.sober.core.data.repository.AccessibilityStateRepositoryImpl
 import com.sober.core.data.repository.AchievementRepositoryImpl
 import com.sober.core.data.repository.AppCategoryRepositoryImpl
 import com.sober.core.data.repository.AppLimitRepositoryImpl
+import com.sober.core.data.repository.AppOpenRepositoryImpl
 import com.sober.core.data.repository.BlockableAppsRepositoryImpl
 import com.sober.core.data.repository.CustomRuleRepositoryImpl
 import com.sober.core.data.repository.DetectionRuleRepositoryImpl
@@ -11,7 +12,9 @@ import com.sober.core.data.repository.FocusSessionRepositoryImpl
 import com.sober.core.data.repository.NotificationPreferencesRepositoryImpl
 import com.sober.core.data.repository.OverrideLogRepositoryImpl
 import com.sober.core.data.repository.OverrideStateRepositoryImpl
+import com.sober.core.data.repository.PauseRulesRepositoryImpl
 import com.sober.core.data.repository.PinRepositoryImpl
+import com.sober.core.data.repository.ProtectionSettingsRepositoryImpl
 import com.sober.core.data.repository.ScheduleRuleRepositoryImpl
 import com.sober.core.data.repository.StreakPreferencesRepositoryImpl
 import com.sober.core.data.repository.StreakRecordRepositoryImpl
@@ -21,6 +24,7 @@ import com.sober.core.domain.repository.AccessibilityStateRepository
 import com.sober.core.domain.repository.AchievementRepository
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleRepository
@@ -28,7 +32,9 @@ import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.NotificationPreferencesRepository
 import com.sober.core.domain.repository.OverrideLogRepository
 import com.sober.core.domain.repository.OverrideStateRepository
+import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.repository.PinRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.ScheduleRuleRepository
 import com.sober.core.domain.repository.ScheduleSuggestionRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
@@ -169,4 +175,22 @@ abstract class RepositoryModule {
     abstract fun bindBlockableAppsRepository(
         impl: BlockableAppsRepositoryImpl
     ): BlockableAppsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProtectionSettingsRepository(
+        impl: ProtectionSettingsRepositoryImpl
+    ): ProtectionSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPauseRulesRepository(
+        impl: PauseRulesRepositoryImpl
+    ): PauseRulesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAppOpenRepository(
+        impl: AppOpenRepositoryImpl
+    ): AppOpenRepository
 }

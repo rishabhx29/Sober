@@ -1,17 +1,22 @@
 package com.sober.core.domain.usecase
 
+import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.repository.AccessibilityStateRepository
+import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import com.sober.core.domain.repository.UsageSessionRepository
 import com.sober.core.domain.repository.UsageStatsRepository
 import kotlinx.coroutines.flow.first
+import java.util.Calendar
 import javax.inject.Inject
 
 /**
@@ -34,7 +39,15 @@ data class BlockDecision(
     /** Rule name shown on the overlay when [reason] is SCHEDULE. */
     val scheduleName: String? = null,
     /** Epoch millis the current schedule window closes. */
-    val scheduleEndsAt: Long? = null
+    val scheduleEndsAt: Long? = null,
+    /** Category whose shared budget fired, when [reason] is CATEGORY_LIMIT. */
+    val category: AppCategory? = null,
+    /** Opens today, when [reason] is APP_OPEN_LIMIT. */
+    val openCount: Int = 0,
+    /** The open budget that fired, when [reason] is APP_OPEN_LIMIT. */
+    val openLimit: Int = 0,
+    /** Epoch millis the bedtime window closes, when [reason] is BEDTIME. */
+    val bedtimeEndsAt: Long? = null
 )
 
 enum class BlockReason {
@@ -58,7 +71,19 @@ enum class BlockReason {
      * which section is open is not running, so the whole app is held shut
      * rather than letting the rule silently do nothing.
      */
-    SECTION_RULE_UNAVAILABLE
+    SECTION_RULE_UNAVAILABLE,
+
+    /** The app was opened more times today than its own budget allows. */
+    APP_OPEN_LIMIT,
+
+    /** A shared daily budget for every app in the app's category was used up. */
+    CATEGORY_LIMIT,
+
+    /** Allow-only mode is on and this app is not on the allowed list. */
+    ALLOW_ONLY,
+
+    /** The bedtime window is open and this app is not on its allowed list. */
+    BEDTIME
 }
 
 /**
@@ -87,7 +112,10 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
     private val detectionRuleRepository: DetectionRuleRepository,
     private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
     private val customRuleRepository: CustomRuleRepository,
-    private val blockableAppsRepository: BlockableAppsRepository
+    private val blockableAppsRepository: BlockableAppsRepository,
+    private val protectionSettingsRepository: ProtectionSettingsRepository,
+    private val appOpenRepository: AppOpenRepository,
+    private val appCategoryRepository: AppCategoryRepository
 ) {
     suspend operator fun invoke(foregroundPackage: String?): BlockDecision? {
         if (foregroundPackage.isNullOrBlank()) return null
@@ -110,6 +138,14 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         //     Checked before the session rules so an override earned during a
         //     focus session actually releases the block it was earned for.
         if (manageEmergencyOverrideUseCase.isLifted(foregroundPackage)) {
+            return null
+        }
+
+        // 0c. Pause everything (F9). A deliberate, time-boxed suspension of all
+        //     enforcement; unlike a meal break it is not tied to a session and
+        //     the user can end it early from Home.
+        val pausedUntil = protectionSettingsRepository.pausedUntil.first()
+        if (pausedUntil != null && System.currentTimeMillis() < pausedUntil) {
             return null
         }
 
@@ -180,6 +216,37 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             )
         }
 
+        // 1b3. Allow-only mode: only the named apps may run at all. It sits
+        //      above limits and below sessions/schedules so the stricter,
+        //      more specific promise still owns the overlay copy.
+        val allowOnly = protectionSettingsRepository.allowOnly.first()
+        if (allowOnly.enabled && foregroundPackage !in allowOnly.allowedPackages) {
+            return BlockDecision(
+                packageName = foregroundPackage,
+                reason = BlockReason.ALLOW_ONLY,
+                usedMinutes = 0,
+                limitMinutes = 0
+            )
+        }
+
+        // 1b4. Bedtime: an overnight window with its own short allowlist. It is
+        //      checked before usage limits because "it is bedtime" is the true
+        //      reason at 23:00 regardless of how much budget is left.
+        val now = System.currentTimeMillis()
+        val bedtime = protectionSettingsRepository.bedtime.first()
+        if (bedtime.isActive(minuteOfDay(now)) &&
+            foregroundPackage !in bedtime.allowedPackages
+        ) {
+            return BlockDecision(
+                packageName = foregroundPackage,
+                reason = BlockReason.BEDTIME,
+                usedMinutes = 0,
+                limitMinutes = 0,
+                scheduleName = "Bedtime",
+                bedtimeEndsAt = bedtime.endFor(now)
+            )
+        }
+
         // 1c. A section rule whose detector is not running. The user asked for
         //     "Reels is blocked"; without Accessibility we cannot tell Reels
         //     from the feed, so letting the app through would silently void
@@ -214,6 +281,52 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
                 usedMinutes = usedMinutes,
                 limitMinutes = limit.dailyLimitMinutes
             )
+        }
+
+        // 2b. Opens per day. A time budget answers "how long" and an open budget
+        //     answers "how often"; the count is read only when a budget exists so
+        //     the common path stays one limit lookup.
+        if (limit != null && limit.isActive && limit.dailyOpenLimit > 0) {
+            val opens = appOpenRepository.countToday(foregroundPackage)
+            if (opens >= limit.dailyOpenLimit) {
+                return BlockDecision(
+                    packageName = foregroundPackage,
+                    reason = BlockReason.APP_OPEN_LIMIT,
+                    usedMinutes = 0,
+                    limitMinutes = 0,
+                    openCount = opens,
+                    openLimit = limit.dailyOpenLimit
+                )
+            }
+        }
+
+        // 2c. A shared budget for the app's category. Summed from every package
+        //     the platform puts in that bucket, so the limit covers apps the
+        //     user never added one by one.
+        val categoryLimits = protectionSettingsRepository.categoryLimits.first()
+        if (categoryLimits.isNotEmpty()) {
+            val category = appCategoryRepository.getCategory(foregroundPackage)
+            val categoryLimit = categoryLimits.firstOrNull {
+                it.isActive && it.category == category && it.dailyLimitMinutes > 0
+            }
+            if (categoryLimit != null) {
+                val packages = appCategoryRepository.getPackagesInCategory(category) +
+                    foregroundPackage
+                val perApp = UsageTotals.perAppMinutesToday(
+                    usageStatsRepository,
+                    usageSessionRepository
+                )
+                val categoryMinutes = packages.sumOf { perApp[it] ?: 0 }
+                if (categoryMinutes >= categoryLimit.dailyLimitMinutes) {
+                    return BlockDecision(
+                        packageName = foregroundPackage,
+                        reason = BlockReason.CATEGORY_LIMIT,
+                        usedMinutes = categoryMinutes,
+                        limitMinutes = categoryLimit.dailyLimitMinutes,
+                        category = category
+                    )
+                }
+            }
         }
 
         // 3. The overall daily cap, applied to every app except the launcher,
@@ -266,6 +379,10 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             .getOrDefault(DetectionRuleCatalog.EMPTY)
         return catalog.rules.any { it.packageName == packageName && it.id in enabled }
     }
+
+    private fun minuteOfDay(now: Long): Int = Calendar.getInstance().apply {
+        timeInMillis = now
+    }.let { it.get(Calendar.HOUR_OF_DAY) * 60 + it.get(Calendar.MINUTE) }
 
     private suspend fun liveUsageMinutes(packageName: String): Int =
         try {

@@ -49,7 +49,10 @@ class ManageFocusSessionUseCaseTest {
         detectionRuleRepository = FakeDetectionRuleRepository(),
         sectionRulePreferencesRepository = FakeSectionRulePreferencesRepository(),
         customRuleRepository = FakeCustomRuleRepository(),
-        blockableAppsRepository = FakeBlockableAppsRepository()
+        blockableAppsRepository = FakeBlockableAppsRepository(),
+        protectionSettingsRepository = FakeProtectionSettingsRepository(),
+        appOpenRepository = FakeAppOpenRepository(),
+        appCategoryRepository = FakeAppCategoryRepository()
     )
 
     @Test

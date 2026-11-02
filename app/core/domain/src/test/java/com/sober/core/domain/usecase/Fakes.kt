@@ -1,6 +1,11 @@
 package com.sober.core.domain.usecase
 
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.model.AllowOnlyMode
+import com.sober.core.domain.model.AppCategory
+import com.sober.core.domain.model.AppPauseRule
+import com.sober.core.domain.model.BedtimeSettings
+import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
@@ -23,6 +28,7 @@ import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.AlertNotifier
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
@@ -33,7 +39,9 @@ import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.NotificationPreferencesRepository
 import com.sober.core.domain.repository.OverrideLogRepository
 import com.sober.core.domain.repository.OverrideStateRepository
+import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.repository.PinRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.ScheduleRuleRepository
 import com.sober.core.domain.repository.ScheduleSuggestionRepository
 import com.sober.core.domain.repository.SessionStateRepository
@@ -421,9 +429,91 @@ class FakeAchievementRepository(
 }
 
 class FakeAppCategoryRepository(
-    var social: Set<String> = emptySet()
+    var social: Set<String> = emptySet(),
+    var categories: Map<String, AppCategory> = emptyMap(),
+    var packagesByCategory: Map<AppCategory, Set<String>> = emptyMap()
 ) : AppCategoryRepository {
     override fun getSocialPackages(): Set<String> = social
+
+    override fun getCategory(packageName: String): AppCategory =
+        categories[packageName] ?: AppCategory.OTHER
+
+    override fun getPackagesInCategory(category: AppCategory): Set<String> =
+        packagesByCategory[category].orEmpty() +
+            categories.filterValues { it == category }.keys
+}
+
+class FakeProtectionSettingsRepository : ProtectionSettingsRepository {
+    override val pausedUntil = MutableStateFlow<Long?>(null)
+    override val lockedUntil = MutableStateFlow<Long?>(null)
+    override val allowOnly = MutableStateFlow(AllowOnlyMode())
+    override val bedtime = MutableStateFlow(BedtimeSettings())
+    override val bedtimeSilenced = MutableStateFlow(false)
+    override val categoryLimits = MutableStateFlow<List<CategoryLimit>>(emptyList())
+
+    override suspend fun setPausedUntil(until: Long?) {
+        pausedUntil.value = until
+    }
+
+    override suspend fun setLockedUntil(until: Long?) {
+        lockedUntil.value = until
+    }
+
+    override suspend fun setAllowOnly(mode: AllowOnlyMode) {
+        allowOnly.value = mode
+    }
+
+    override suspend fun setBedtime(settings: BedtimeSettings) {
+        bedtime.value = settings
+    }
+
+    override suspend fun setBedtimeSilenced(silenced: Boolean) {
+        bedtimeSilenced.value = silenced
+    }
+
+    override suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?) {
+        categoryLimits.value =
+            categoryLimits.value.filterNot { it.category == category } +
+                listOfNotNull(limit)
+    }
+}
+
+class FakePauseRulesRepository : PauseRulesRepository {
+    override val rules = MutableStateFlow<List<AppPauseRule>>(emptyList())
+    override val passes = MutableStateFlow<Map<String, Long>>(emptyMap())
+
+    override suspend fun ruleFor(packageName: String): AppPauseRule? =
+        rules.value.firstOrNull { it.packageName == packageName && it.isActive }
+
+    override suspend fun setRule(packageName: String, rule: AppPauseRule?) {
+        rules.value = rules.value.filterNot { it.packageName == packageName } + listOfNotNull(rule)
+    }
+
+    override suspend fun grantPass(packageName: String, until: Long) {
+        passes.value = passes.value + (packageName to until)
+    }
+
+    override suspend fun passUntil(packageName: String): Long? = passes.value[packageName]
+
+    override suspend fun clearExpiredPasses(now: Long) {
+        passes.value = passes.value.filterValues { it > now }
+    }
+}
+
+class FakeAppOpenRepository(initial: Map<String, Int> = emptyMap()) : AppOpenRepository {
+    val opens = initial.toMutableMap()
+
+    override suspend fun recordOpen(packageName: String, at: Long) {
+        opens[packageName] = (opens[packageName] ?: 0) + 1
+    }
+
+    override suspend fun countToday(packageName: String, now: Long): Int =
+        opens[packageName] ?: 0
+
+    override fun observeTodayCounts(now: Long): Flow<Map<String, Int>> =
+        MutableStateFlow(opens.toMap())
+
+    override suspend fun deleteBefore(cutoff: Long) = Unit
 }
 
 class FakeScheduleSuggestionRepository(

@@ -6,6 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.sober.core.domain.model.AllowOnlyMode
+import com.sober.core.domain.model.AppCategory
+import com.sober.core.domain.model.AppPauseRule
+import com.sober.core.domain.model.BedtimeSettings
+import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.NotificationSilenceScope
 import com.sober.core.domain.model.StreakRecord
 import com.sober.core.domain.repository.AlertKind
@@ -108,6 +113,51 @@ class SoberPreferences @Inject constructor(
         // CustomRuleCodec for the field order.
         val KEY_CUSTOM_RULES =
             androidx.datastore.preferences.core.stringSetPreferencesKey("custom_rules")
+
+        // Pause everything: epoch millis until which every rule and limit is
+        // suspended. Separate from a meal break so the two can be reasoned
+        // about independently (a pause is a deliberate act, a break is a
+        // twenty-minute grace period tied to a session).
+        val KEY_PAUSED_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("paused_until")
+
+        // Lock mode: epoch millis until which protection settings cannot be
+        // changed and blocks cannot be overridden.
+        val KEY_LOCKED_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("locked_until")
+
+        // Pause before opening: "package|delaySeconds" per app, and
+        // "package|epochMillis" for the passes earned by sitting one out.
+        val KEY_APP_PAUSE_RULES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("app_pause_rules")
+        val KEY_PAUSE_PASSES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("pause_passes")
+
+        // Allow-only mode and the apps it permits.
+        val KEY_ALLOW_ONLY_ENABLED =
+            androidx.datastore.preferences.core.booleanPreferencesKey("allow_only_enabled")
+        val KEY_ALLOW_ONLY_PACKAGES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("allow_only_packages")
+
+        // Category budgets, "CATEGORY|minutes" per entry.
+        val KEY_CATEGORY_LIMITS =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("category_limits")
+
+        // Bedtime window as minutes since midnight, plus the apps it permits.
+        val KEY_BEDTIME_ENABLED =
+            androidx.datastore.preferences.core.booleanPreferencesKey("bedtime_enabled")
+        val KEY_BEDTIME_START =
+            androidx.datastore.preferences.core.intPreferencesKey("bedtime_start_minute")
+        val KEY_BEDTIME_END =
+            androidx.datastore.preferences.core.intPreferencesKey("bedtime_end_minute")
+        val KEY_BEDTIME_ALLOWED =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("bedtime_allowed_packages")
+
+        // True only while Sober, not the user, turned Do Not Disturb on.
+        val KEY_BEDTIME_SILENCED =
+            androidx.datastore.preferences.core.booleanPreferencesKey("bedtime_silenced")
+
+        // YYYY-MM-DD of the week the last weekly report covered.
+        val KEY_WEEKLY_REPORT_LAST =
+            androidx.datastore.preferences.core.stringPreferencesKey("weekly_report_last_week_start")
     }
 
     val isOnboardingComplete: Flow<Boolean> = dataStore.data
@@ -427,6 +477,168 @@ class SoberPreferences @Inject constructor(
             val current = preferences[KEY_CUSTOM_RULES] ?: emptySet()
             preferences[KEY_CUSTOM_RULES] = transform(current)
         }
+    }
+
+    // ---- Pause everything / lock mode --------------------------------
+
+    val pausedUntil: Flow<Long?> = dataStore.data.map { it[KEY_PAUSED_UNTIL] }
+
+    /** Passing null ends the pause early. */
+    suspend fun setPausedUntil(until: Long?) {
+        dataStore.edit { preferences ->
+            if (until == null) preferences.remove(KEY_PAUSED_UNTIL)
+            else preferences[KEY_PAUSED_UNTIL] = until
+        }
+    }
+
+    val lockedUntil: Flow<Long?> = dataStore.data.map { it[KEY_LOCKED_UNTIL] }
+
+    suspend fun setLockedUntil(until: Long?) {
+        dataStore.edit { preferences ->
+            if (until == null) preferences.remove(KEY_LOCKED_UNTIL)
+            else preferences[KEY_LOCKED_UNTIL] = until
+        }
+    }
+
+    // ---- Pause before opening ----------------------------------------
+
+    val appPauseRules: Flow<List<AppPauseRule>> = dataStore.data.map { preferences ->
+        preferences[KEY_APP_PAUSE_RULES].orEmpty().mapNotNull(::decodePauseRule)
+    }
+
+    /** Adds or replaces the rule for [packageName]; a null [rule] removes it. */
+    suspend fun setAppPauseRule(packageName: String, rule: AppPauseRule?) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_APP_PAUSE_RULES].orEmpty()
+            val without = current.filterNot { it.substringBefore('|') == packageName }
+            preferences[KEY_APP_PAUSE_RULES] = if (rule == null) {
+                without.toSet()
+            } else {
+                (without + "${rule.packageName}|${rule.delaySeconds}|${rule.isActive}").toSet()
+            }
+        }
+    }
+
+    /** packageName -> epoch millis at which the earned pass expires. */
+    val pausePasses: Flow<Map<String, Long>> = dataStore.data.map { preferences ->
+        preferences[KEY_PAUSE_PASSES].orEmpty()
+            .mapNotNull { entry ->
+                val packageName = entry.substringBefore('|')
+                val until = entry.substringAfter('|', "").toLongOrNull()
+                if (packageName.isBlank() || until == null) null else packageName to until
+            }
+            .toMap()
+    }
+
+    /** Read-modify-write in one edit so a stale pass for the same app is replaced. */
+    suspend fun grantPausePass(packageName: String, until: Long, now: Long) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_PAUSE_PASSES].orEmpty()
+            val live = current.filter { entry ->
+                val expiry = entry.substringAfter('|', "").toLongOrNull()
+                val name = entry.substringBefore('|')
+                expiry != null && expiry > now && name != packageName
+            }
+            preferences[KEY_PAUSE_PASSES] = live.toSet() + "$packageName|$until"
+        }
+    }
+
+    suspend fun clearExpiredPasses(now: Long) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_PAUSE_PASSES].orEmpty()
+            val live = current.filter { entry ->
+                (entry.substringAfter('|', "").toLongOrNull() ?: 0L) > now
+            }
+            if (live.size != current.size) preferences[KEY_PAUSE_PASSES] = live.toSet()
+        }
+    }
+
+    // ---- Allow-only, category budgets and bedtime --------------------
+
+    val allowOnly: Flow<AllowOnlyMode> = dataStore.data.map { preferences ->
+        AllowOnlyMode(
+            enabled = preferences[KEY_ALLOW_ONLY_ENABLED] ?: false,
+            allowedPackages = preferences[KEY_ALLOW_ONLY_PACKAGES].orEmpty()
+        )
+    }
+
+    suspend fun setAllowOnly(mode: AllowOnlyMode) {
+        dataStore.edit { preferences ->
+            preferences[KEY_ALLOW_ONLY_ENABLED] = mode.enabled
+            preferences[KEY_ALLOW_ONLY_PACKAGES] = mode.allowedPackages
+        }
+    }
+
+    val categoryLimits: Flow<List<CategoryLimit>> = dataStore.data.map { preferences ->
+        preferences[KEY_CATEGORY_LIMITS].orEmpty().mapNotNull { entry ->
+            val category = entry.substringBefore('|')
+                .let { runCatching { AppCategory.valueOf(it) }.getOrNull() }
+                ?: return@mapNotNull null
+            val minutes = entry.substringAfter('|', "").toIntOrNull() ?: return@mapNotNull null
+            CategoryLimit(category = category, dailyLimitMinutes = minutes)
+        }
+    }
+
+    /** Passing null removes [category]'s budget. */
+    suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_CATEGORY_LIMITS].orEmpty()
+            val without = current.filterNot { it.substringBefore('|') == category.name }
+            preferences[KEY_CATEGORY_LIMITS] = if (limit == null) {
+                without.toSet()
+            } else {
+                (without + "${limit.category.name}|${limit.dailyLimitMinutes}").toSet()
+            }
+        }
+    }
+
+    val bedtime: Flow<BedtimeSettings> = dataStore.data.map { preferences ->
+        BedtimeSettings(
+            enabled = preferences[KEY_BEDTIME_ENABLED] ?: false,
+            startMinuteOfDay = preferences[KEY_BEDTIME_START] ?: (22 * 60),
+            endMinuteOfDay = preferences[KEY_BEDTIME_END] ?: (7 * 60),
+            allowedPackages = preferences[KEY_BEDTIME_ALLOWED].orEmpty()
+        )
+    }
+
+    suspend fun setBedtime(settings: BedtimeSettings) {
+        dataStore.edit { preferences ->
+            preferences[KEY_BEDTIME_ENABLED] = settings.enabled
+            preferences[KEY_BEDTIME_START] = settings.startMinuteOfDay
+            preferences[KEY_BEDTIME_END] = settings.endMinuteOfDay
+            preferences[KEY_BEDTIME_ALLOWED] = settings.allowedPackages
+        }
+    }
+
+    val bedtimeSilenced: Flow<Boolean> = dataStore.data.map {
+        it[KEY_BEDTIME_SILENCED] ?: false
+    }
+
+    suspend fun setBedtimeSilenced(silenced: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_BEDTIME_SILENCED] = silenced
+        }
+    }
+
+    val weeklyReportLastWeekStart: Flow<String?> =
+        dataStore.data.map { it[KEY_WEEKLY_REPORT_LAST] }
+
+    suspend fun setWeeklyReportLastWeekStart(weekStart: String) {
+        dataStore.edit { preferences ->
+            preferences[KEY_WEEKLY_REPORT_LAST] = weekStart
+        }
+    }
+
+    private fun decodePauseRule(raw: String): AppPauseRule? {
+        val parts = raw.split('|')
+        if (parts.size < 2) return null
+        val packageName = parts[0].ifBlank { return null }
+        val delay = parts[1].toIntOrNull() ?: return null
+        return AppPauseRule(
+            packageName = packageName,
+            delaySeconds = delay,
+            isActive = parts.getOrNull(2)?.toBooleanStrictOrNull() ?: true
+        )
     }
 }
 

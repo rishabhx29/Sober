@@ -12,7 +12,8 @@ data class AppLimitEntity(
     val dailyLimitMinutes: Int,
     val isActive: Boolean = true,
     val blockedSections: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val dailyOpenLimit: Int = 0
 ) {
     fun toDomainModel() = AppLimit(
         id = id,
@@ -21,7 +22,8 @@ data class AppLimitEntity(
         dailyLimitMinutes = dailyLimitMinutes,
         isActive = isActive,
         blockedSections = blockedSections,
-        createdAt = createdAt
+        createdAt = createdAt,
+        dailyOpenLimit = dailyOpenLimit
     )
 }
 
@@ -32,5 +34,6 @@ fun AppLimit.toEntity() = AppLimitEntity(
     dailyLimitMinutes = dailyLimitMinutes,
     isActive = isActive,
     blockedSections = blockedSections,
-    createdAt = createdAt
+    createdAt = createdAt,
+    dailyOpenLimit = dailyOpenLimit
 )

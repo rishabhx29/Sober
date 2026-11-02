@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.sober.core.data.local.SoberDatabase
 import com.sober.core.data.local.dao.AppLimitDao
+import com.sober.core.data.local.dao.AppOpenDao
 import com.sober.core.data.local.dao.FocusSessionDao
 import com.sober.core.data.local.dao.OverrideLogDao
 import com.sober.core.data.local.dao.ScheduleRuleDao
@@ -26,7 +27,9 @@ object DataModule {
             context,
             SoberDatabase::class.java,
             "sober_database"
-        ).build()
+        )
+            .addMigrations(SoberDatabase.MIGRATION_1_2)
+            .build()
     }
 
     @Provides
@@ -43,4 +46,7 @@ object DataModule {
 
     @Provides
     fun provideOverrideLogDao(database: SoberDatabase): OverrideLogDao = database.overrideLogDao()
+
+    @Provides
+    fun provideAppOpenDao(database: SoberDatabase): AppOpenDao = database.appOpenDao()
 }
