@@ -48,7 +48,8 @@ class ManageFocusSessionUseCaseTest {
         accessibilityStateRepository = FakeAccessibilityStateRepository(),
         detectionRuleRepository = FakeDetectionRuleRepository(),
         sectionRulePreferencesRepository = FakeSectionRulePreferencesRepository(),
-        customRuleRepository = FakeCustomRuleRepository()
+        customRuleRepository = FakeCustomRuleRepository(),
+        blockableAppsRepository = FakeBlockableAppsRepository()
     )
 
     @Test

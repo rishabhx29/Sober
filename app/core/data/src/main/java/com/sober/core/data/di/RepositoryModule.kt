@@ -4,6 +4,7 @@ import com.sober.core.data.repository.AccessibilityStateRepositoryImpl
 import com.sober.core.data.repository.AchievementRepositoryImpl
 import com.sober.core.data.repository.AppCategoryRepositoryImpl
 import com.sober.core.data.repository.AppLimitRepositoryImpl
+import com.sober.core.data.repository.BlockableAppsRepositoryImpl
 import com.sober.core.data.repository.CustomRuleRepositoryImpl
 import com.sober.core.data.repository.DetectionRuleRepositoryImpl
 import com.sober.core.data.repository.FocusSessionRepositoryImpl
@@ -20,6 +21,7 @@ import com.sober.core.domain.repository.AccessibilityStateRepository
 import com.sober.core.domain.repository.AchievementRepository
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.FocusSessionRepository
@@ -161,4 +163,10 @@ abstract class RepositoryModule {
     abstract fun bindScheduleSuggestionRepository(
         impl: ScheduleSuggestionRepositoryImpl
     ): ScheduleSuggestionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBlockableAppsRepository(
+        impl: BlockableAppsRepositoryImpl
+    ): BlockableAppsRepository
 }

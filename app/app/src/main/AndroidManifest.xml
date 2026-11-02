@@ -34,6 +34,19 @@
         <intent>
             <action android:name="android.intent.action.SET_ALARM" />
         </intent>
+        <!--
+          Enforcement must recognise the keyboard and system Settings as device
+          chrome, never as apps it may cover.
+        -->
+        <intent>
+            <action android:name="android.view.InputMethod" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APPLICATION_SETTINGS" />
+        </intent>
     </queries>
 
     <application

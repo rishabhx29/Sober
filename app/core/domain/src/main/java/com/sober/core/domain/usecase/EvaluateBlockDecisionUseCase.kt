@@ -3,6 +3,7 @@ package com.sober.core.domain.usecase
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.repository.AccessibilityStateRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
@@ -85,10 +86,17 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
     private val accessibilityStateRepository: AccessibilityStateRepository,
     private val detectionRuleRepository: DetectionRuleRepository,
     private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
-    private val customRuleRepository: CustomRuleRepository
+    private val customRuleRepository: CustomRuleRepository,
+    private val blockableAppsRepository: BlockableAppsRepository
 ) {
     suspend operator fun invoke(foregroundPackage: String?): BlockDecision? {
         if (foregroundPackage.isNullOrBlank()) return null
+
+        // 0a. The device's own chrome is never a block target. The keyboard,
+        //     SystemUI and Settings can come to the foreground while a block is
+        //     in force; covering them would make the phone unusable and could
+        //     trap the user inside Sober.
+        if (!blockableAppsRepository.isBlockable(foregroundPackage)) return null
 
         // 0. A meal break lifts every block, including an active focus
         //    session's, for its twenty minutes. The window expires on its own;
@@ -208,12 +216,15 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             )
         }
 
-        // 3. The overall daily cap, applied to every app except the launcher
-        //    and Sober itself. This cap is intentionally independent of
-        //    per-app limits: a user can be under every app limit and still
-        //    over their total budget for the day.
+        // 3. The overall daily cap, applied to every app except the launcher,
+        //    Sober itself and any app the user exempted in Settings. This cap
+        //    is intentionally independent of per-app limits: a user can be
+        //    under every app limit and still over their total budget for the
+        //    day. Exempt apps still count toward the total; exemption only
+        //    means the cap does not cover them.
         val overallLimit = sessionStateRepository.dailyScreenTimeLimitMinutes.first()
-        if (overallLimit > 0) {
+        val exemptPackages = sessionStateRepository.dailyCapExemptPackages.first()
+        if (overallLimit > 0 && foregroundPackage !in exemptPackages) {
             // Summed across all apps, because this cap spans the whole device.
             val totalMinutes = UsageTotals.deviceMinutesToday(
                 usageStatsRepository,

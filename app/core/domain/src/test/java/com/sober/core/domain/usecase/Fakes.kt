@@ -23,6 +23,8 @@ import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.AlertNotifier
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.BlockableApp
+import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
@@ -128,12 +130,19 @@ class FakeSessionStateRepository : SessionStateRepository {
     override val activeSessionSilenceNotifications = MutableStateFlow(false)
     override val lastUsageRolloverDay = MutableStateFlow<String?>(null)
     override val dailyScreenTimeLimitMinutes = MutableStateFlow(0)
+    override val dailyCapExemptPackages = MutableStateFlow<Set<String>>(emptySet())
     override val notificationSilenceScope =
         MutableStateFlow<NotificationSilenceScope?>(null)
     override val mealBreakUntil = MutableStateFlow<Long?>(null)
 
     override suspend fun setMealBreakUntil(until: Long?) {
         mealBreakUntil.value = until
+    }
+
+    override suspend fun setDailyCapExempt(packageName: String, exempt: Boolean) {
+        dailyCapExemptPackages.value =
+            if (exempt) dailyCapExemptPackages.value + packageName
+            else dailyCapExemptPackages.value - packageName
     }
 
     override suspend fun setActiveSession(
@@ -440,6 +449,24 @@ class FakeDetectionRuleRepository(
     var catalog: DetectionRuleCatalog = DetectionRuleCatalog.EMPTY
 ) : DetectionRuleRepository {
     override suspend fun load(): DetectionRuleCatalog = catalog
+}
+
+/**
+ * Defaults to "everything is a blockable app", which keeps the existing tests
+ * focused on policy. Tests about device chrome pass an explicit set.
+ */
+class FakeBlockableAppsRepository(
+    private val blockable: Set<String>? = null,
+    private val transient: Set<String> = emptySet()
+) : BlockableAppsRepository {
+    override fun isBlockable(packageName: String): Boolean =
+        blockable?.contains(packageName) ?: true
+
+    override fun isTransientChrome(packageName: String): Boolean =
+        packageName in transient
+
+    override fun blockableApps(): List<BlockableApp> =
+        blockable?.map { BlockableApp(it, it) } ?: emptyList()
 }
 
 class FakeSectionRulePreferencesRepository(

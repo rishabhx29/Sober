@@ -16,6 +16,13 @@ interface SessionStateRepository {
     /** Overall daily screen-time cap in minutes, independent of per-app limits. */
     val dailyScreenTimeLimitMinutes: Flow<Int>
 
+    /**
+     * Packages the user excluded from the overall cap. They still count as
+     * screen time and their own limits and schedules still apply; the cap just
+     * never covers them.
+     */
+    val dailyCapExemptPackages: Flow<Set<String>>
+
     /** How aggressively the active session silences notifications. */
     val notificationSilenceScope: Flow<com.sober.core.domain.model.NotificationSilenceScope?>
 
@@ -39,6 +46,9 @@ interface SessionStateRepository {
 
     /** Sets the pause window; null ends a meal break early. */
     suspend fun setMealBreakUntil(until: Long?)
+
+    /** Adds or removes one package from [dailyCapExemptPackages]. */
+    suspend fun setDailyCapExempt(packageName: String, exempt: Boolean)
 
     suspend fun setLastUsageRolloverDay(day: String)
 

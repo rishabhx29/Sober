@@ -21,6 +21,7 @@ class SessionStateRepositoryImpl @Inject constructor(
     override val activeSessionSilenceNotifications: Flow<Boolean> = soberPreferences.activeSessionSilenceNotifications
     override val lastUsageRolloverDay: Flow<String?> = soberPreferences.lastUsageRolloverDay
     override val dailyScreenTimeLimitMinutes: Flow<Int> = soberPreferences.dailyScreenTimeLimitMinutes
+    override val dailyCapExemptPackages: Flow<Set<String>> = soberPreferences.dailyCapExemptPackages
     override val notificationSilenceScope: Flow<NotificationSilenceScope?> =
         soberPreferences.notificationSilenceScope
     override val mealBreakUntil: Flow<Long?> = soberPreferences.mealBreakUntil
@@ -49,6 +50,10 @@ class SessionStateRepositoryImpl @Inject constructor(
 
     override suspend fun setMealBreakUntil(until: Long?) {
         soberPreferences.setMealBreakUntil(until)
+    }
+
+    override suspend fun setDailyCapExempt(packageName: String, exempt: Boolean) {
+        soberPreferences.setDailyCapExempt(packageName, exempt)
     }
 
     override suspend fun setLastUsageRolloverDay(day: String) {

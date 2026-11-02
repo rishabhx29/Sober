@@ -44,6 +44,10 @@ class SoberPreferences @Inject constructor(
         val KEY_DAILY_SCREEN_TIME_LIMIT = androidx.datastore.preferences.core.intPreferencesKey("daily_screen_time_limit_minutes")
         const val DEFAULT_DAILY_SCREEN_TIME_LIMIT = 120
 
+        // Apps the user excluded from the overall cap, e.g. calls or maps
+        val KEY_DAILY_CAP_EXEMPT_PACKAGES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("daily_cap_exempt_packages")
+
         // Notification silencing scope for the active session
         val KEY_NOTIFICATION_SILENCE_SCOPE = androidx.datastore.preferences.core.stringPreferencesKey("notification_silence_scope")
 
@@ -142,6 +146,10 @@ class SoberPreferences @Inject constructor(
         it[KEY_DAILY_SCREEN_TIME_LIMIT] ?: DEFAULT_DAILY_SCREEN_TIME_LIMIT
     }
 
+    val dailyCapExemptPackages: Flow<Set<String>> = dataStore.data.map {
+        it[KEY_DAILY_CAP_EXEMPT_PACKAGES] ?: emptySet()
+    }
+
     /**
      * Parsed leniently: an unknown stored value falls back to null (treat as
      * unset) instead of throwing, so a downgrade cannot brick notification
@@ -162,6 +170,15 @@ class SoberPreferences @Inject constructor(
     suspend fun setDailyScreenTimeLimitMinutes(minutes: Int) {
         dataStore.edit { preferences ->
             preferences[KEY_DAILY_SCREEN_TIME_LIMIT] = minutes.coerceAtLeast(0)
+        }
+    }
+
+    /** Read-modify-write inside one edit so two quick toggles cannot drop one. */
+    suspend fun setDailyCapExempt(packageName: String, exempt: Boolean) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_DAILY_CAP_EXEMPT_PACKAGES] ?: emptySet()
+            preferences[KEY_DAILY_CAP_EXEMPT_PACKAGES] =
+                if (exempt) current + packageName else current - packageName
         }
     }
 

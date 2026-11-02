@@ -22,7 +22,8 @@ class EvaluateBlockDecisionUseCaseTest {
         rules: FakeDetectionRuleRepository = FakeDetectionRuleRepository(),
         sectionRules: FakeSectionRulePreferencesRepository =
             FakeSectionRulePreferencesRepository(),
-        customRules: FakeCustomRuleRepository = FakeCustomRuleRepository()
+        customRules: FakeCustomRuleRepository = FakeCustomRuleRepository(),
+        blockableApps: FakeBlockableAppsRepository = FakeBlockableAppsRepository()
     ) = EvaluateBlockDecisionUseCase(
         appLimitRepository = limits,
         usageSessionRepository = FakeUsageSessionRepository(),
@@ -36,7 +37,8 @@ class EvaluateBlockDecisionUseCaseTest {
         accessibilityStateRepository = accessibility,
         detectionRuleRepository = rules,
         sectionRulePreferencesRepository = sectionRules,
-        customRuleRepository = customRules
+        customRuleRepository = customRules,
+        blockableAppsRepository = blockableApps
     )
 
     private fun activeSession(vararg blocked: String) = FakeSessionStateRepository().apply {
@@ -427,5 +429,116 @@ class EvaluateBlockDecisionUseCaseTest {
         )("com.instagram.android")
 
         assertEquals(BlockReason.SCHEDULE, decision?.reason)
+    }
+
+    private fun usageOf(vararg entries: Pair<String, Int>) = FakeUsageStatsRepository(
+        usage = entries.map { (packageName, minutes) ->
+            AppUsage(
+                packageName = packageName,
+                totalTimeInForeground = minutes * 60_000L,
+                lastTimeUsed = System.currentTimeMillis()
+            )
+        }
+    )
+
+    private fun cappedAt(minutes: Int) = FakeSessionStateRepository().apply {
+        dailyScreenTimeLimitMinutes.value = minutes
+    }
+
+    private val chromeAndYouTube = FakeBlockableAppsRepository(
+        blockable = setOf("com.android.chrome", "com.google.android.youtube"),
+        transient = setOf("com.android.systemui", "com.google.android.inputmethod.latin")
+    )
+
+    @Test
+    fun `device chrome is never blocked, even when the cap is exceeded`() = runTest {
+        val evaluate = useCase(
+            state = cappedAt(30),
+            usage = usageOf("com.android.chrome" to 60),
+            blockableApps = chromeAndYouTube
+        )
+
+        assertNull(evaluate("com.android.systemui"))
+        assertNull(evaluate("com.google.android.inputmethod.latin"))
+    }
+
+    @Test
+    fun `a non-launchable package is not blocked by a stray rule`() = runTest {
+        val evaluate = useCase(
+            schedules = allDaySchedule(),
+            blockableApps = FakeBlockableAppsRepository(blockable = emptySet())
+        )
+
+        assertNull(evaluate("com.android.systemui"))
+    }
+
+    @Test
+    fun `the overall cap blocks a covered app once the total is reached`() = runTest {
+        val decision = useCase(
+            state = cappedAt(30),
+            usage = usageOf("com.android.chrome" to 45),
+            blockableApps = chromeAndYouTube
+        )("com.google.android.youtube")
+
+        assertEquals(BlockReason.OVERALL_DAILY_LIMIT, decision?.reason)
+        assertEquals(45, decision?.usedMinutes)
+        assertEquals(30, decision?.limitMinutes)
+    }
+
+    @Test
+    fun `an app left out of the cap is not blocked by it`() = runTest {
+        val state = cappedAt(30).apply {
+            dailyCapExemptPackages.value = setOf("com.android.chrome")
+        }
+        val evaluate = useCase(
+            state = state,
+            usage = usageOf("com.android.chrome" to 60),
+            blockableApps = chromeAndYouTube
+        )
+
+        assertNull(evaluate("com.android.chrome"))
+        assertEquals(
+            BlockReason.OVERALL_DAILY_LIMIT,
+            evaluate("com.google.android.youtube")?.reason
+        )
+    }
+
+    @Test
+    fun `leaving an app out of the cap keeps its own limit`() = runTest {
+        val state = cappedAt(30).apply {
+            dailyCapExemptPackages.value = setOf("com.android.chrome")
+        }
+        val limits = FakeAppLimitRepository(
+            listOf(
+                com.sober.core.domain.model.AppLimit(
+                    packageName = "com.android.chrome",
+                    appName = "Chrome",
+                    dailyLimitMinutes = 30
+                )
+            )
+        )
+
+        val decision = useCase(
+            state = state,
+            limits = limits,
+            usage = usageOf("com.android.chrome" to 45),
+            blockableApps = chromeAndYouTube
+        )("com.android.chrome")
+
+        assertEquals(BlockReason.APP_DAILY_LIMIT, decision?.reason)
+    }
+
+    @Test
+    fun `leaving an app out of the cap does not lift a focus session`() = runTest {
+        val state = activeSession("com.android.chrome").apply {
+            dailyScreenTimeLimitMinutes.value = 30
+            dailyCapExemptPackages.value = setOf("com.android.chrome")
+        }
+
+        val decision = useCase(state = state, blockableApps = chromeAndYouTube)(
+            "com.android.chrome"
+        )
+
+        assertEquals(BlockReason.FOCUS_SESSION, decision?.reason)
     }
 }

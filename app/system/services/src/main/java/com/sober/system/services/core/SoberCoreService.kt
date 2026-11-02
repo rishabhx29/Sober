@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.sober.core.data.local.datastore.SoberPreferences
+import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.usecase.BlockDecision
 import com.sober.core.domain.usecase.BlockReason
 import com.sober.core.domain.usecase.CheckBedtimeWarningUseCase
@@ -98,6 +99,9 @@ class SoberCoreService : Service() {
 
     @Inject
     lateinit var foregroundSignal: ForegroundSignal
+
+    @Inject
+    lateinit var blockableAppsRepository: BlockableAppsRepository
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
@@ -257,10 +261,19 @@ class SoberCoreService : Service() {
      * to apps, and covering Home would leave the user with no way to navigate.
      * The poll already reports both as "unknown"; a window hint names them, so
      * they are mapped to the same answer here.
+     *
+     * A keyboard, the notification shade or a permission dialog can also come
+     * to the foreground while an app is open. Those are not app switches, so
+     * the current overlay state is held rather than cleared — otherwise typing
+     * in a text field could lift an active block until the next poll.
      */
     private suspend fun applyPolicy(foreground: String?) {
+        if (foreground != null && blockableAppsRepository.isTransientChrome(foreground)) return
+
         val target = foreground?.takeUnless {
-            it == homePackage || it == packageName
+            it == homePackage ||
+                it == packageName ||
+                !blockableAppsRepository.isBlockable(it)
         }
 
         val decision = target?.let { evaluateBlockDecisionUseCase(it) }
@@ -372,7 +385,7 @@ class SoberCoreService : Service() {
         val text: String
         if (remainingMinutes == 0) {
             title = "Daily limit reached"
-            text = "Every app is blocked until midnight."
+            text = "Apps are blocked until midnight."
         } else {
             title = "Sober is active"
             text = "${formatDuration(remainingMinutes)} left of your ${formatDuration(limitMinutes)} daily cap"
