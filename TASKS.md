@@ -640,13 +640,14 @@
 ### 5.5 Dark Mode
 
 - [x] Define dark mode color tokens
-- [!] QA pass on every screen in dark mode — *blocked: needs a device or emulator; see the 5.5 note below.*
+- [!] QA pass on every screen in dark mode — *partially verified on the `SoberQA` emulator on 2026-11-02: Home, Apps (All + Limited), Focus, Statistics, Settings and the block overlay were reviewed in dark mode. Sub-screens and dialogs — schedule editor, custom-rule editor, onboarding, PIN sheets, export/share sheet — were not individually checked, so the item stays open.*
 - [x] System theme auto-follow option
 
-> 5.5 note (2026-10-29): tokens + System/Light/Dark switch are implemented and
-> the app and the blocking overlay both consume them. "QA pass on every screen
-> in dark mode" stays open: it needs a device/emulator, and this environment has
-> neither — only Gradle compile and JVM unit tests were run.
+> 5.5 note (2026-10-29, updated 2026-11-02): tokens + System/Light/Dark switch
+> are implemented and the app and the blocking overlay both consume them. A
+> `SoberQA` emulator pass on 2026-11-02 reviewed the six main screens and the
+> overlay in dark mode; the item stays open only for the sub-screens and dialogs
+> listed on the line above, which were not opened individually.
 
 ### 5.6 Performance & Hardening
 
@@ -1089,6 +1090,10 @@
 | 2026-11-01 | P1.7a | completed            | QA Agent           | `SoberCoreService.start()` is called by the boot receiver, by `SoberNavHost` on every launch and by `ensureRunning()` on every session action; because a running service gets another `onStartCommand` (not another `onCreate`), each call added a poll loop, a countdown ticker and a window-hint collector. The loops now start in `onCreate`. Also corrected the Settings doc comment that claimed notification and streak controls were absent (they are present and wired), dropped a mangled comment terminator, and switched the two back arrows to the auto-mirrored icon. Verified: `:system:services`/`:feature:settings` compile, `test` 349/349, `:app:assembleDebug` green. Battery effect of the duplicate loops is unmeasured — no device |
 | 2026-11-01 | P1.9b/P4.3a/P1.10b | completed | QA Agent           | Home, Stats and Apps each loaded their numbers in the ViewModel `init` and never again; because the ViewModel outlives the tab, "today" and every usage minute stayed frozen at the moment the app was opened. All three now re-read on `ON_RESUME` (Apps also keeps its Accessibility check), and Home's header date is state rather than a composition-local `Date()`, so an app left open overnight no longer shows yesterday. Also repaired a mangled line in `EvaluateBlockDecisionUseCase.hasEnabledSectionRule`. Verified: modules compile, `test` 349/349, `:app:assembleDebug` green. The refresh itself is lifecycle wiring and is not covered by a JVM test — no device, no visual check |
 | 2026-11-01 | P1.5a/P1.9c/P4.3b | completed | QA Agent           | Audit of the enforcement path found foreground detection went blind after ten uninterrupted minutes: `getForegroundPackage` replayed a fixed 10-minute window, and events only report *changes*, so the resume fell out of the window and the poll answered null — which `applyPolicy` treats as "switch to an allowed app" and hides the overlay it had already shown. Detection now seeds each replay with the previous answer, re-established once per process from a 24-hour query; `ForegroundReplayTest` (9 tests) pins the fold. Also excluded the launcher (home-screen time is an app in `queryUsageStats`) and Sober from Home's top rows, the "Apps used" count and Stats' TOP APPS, and made Home stop drawing a bar/lock for a limit whose `isActive` is false. `:app:lintDebug` is clean of errors (57 warnings: dependency versions, Compose-template colour resources, launcher icon assets). Verified: `test` 359/359, `:app:assembleDebug` green. Nothing ran on a device, so the overlay behaviour after ten minutes is reasoned from the code, not observed |
+| 2026-11-02 | P1.5b/P1.9d/P4.3c | completed | QA Agent | Emulator QA found a universal defect: Sober's own foreground service was counted as screen time (76m in one day) together with the launcher, so the overall cap blocked Sober's own settings. `UsageStatsRepository.excludedPackages` now drives the enforcer, `UsageTotals`, history reads and session sync; Home also filters its ring total and Stats its live total. Two new tests pin the exclusion (`GetDailyScreenTimeUseCaseTest`, `GetUsageHistoryUseCaseTest`). Verified on the `SoberQA` AVD: after 95s of Chrome, Home reads "0h 1m" and Stats "1m", and Sober opens without an overlay. `test` 361/361, signed `assembleRelease` green |
+| 2026-11-02 | P1.9e/P4.3b | completed | QA Agent | Two copy defects seen on device: Focus said "1 apps blocked" and Stats told the user to "Set an overall cap" directly under a real "1 of 1" adherence count. The label now singularises, and the hint reads "Days measured" once a cap exists. Verified in the emulator screenshots used by the README |
+| 2026-11-02 | QA-emulator | completed | QA Agent | `SoberQA` (pixel_6, android-36 x86_64) installed v1.1 over v1.0 with the same release key. Verified onboarding state survives, a 1-minute calendar limit produces the block screen with usage, limit, midnight countdown and quote, focus/stats/settings render in dark mode, and the app no longer counts itself or the launcher. Battery, Doze, OEM killers and real Instagram/YouTube resource ids remain hardware-blocked |
+| 2026-11-02 | P5.7b/P5.8-docs | completed | Task Tracker Agent | Published README with banner, icon, badges, seven real screenshots, install and warning-bypass guide, permission table, architecture, build/signing and privacy summary. Added MIT `LICENSE`; v1.1 release notes carry the same install instructions, SHA-256 and cert fingerprint |
 
 ---
 

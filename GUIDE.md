@@ -727,6 +727,32 @@ See `AGENTS.md` for full agent definitions. Summary:
 **Learning**: `UsageStatsManager.queryEvents` only contains transitions — a resume when an app comes forward, a pause when it leaves. The engine replayed a fixed 10-minute window and took the last transition as "the app on screen". That is correct for ten minutes and wrong after: a user watching a video emits no events at all, so the resume falls outside the window, the replay finds nothing, and the engine reports "unknown". The damage is worse than a missed block, because the poll treats an unknown screen as "the user switched to something allowed" and tears down an overlay that was already covering the blocked app. Fixed-window polling of an event stream has to start from a known state.  
 **Solution/Pattern**: Keep the last answer and apply only new events to it; re-establish that state once when the process starts (here, one 24-hour replay) rather than widening the window on every poll. An empty event list means "nothing changed", not "nothing is there". When writing the fold, keep it a pure function of `(events, previousAnswer)` so the steady-state case — the one that breaks — is directly testable without a device.
 
+### 11.17 An Enforcer Counts Its Own Foreground Service as Screen Time
+
+**Date**: 2026-11-02  
+**Context**: Emulator QA. Launching Sober showed its own "you have used 82 min of your 30 min daily cap" overlay, locking the settings screen that would fix it.  
+**Learning**: `UsageStatsManager.queryUsageStats` reports `totalTimeInForeground` for every package, including the app asking and any foreground service. Sober's enforcement service runs in Sober's process, so its own runtime accumulated as usage; the launcher's home-screen time accumulates the same way. One day the app had counted 76 minutes for itself. Any cap check that sums all rows therefore eventually blocks the enforcer itself, and Home/Stats show a number that disagrees with both each other and the cap.  
+**Solution/Pattern**: Keep one `excludedPackages` set (own package + resolved HOME activity) on the usage repository and apply it at every consumer: enforcement totals, Home ring, Stats live total, stored history reads and session sync. Filtering only at the query source would leave already-synced rows inflating history, so read-side filtering is required too. A `resolveActivity(ACTION_MAIN/CATEGORY_HOME)` lookup is the reliable way to find the launcher; hard-coding `com.android.launcher3` misses OEM launchers. Pin the rule with a test that mixes excluded and included packages in both live and stored data.
+
+### 11.18 Emulator QA Without a Physical Device
+
+**Date**: 2026-11-02  
+**Context**: Standing up the `SoberQA` AVD to verify the release build.  
+**Learning/Pattern**: A headless AVD plus `adb` covers most UI and enforcement checks, but only if the session is scripted. Useful commands:
+
+```bash
+emulator -avd SoberQA -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+adb wait-for-device
+adb shell getprop sys.boot_completed        # 1 means booted, not ready to use
+adb install -r app-release.apk
+adb shell am start -n com.sober.app/.MainActivity
+adb exec-out screencap -p > home.png
+adb shell dumpsys notification --noredact  # what was actually posted
+adb shell dumpsys usagestats                # foreground history
+```
+
+The AVD's clock and usage database reset to the host's notion of "today" on a cold boot, so generate usage in the current session (`am start` an app, wait a minute) before capturing a screenshot. Read a screenshot at 900×2000 while the device is 1080×2400 and multiply tap coordinates by 1.2. If `adb devices` goes empty mid-run, the emulator process died; restart it rather than re-issuing adb commands.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
@@ -746,6 +772,8 @@ See `AGENTS.md` for full agent definitions. Summary:
 | Overlay not showing | Check `Settings.canDrawOverlays()` returns true |
 | UsageStats returns empty | Verify `PACKAGE_USAGE_STATS` is granted in Settings |
 | Accessibility service not running | Check if it's listed in enabled accessibility services |
+| Sideloaded APK blocked by Play Protect | "More details" → "Install anyway"; if absent, pause Play Protect scanning, install, re-enable. On Android 13+, grant "Allow restricted settings" in the app's info page before enabling Accessibility |
+| Sober blocks its own settings | The cap totalled Sober's foreground service as usage; confirm `excludedPackages` includes the app and launcher in every total, including stored history |
 
 ### 12.3 Device-Specific Issues
 
