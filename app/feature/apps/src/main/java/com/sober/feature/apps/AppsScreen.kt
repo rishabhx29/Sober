@@ -63,6 +63,11 @@ import com.sober.core.ui.theme.TabularNumberStyle
 /** Pause lengths offered in the sheet: long enough to interrupt, short enough to wait. */
 private val PAUSE_DELAYS = listOf(5, 10, 30, 60)
 
+/** "9:40 PM" — the wall-clock time a lock lifts. */
+private fun clockText(epochMillis: Long): String =
+    java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+        .format(java.util.Date(epochMillis))
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppsScreen(
@@ -79,6 +84,8 @@ fun AppsScreen(
     val enabledSectionRules by viewModel.enabledSectionRules.collectAsState()
     val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsState()
     val websiteRules by viewModel.websiteRules.collectAsState()
+    val lockedUntil by viewModel.lockedUntil.collectAsState()
+    val rulesLocked = lockedUntil != null
 
     // Bottom sheet state
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
@@ -164,7 +171,24 @@ fun AppsScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (rulesLocked) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = SoberTheme.colors.primaryMuted,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Locked until ${clockText(lockedUntil!!)}. " +
+                                "Rules cannot change until then.",
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textPrimary,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
 
                 // Limit picker
                 SoberSectionLabel("Daily limit")
@@ -455,12 +479,13 @@ fun AppsScreen(
                         )
                         selectedApp = null
                     },
-                    enabled = sheetLimitHours * 60 + sheetLimitMinutes > 0 ||
-                        sheetOpenLimit > 0 ||
-                        sheetPauseEnabled
+                    enabled = !rulesLocked &&
+                        (sheetLimitHours * 60 + sheetLimitMinutes > 0 ||
+                            sheetOpenLimit > 0 ||
+                            sheetPauseEnabled)
                 )
 
-                if (app.isLimited || app.pauseDelaySeconds != null) {
+                if ((app.isLimited || app.pauseDelaySeconds != null) && !rulesLocked) {
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(
                         onClick = {
@@ -630,7 +655,8 @@ fun AppsScreen(
                         },
                         onLimitToggle = { enabled ->
                             viewModel.setLimitEnabled(app.packageName, enabled)
-                        }
+                        },
+                        locked = rulesLocked
                     )
                 }
             }
@@ -650,7 +676,8 @@ fun AppsScreen(
 internal fun AppRow(
     app: InstalledApp,
     onClick: () -> Unit,
-    onLimitToggle: (Boolean) -> Unit
+    onLimitToggle: (Boolean) -> Unit,
+    locked: Boolean = false
 ) {
     val colors = SoberTheme.colors
     // A pause rule on its own has nothing to switch off, so it does not earn
@@ -746,6 +773,7 @@ internal fun AppRow(
                 SoberToggleSwitch(
                     checked = app.isLimited,
                     onCheckedChange = onLimitToggle,
+                    enabled = !locked,
                     modifier = Modifier.semantics {
                         contentDescription = "Limit for ${app.name}"
                     }

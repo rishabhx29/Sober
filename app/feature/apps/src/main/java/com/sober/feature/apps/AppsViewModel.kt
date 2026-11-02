@@ -19,6 +19,7 @@ import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.PauseRulesRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.core.domain.usecase.GetAppUsageHistoryUseCase
@@ -63,7 +64,8 @@ class AppsViewModel @Inject constructor(
     private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
     private val customRuleRepository: CustomRuleRepository,
     private val pauseRulesRepository: PauseRulesRepository,
-    private val appOpenRepository: AppOpenRepository
+    private val appOpenRepository: AppOpenRepository,
+    private val protectionSettingsRepository: ProtectionSettingsRepository
 ) : ViewModel() {
 
     private val _apps = MutableStateFlow<List<InstalledApp>>(emptyList())
@@ -78,6 +80,16 @@ class AppsViewModel @Inject constructor(
 
     private val _isAccessibilityEnabled = MutableStateFlow(false)
     val isAccessibilityEnabled: StateFlow<Boolean> = _isAccessibilityEnabled
+
+    /** Non-null while lock mode is on; every rule edit is refused until then. */
+    val lockedUntil: StateFlow<Long?> = protectionSettingsRepository.lockedUntil
+        .map { until -> until?.takeIf { it > System.currentTimeMillis() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private suspend fun isLocked(): Boolean =
+        protectionSettingsRepository.lockedUntil.first()?.let {
+            it > System.currentTimeMillis()
+        } ?: false
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -116,6 +128,7 @@ class AppsViewModel @Inject constructor(
 
     fun setSectionRuleEnabled(ruleId: String, enabled: Boolean) {
         viewModelScope.launch {
+            if (isLocked()) return@launch
             sectionRulePreferencesRepository.setEnabled(ruleId, enabled)
         }
     }
@@ -134,16 +147,23 @@ class AppsViewModel @Inject constructor(
     fun addWebsite(raw: String) {
         val domain = WebsiteAddress.normalizeDomain(raw) ?: return
         viewModelScope.launch {
+            if (isLocked()) return@launch
             customRuleRepository.add(CustomRuleType.BLOCKED_WEBSITE, domain)
         }
     }
 
     fun setWebsiteEnabled(id: String, enabled: Boolean) {
-        viewModelScope.launch { customRuleRepository.setEnabled(id, enabled) }
+        viewModelScope.launch {
+            if (isLocked()) return@launch
+            customRuleRepository.setEnabled(id, enabled)
+        }
     }
 
     fun removeWebsite(id: String) {
-        viewModelScope.launch { customRuleRepository.remove(id) }
+        viewModelScope.launch {
+            if (isLocked()) return@launch
+            customRuleRepository.remove(id)
+        }
     }
 
     /** Last 7 days of usage for the app whose detail sheet is open, oldest first. */
@@ -265,6 +285,7 @@ class AppsViewModel @Inject constructor(
      */
     fun setLimitEnabled(packageName: String, enabled: Boolean) {
         viewModelScope.launch {
+            if (isLocked()) return@launch
             val existing = appLimitRepository.getLimit(packageName) ?: return@launch
             if (existing.isActive == enabled) return@launch
             appLimitRepository.updateLimit(existing.copy(isActive = enabled))
@@ -293,6 +314,7 @@ class AppsViewModel @Inject constructor(
         pauseDelaySeconds: Int?
     ) {
         viewModelScope.launch {
+            if (isLocked()) return@launch
             val existing = appLimitRepository.getLimit(packageName)
             val hasBudget = limitMinutes > 0 || openLimit > 0
             when {
@@ -335,6 +357,7 @@ class AppsViewModel @Inject constructor(
     /** Removes every rule the sheet owns, including the pause, in one action. */
     fun removeAppRules(packageName: String) {
         viewModelScope.launch {
+            if (isLocked()) return@launch
             val existing = appLimitRepository.getLimit(packageName)
             if (existing != null) {
                 appLimitRepository.deleteLimit(existing)

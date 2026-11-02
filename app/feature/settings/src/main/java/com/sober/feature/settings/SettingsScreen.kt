@@ -118,9 +118,11 @@ fun SettingsScreen(
     }
 
     val hasPin = lockState.hasPin
-    if (lockState.sessionRunning && hasPin && !unlocked) {
+    if ((lockState.sessionRunning || lockState.lockActive) && hasPin && !unlocked) {
         SettingsLockScreen(
             onBack = onBack,
+            lockedUntil = lockState.lockedUntil.takeIf { lockState.lockActive },
+            sessionRunning = lockState.sessionRunning,
             onUnlock = { pin, onResult -> viewModel.verifyPin(pin, onResult) },
             onUnlocked = { unlocked = true }
         )
@@ -407,6 +409,54 @@ fun SettingsScreen(
                 )
             }
         )
+        SoberDivider()
+        SoberListRow(
+            title = "Lock mode",
+            subtitle = when {
+                lockState.lockActive ->
+                    "On until ${clockText(lockState.lockedUntil!!)}. " +
+                        "Limits, sessions and overrides cannot be changed until then."
+                hasPin ->
+                    "Make your current rules non-negotiable for a while. " +
+                        "Only the PIN can end it early."
+                else ->
+                    "Set a PIN first — lock mode is unlocked with it."
+            },
+            trailing = {
+                SoberQuietButton(
+                    text = when {
+                        lockState.lockActive -> "Turn off"
+                        hasPin -> "Start"
+                        else -> "Set PIN"
+                    },
+                    onClick = {
+                        when {
+                            // Reaching "Turn off" means the PIN gate above was
+                            // already passed, so this is the authorised path.
+                            lockState.lockActive -> viewModel.clearLock()
+                            hasPin -> Unit
+                            else -> showPinDialog = true
+                        }
+                    }
+                )
+            }
+        )
+        if (hasPin && !lockState.lockActive) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LOCK_LENGTHS.forEach { (hours, label) ->
+                    SoberQuietButton(
+                        text = label,
+                        onClick = { viewModel.lockFor(hours) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
         SoberDivider()
         SoberListRow(
             title = "Uninstall protection",
@@ -963,6 +1013,8 @@ private fun appVersion(context: Context): String =
 @Composable
 private fun SettingsLockScreen(
     onBack: (() -> Unit)?,
+    lockedUntil: Long?,
+    sessionRunning: Boolean,
     onUnlock: (String, (Boolean) -> Unit) -> Unit,
     onUnlocked: () -> Unit
 ) {
@@ -998,7 +1050,11 @@ private fun SettingsLockScreen(
         SoberScreenHeader(
             title = "Settings",
             eyebrow = "Locked",
-            subtitle = "A focus session is running."
+            subtitle = when {
+                lockedUntil != null -> "Lock mode is on until ${clockText(lockedUntil)}."
+                sessionRunning -> "A focus session is running."
+                else -> "Locked."
+            }
         )
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -1012,7 +1068,11 @@ private fun SettingsLockScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Enter your PIN to change limits while the session runs.",
+                text = if (lockedUntil != null) {
+                    "Enter your PIN to change rules before the lock ends."
+                } else {
+                    "Enter your PIN to change limits while the session runs."
+                },
                 color = colors.textSecondary,
                 fontSize = 13.sp
             )
@@ -1062,6 +1122,21 @@ private fun SettingsLockScreen(
             )
         }
     }
+}
+
+/** Lock lengths offered under the Lock mode row. */
+private val LOCK_LENGTHS = listOf(1 to "1 hour", 3 to "3 hours", 8 to "8 hours")
+
+/** "9:40 PM" — the wall-clock time a lock lifts. */
+private fun clockText(epochMillis: Long): String {
+    val at = java.util.Calendar.getInstance().apply { timeInMillis = epochMillis }
+    val hour24 = at.get(java.util.Calendar.HOUR_OF_DAY)
+    val hour12 = when (val h = hour24 % 12) {
+        0 -> 12
+        else -> h
+    }
+    val suffix = if (hour24 < 12) "AM" else "PM"
+    return String.format("%d:%02d %s", hour12, at.get(java.util.Calendar.MINUTE), suffix)
 }
 
 @Composable

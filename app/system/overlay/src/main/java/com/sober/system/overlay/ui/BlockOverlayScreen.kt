@@ -69,7 +69,9 @@ data class OverrideUi(
     /** When the PIN gate was passed for this app, or null if not requested. */
     val requestedAt: Long? = null,
     /** Epoch millis the wait ends. */
-    val readyAt: Long? = null
+    val readyAt: Long? = null,
+    /** Non-null while lock mode is on, until this moment. */
+    val lockedUntil: Long? = null
 )
 
 /**
@@ -146,6 +148,13 @@ fun BlockOverlayScreen(
                     onRequestOverride()
                 },
                 onDismiss = { overrideOpen = false }
+            )
+        } else if (override.lockedUntil != null && override.lockedUntil > now) {
+            LockedOverrideNote(
+                lockedUntil = override.lockedUntil,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 40.dp, start = 24.dp, end = 24.dp)
             )
         } else {
             OverrideAffordance(
@@ -275,6 +284,21 @@ private fun BlockBody(
 
         Spacer(modifier = Modifier.height(88.dp))
     }
+}
+
+@Composable
+private fun LockedOverrideNote(
+    lockedUntil: Long,
+    modifier: Modifier = Modifier
+) {
+    val colors = SoberTheme.colors
+    Text(
+        text = "Locked until ${timeOfDayText(lockedUntil)}. Overrides are off.",
+        color = colors.textMuted,
+        fontSize = 11.sp,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+    )
 }
 
 @Composable

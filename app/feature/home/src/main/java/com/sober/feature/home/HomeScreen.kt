@@ -255,6 +255,16 @@ fun HomeScreen(
                         SoberHoldToCancelButton(
                             onCancelConfirmed = { viewModel.endSession() }
                         )
+                        uiState.lockNotice?.let { notice ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = notice,
+                                color = SoberTheme.colors.danger,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
@@ -373,6 +383,16 @@ fun HomeScreen(
             Text(
                 text = "Lifts every block and limit for a while, then protection returns on its own.",
                 color = SoberTheme.colors.textMuted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        uiState.pauseNotice?.let { notice ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = notice,
+                color = SoberTheme.colors.danger,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()

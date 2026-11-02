@@ -62,6 +62,10 @@ data class HomeUiState(
     val sessionsToday: Int = 0,
     /** Explains why the Focus Mode toggle did nothing, e.g. no apps to block. */
     val focusModeNotice: String? = null,
+    /** Set when lock mode refused to end a session. */
+    val lockNotice: String? = null,
+    /** Set when lock mode refused to pause protection. */
+    val pauseNotice: String? = null,
     /** Non-null while protection is paused, e.g. "42m left". */
     val pauseRemainingText: String? = null,
     val isLoading: Boolean = true
@@ -142,6 +146,18 @@ class HomeViewModel @Inject constructor(
     /** Lifts every block for [minutes]; the window ends on its own. */
     fun pauseProtection(minutes: Int) {
         viewModelScope.launch {
+            // A pause lifts every rule at once, so it is the shortest path
+            // around a lock. Refused for the same reason the lock exists.
+            val lockedUntil = protectionSettingsRepository.lockedUntil.first()
+            if (lockedUntil != null && lockedUntil > System.currentTimeMillis()) {
+                val text = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+                    .format(java.util.Date(lockedUntil))
+                _uiState.update {
+                    it.copy(pauseNotice = "Locked until $text, so protection cannot be paused.")
+                }
+                return@launch
+            }
+            _uiState.update { it.copy(pauseNotice = null) }
             protectionSettingsRepository.setPausedUntil(
                 System.currentTimeMillis() + minutes * 60_000L
             )
@@ -151,6 +167,7 @@ class HomeViewModel @Inject constructor(
 
     fun resumeProtection() {
         viewModelScope.launch {
+            _uiState.update { it.copy(pauseNotice = null) }
             protectionSettingsRepository.setPausedUntil(null)
             enforcementController.ensureRunning()
         }
@@ -328,7 +345,11 @@ class HomeViewModel @Inject constructor(
     /** Ends the running session after the hold-to-cancel and regret timer. */
     fun endSession() {
         val sessionId = _activeSession.value?.id ?: return
-        viewModelScope.launch { manageFocusSessionUseCase.cancelSession(sessionId) }
+        viewModelScope.launch {
+            val cancelled = manageFocusSessionUseCase.cancelSession(sessionId)
+            if (!cancelled) showLockRefusal()
+            else _uiState.update { it.copy(lockNotice = null) }
+        }
     }
 
     /**
@@ -371,7 +392,22 @@ class HomeViewModel @Inject constructor(
     fun stopFocusMode() {
         val session = _activeSession.value ?: return
         if (!session.isOpenEnded) return
-        viewModelScope.launch { manageFocusSessionUseCase.cancelSession(session.id) }
+        viewModelScope.launch {
+            val cancelled = manageFocusSessionUseCase.cancelSession(session.id)
+            if (!cancelled) showLockRefusal()
+            else _uiState.update { it.copy(lockNotice = null) }
+        }
+    }
+
+    /**
+     * Says why the hold did nothing. Without this the button looks broken at
+     * the exact moment the lock is supposed to feel immovable but fair.
+     */
+    private suspend fun showLockRefusal() {
+        val until = protectionSettingsRepository.lockedUntil.first() ?: return
+        val text = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            .format(java.util.Date(until))
+        _uiState.update { it.copy(lockNotice = "Locked until $text. You can end this then.") }
     }
 
     private fun appLabelFor(packageName: String): String = try {

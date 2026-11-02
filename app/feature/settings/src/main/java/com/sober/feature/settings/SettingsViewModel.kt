@@ -9,6 +9,7 @@ import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PinRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.NotificationPreferencesRepository
@@ -37,8 +38,13 @@ import javax.inject.Inject
 
 data class GateState(
     val hasPin: Boolean,
-    val sessionRunning: Boolean
-)
+    val sessionRunning: Boolean,
+    /** Non-null while lock mode is on, until this moment. */
+    val lockedUntil: Long? = null
+) {
+    val lockActive: Boolean
+        get() = lockedUntil != null && lockedUntil > System.currentTimeMillis()
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -50,6 +56,7 @@ class SettingsViewModel @Inject constructor(
     private val streakPreferences: StreakPreferencesRepository,
     private val themePreferences: ThemePreferencesRepository,
     private val blockableAppsRepository: BlockableAppsRepository,
+    private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val setPinUseCase: SetPinUseCase,
     private val verifyPinUseCase: VerifyPinUseCase,
     private val exportUsageCsvUseCase: ExportUsageCsvUseCase
@@ -103,17 +110,33 @@ class SettingsViewModel @Inject constructor(
      */
     val gate: StateFlow<GateState?> = combine(
         pinRepository.hasPin,
-        sessionStateRepository.activeSessionId
-    ) { hasPin, activeSessionId ->
+        sessionStateRepository.activeSessionId,
+        protectionSettingsRepository.lockedUntil
+    ) { hasPin, activeSessionId, lockedUntil ->
         GateState(
             hasPin = hasPin,
-            sessionRunning = activeSessionId != null
+            sessionRunning = activeSessionId != null,
+            lockedUntil = lockedUntil?.takeIf { it > System.currentTimeMillis() }
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = null
     )
+
+    /** Lock mode for [hours]; a part-hour is rounded up by the caller's choice. */
+    fun lockFor(hours: Int) {
+        viewModelScope.launch {
+            protectionSettingsRepository.setLockedUntil(
+                System.currentTimeMillis() + hours * 60L * 60_000L
+            )
+        }
+    }
+
+    /** Ends lock mode. Only reachable from the settings body, which needs the PIN first. */
+    fun clearLock() {
+        viewModelScope.launch { protectionSettingsRepository.setLockedUntil(null) }
+    }
 
     fun setDailyScreenTimeLimit(minutes: Int) {
         viewModelScope.launch {

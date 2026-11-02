@@ -23,6 +23,7 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.sober.core.domain.repository.PinRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.core.domain.repository.ThemePreferencesRepository
@@ -68,6 +69,7 @@ class BlockOverlayController @Inject constructor(
     private val verifyPinUseCase: VerifyPinUseCase,
     private val pinRepository: PinRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val themePreferencesRepository: ThemePreferencesRepository
 ) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
@@ -104,6 +106,9 @@ class BlockOverlayController @Inject constructor(
     @Volatile
     private var themeMode = ThemeMode.SYSTEM
 
+    @Volatile
+    private var lockedUntil: Long? = null
+
     /** True while a window is attached, so the service can re-show after a hide. */
     val isShowing: Boolean get() = overlayView != null
 
@@ -126,6 +131,15 @@ class BlockOverlayController @Inject constructor(
         scope.launch {
             themePreferencesRepository.mode().collect {
                 themeMode = it
+                renderIfShowing()
+            }
+        }
+        // The override affordance has to disappear the moment lock mode starts,
+        // not on the next block: the user could otherwise open the panel while
+        // the window is already on screen.
+        scope.launch {
+            protectionSettingsRepository.lockedUntil.collect {
+                lockedUntil = it
                 renderIfShowing()
             }
         }
@@ -232,7 +246,10 @@ class BlockOverlayController @Inject constructor(
         return OverrideUi(
             hasPin = hasPin,
             requestedAt = requestedAt,
-            readyAt = requestedAt?.plus(ManageEmergencyOverrideUseCase.WAIT_MILLIS)
+            readyAt = requestedAt?.plus(ManageEmergencyOverrideUseCase.WAIT_MILLIS),
+            // An expired lock is no lock: passing a past timestamp would make
+            // the overlay hide an override that is in fact available.
+            lockedUntil = lockedUntil?.takeIf { it > System.currentTimeMillis() }
         )
     }
 
