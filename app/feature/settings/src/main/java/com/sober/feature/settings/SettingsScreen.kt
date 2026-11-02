@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -56,6 +59,7 @@ import com.sober.core.ui.theme.SoberTheme
 import com.sober.core.common.battery.BatteryOptimizationUtils
 import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.repository.AlertKind
+import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.StreakRule
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.feature.settings.admin.SoberDeviceAdminReceiver
@@ -81,6 +85,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val dailyLimitMinutes by viewModel.dailyScreenTimeLimitMinutes.collectAsState()
+    val capApps by viewModel.capApps.collectAsState()
+    val capExemptPackages by viewModel.capExemptPackages.collectAsState()
     val alerts by viewModel.alerts.collectAsState()
     val streakRule by viewModel.streakRule.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
@@ -113,6 +119,7 @@ fun SettingsScreen(
     val colors = SoberTheme.colors
     val context = LocalContext.current
     var showPinDialog by remember { mutableStateOf(false) }
+    var showCapApps by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf<String?>(null) }
@@ -213,6 +220,40 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            SoberDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Apps covered",
+                color = colors.textPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = when (capExemptPackages.size) {
+                    0 -> "All of them. Leave an app out and the cap will never block it."
+                    1 -> "1 app is left out. It still counts as screen time, but the cap never blocks it."
+                    else -> "${capExemptPackages.size} apps are left out. They still count as " +
+                        "screen time, but the cap never blocks them."
+                },
+                color = colors.textSecondary,
+                fontSize = 12.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            SoberOutlinedButton(
+                text = "Choose apps",
+                onClick = { showCapApps = true },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Home, Settings, System UI and your keyboard are never blocked.",
+                color = colors.textMuted,
+                fontSize = 11.sp
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -674,9 +715,94 @@ fun SettingsScreen(
         )
     }
 
+    if (showCapApps) {
+        CapAppsDialog(
+            apps = capApps,
+            exempt = capExemptPackages,
+            onToggle = viewModel::setAppExemptFromCap,
+            onDismiss = { showCapApps = false }
+        )
+    }
+
     if (showPrivacy) {
         PrivacyPolicyDialog(onDismiss = { showPrivacy = false })
     }
+}
+
+/**
+ * The user's choice of apps the overall cap covers. Checked means covered, so
+ * the default state — everything on — reads as "the cap applies to my apps"
+ * rather than making the user pick from an empty list.
+ */
+@Composable
+private fun CapAppsDialog(
+    apps: List<BlockableApp>,
+    exempt: Set<String>,
+    onToggle: (packageName: String, exempt: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = SoberTheme.colors
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = "Apps covered by your cap",
+                color = colors.primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Unchecked apps still count as screen time, but the cap " +
+                        "never blocks them. Their own limits and schedules still apply.",
+                    color = colors.textSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                if (apps.isEmpty()) {
+                    Text(
+                        text = "No apps found.",
+                        color = colors.textSecondary,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                        items(apps, key = { it.packageName }) { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = app.label,
+                                    color = colors.textPrimary,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                SoberToggleSwitch(
+                                    checked = app.packageName !in exempt,
+                                    onCheckedChange = { covered ->
+                                        onToggle(app.packageName, !covered)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Done", color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        }
+    )
 }
 
 /**

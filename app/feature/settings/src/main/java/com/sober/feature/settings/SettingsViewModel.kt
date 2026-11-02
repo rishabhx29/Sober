@@ -6,6 +6,8 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.data.local.datastore.SoberPreferences
+import com.sober.core.domain.repository.BlockableApp
+import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PinRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import com.sober.core.domain.repository.AlertKind
@@ -20,6 +22,7 @@ import com.sober.core.domain.usecase.VerifyPinUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -46,10 +49,39 @@ class SettingsViewModel @Inject constructor(
     private val notificationPreferences: NotificationPreferencesRepository,
     private val streakPreferences: StreakPreferencesRepository,
     private val themePreferences: ThemePreferencesRepository,
+    private val blockableAppsRepository: BlockableAppsRepository,
     private val setPinUseCase: SetPinUseCase,
     private val verifyPinUseCase: VerifyPinUseCase,
     private val exportUsageCsvUseCase: ExportUsageCsvUseCase
 ) : ViewModel() {
+
+    /**
+     * Apps whose launch counts as screen time. Loaded once per screen: the
+     * installed set changes rarely and the query walks PackageManager.
+     */
+    private val _capApps = MutableStateFlow<List<BlockableApp>>(emptyList())
+    val capApps: StateFlow<List<BlockableApp>> = _capApps
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            _capApps.value = runCatching { blockableAppsRepository.blockableApps() }
+                .getOrDefault(emptyList())
+        }
+    }
+
+    /** Apps the user removed from the overall cap. */
+    val capExemptPackages: StateFlow<Set<String>> =
+        sessionStateRepository.dailyCapExemptPackages.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptySet()
+        )
+
+    fun setAppExemptFromCap(packageName: String, exempt: Boolean) {
+        viewModelScope.launch {
+            sessionStateRepository.setDailyCapExempt(packageName, exempt)
+        }
+    }
 
     /** The overall daily screen-time cap, enforced by the core service. */
     val dailyScreenTimeLimitMinutes: StateFlow<Int> =
