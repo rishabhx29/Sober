@@ -7,8 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -18,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -282,7 +286,8 @@ fun AppsScreen(
             text = "Apps",
             fontSize = 22.sp,
             color = SoberTheme.colors.primary,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -291,15 +296,24 @@ fun AppsScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.updateSearchQuery(it) },
-            placeholder = {
-                Text("Search apps...", color = SoberTheme.colors.textMuted)
-            },
+            label = { Text("Search apps") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Search,
-                    contentDescription = "Search",
+                    contentDescription = null,
                     tint = SoberTheme.colors.textMuted
                 )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Clear search",
+                            tint = SoberTheme.colors.textMuted
+                        )
+                    }
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -384,23 +398,35 @@ internal fun AppRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "Open limit settings",
+                    onClick = onClick
+                )
                 .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (app.icon != null) {
-                Image(
-                    painter = rememberDrawablePainter(drawable = app.icon),
-                    contentDescription = null,
+                Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.primaryMuted),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = rememberDrawablePainter(drawable = app.icon),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                }
             } else {
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
-                        .background(colors.divider, RoundedCornerShape(8.dp))
+                        .size(40.dp)
+                        .background(colors.divider, RoundedCornerShape(12.dp))
                 )
             }
 
@@ -475,6 +501,11 @@ private fun SectionToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -493,7 +524,7 @@ private fun SectionToggleRow(
         }
         SoberToggleSwitch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = null
         )
     }
 }

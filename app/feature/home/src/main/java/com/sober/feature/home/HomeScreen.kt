@@ -1,5 +1,8 @@
 package com.sober.feature.home
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,8 +11,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +28,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,11 +43,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberHoldToCancelButton
+import com.sober.core.ui.components.SoberIconBadge
 import com.sober.core.ui.components.SoberOutlinedButton
 import com.sober.core.ui.components.SoberProgressBar
 import com.sober.core.ui.components.SoberSectionLabel
+import com.sober.core.ui.components.SoberStatTile
+import com.sober.core.ui.components.rememberBreathingScale
+import com.sober.core.ui.format.spokenDuration
+import com.sober.core.ui.format.spokenRemaining
 import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
+import com.sober.core.ui.theme.TabularNumberStyle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -98,7 +116,8 @@ fun HomeScreen(
                     text = dateFormat.format(today),
                     fontSize = 22.sp,
                     color = SoberTheme.colors.primary,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.semantics { heading() }
                 )
             }
 
@@ -117,13 +136,26 @@ fun HomeScreen(
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = Color.Transparent,
-            border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.primary)
+            border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.primary),
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                contentDescription = buildString {
+                    append("Day ${uiState.streakDays} streak")
+                    if (uiState.longestStreakDays > uiState.streakDays) {
+                        append(". Best: ${uiState.longestStreakDays} days")
+                    }
+                }
+            }
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🔥", fontSize = 16.sp)
+                Icon(
+                    imageVector = Icons.Rounded.LocalFireDepartment,
+                    contentDescription = null,
+                    tint = SoberTheme.colors.primary,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column {
                     Text(
@@ -149,7 +181,7 @@ fun HomeScreen(
 
         // -- Main Usage Card --
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(18.dp),
             color = SoberTheme.colors.surface,
             border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.divider),
             shadowElevation = 0.dp
@@ -161,17 +193,34 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Usage Ring
-                val usagePercent = if (uiState.dailyLimitMinutes > 0) {
+                val targetPercent = if (uiState.dailyLimitMinutes > 0) {
                     (uiState.totalScreenTimeMinutes.toFloat() / uiState.dailyLimitMinutes).coerceAtMost(1f)
                 } else 0f
+                val usagePercent by animateFloatAsState(
+                    targetValue = targetPercent,
+                    animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                    label = "usage-ring"
+                )
+                val usageHours = uiState.totalScreenTimeMinutes / 60
+                val usageMins = uiState.totalScreenTimeMinutes % 60
 
                 Box(
-                    modifier = Modifier.size(160.dp),
+                    modifier = Modifier
+                        .size(168.dp)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = buildString {
+                                append("${spokenDuration(uiState.totalScreenTimeMinutes)} used")
+                                if (uiState.dailyLimitMinutes > 0) {
+                                    append(" of ${spokenDuration(uiState.dailyLimitMinutes)} daily limit")
+                                }
+                                if (targetPercent >= 1f) append(", limit reached")
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     val trackColor = SoberTheme.colors.divider
-                    val fillColor = if (usagePercent >= 1f) SoberTheme.colors.danger else SoberTheme.colors.primary
-                    Canvas(modifier = Modifier.size(160.dp)) {
+                    val fillColor = if (targetPercent >= 1f) SoberTheme.colors.danger else SoberTheme.colors.primary
+                    Canvas(modifier = Modifier.size(168.dp)) {
                         val strokeWidth = 10.dp.toPx()
                         val radius = (size.minDimension - strokeWidth) / 2
                         val topLeft = Offset(
@@ -204,16 +253,19 @@ fun HomeScreen(
 
                     // Center text
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val hours = uiState.totalScreenTimeMinutes / 60
-                        val mins = uiState.totalScreenTimeMinutes % 60
                         Text(
-                            text = "${hours}h ${mins}m",
-                            fontSize = 28.sp,
+                            text = "${usageHours}h ${usageMins}m",
+                            fontSize = 30.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = SoberTheme.colors.primary
+                            color = SoberTheme.colors.primary,
+                            style = TabularNumberStyle
                         )
                         Text(
-                            text = "of ${limitLabel(uiState.dailyLimitMinutes)} limit",
+                            text = if (uiState.dailyLimitMinutes > 0) {
+                                "of ${limitLabel(uiState.dailyLimitMinutes)} limit"
+                            } else {
+                                "today"
+                            },
                             fontSize = 12.sp,
                             color = SoberTheme.colors.textMuted
                         )
@@ -230,19 +282,35 @@ fun HomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
+                                .padding(vertical = 6.dp)
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = buildString {
+                                        append("${app.appName}, ${spokenDuration(app.usageMinutes)}")
+                                        if (app.isAtLimit) append(", limit reached")
+                                    }
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (app.icon != null) {
-                                Image(
-                                    painter = rememberDrawablePainter(drawable = app.icon),
-                                    contentDescription = null,
+                                Box(
                                     modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(RoundedCornerShape(6.dp))
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(SoberTheme.colors.primaryMuted),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = rememberDrawablePainter(drawable = app.icon),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(32.dp))
                             }
+                            Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = app.appName,
                                 fontSize = 14.sp,
@@ -252,12 +320,11 @@ fun HomeScreen(
                             if (app.isAtLimit) {
                                 Icon(
                                     imageVector = Icons.Rounded.Lock,
-                                    contentDescription = "Limit reached",
+                                    contentDescription = null,
                                     tint = SoberTheme.colors.danger,
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .padding(end = 4.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
+                                Spacer(modifier = Modifier.width(4.dp))
                             }
                             Text(
                                 text = "${app.usageMinutes}m",
@@ -267,7 +334,8 @@ fun HomeScreen(
                                 } else {
                                     SoberTheme.colors.textSecondary
                                 },
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                style = TabularNumberStyle
                             )
                         }
 
@@ -290,53 +358,22 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = SoberTheme.colors.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.divider),
+            // Counts every app with foreground time today, not the three rows
+            // the card shows.
+            SoberStatTile(
+                icon = Icons.Rounded.Apps,
+                label = "Apps used",
+                value = "${uiState.appsUsedToday}",
+                caption = "today",
                 modifier = Modifier.weight(1f)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Counts every app with foreground time today, not the three
-                    // rows the card shows.
-                    SoberSectionLabel("Apps used")
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${uiState.appsUsedToday}",
-                        fontSize = 24.sp,
-                        color = SoberTheme.colors.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "today",
-                        fontSize = 12.sp,
-                        color = SoberTheme.colors.textSecondary
-                    )
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = SoberTheme.colors.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.divider),
+            )
+            SoberStatTile(
+                icon = Icons.Rounded.Timer,
+                label = "Focus",
+                value = "${uiState.sessionsToday}",
+                caption = "sessions today",
                 modifier = Modifier.weight(1f)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    SoberSectionLabel("Focus")
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "${uiState.sessionsToday}",
-                        fontSize = 24.sp,
-                        color = SoberTheme.colors.primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "sessions today",
-                        fontSize = 12.sp,
-                        color = SoberTheme.colors.textSecondary
-                    )
-                }
-            }
+            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -347,10 +384,15 @@ fun HomeScreen(
         // one is the only action that makes sense from here.
         val session = activeSession
         if (session != null) {
+            val breathe = rememberBreathingScale(minScale = 1f, maxScale = 1.04f, periodMillis = 3200)
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = SoberTheme.colors.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.primary)
+                border = androidx.compose.foundation.BorderStroke(1.dp, SoberTheme.colors.primary),
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "Active session. ${session.label}. " +
+                        "${spokenRemaining(session.remainingText)} remaining."
+                }
             ) {
                 Column(
                     modifier = Modifier
@@ -358,22 +400,41 @@ fun HomeScreen(
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    SoberSectionLabel("Active session")
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = session.label,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SoberTheme.colors.textPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = session.remainingText,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = JetBrainsMono,
-                        color = SoberTheme.colors.primary
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SoberIconBadge(
+                            imageVector = Icons.Rounded.SelfImprovement,
+                            contentDescription = null,
+                            size = 52.dp,
+                            iconSize = 26.dp,
+                            modifier = Modifier.graphicsLayer {
+                                scaleX = breathe
+                                scaleY = breathe
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            SoberSectionLabel(text = "Active session", isHeading = false)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = session.label,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SoberTheme.colors.textPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = session.remainingText,
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = JetBrainsMono,
+                                style = TabularNumberStyle,
+                                color = SoberTheme.colors.primary
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     SoberHoldToCancelButton(
                         onCancelConfirmed = { viewModel.endSession() }
@@ -386,12 +447,14 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 SoberButton(
                     text = "Focus Mode is on — tap to turn off",
+                    icon = Icons.Rounded.SelfImprovement,
                     onClick = { viewModel.stopFocusMode() }
                 )
             }
         } else {
             SoberButton(
                 text = "Start Focus Session",
+                icon = Icons.Rounded.PlayArrow,
                 onClick = onStartFocusSession
             )
 
@@ -399,6 +462,7 @@ fun HomeScreen(
 
             SoberOutlinedButton(
                 text = "Focus Mode",
+                icon = Icons.Rounded.SelfImprovement,
                 onClick = { viewModel.startFocusMode() }
             )
             Spacer(modifier = Modifier.height(8.dp))

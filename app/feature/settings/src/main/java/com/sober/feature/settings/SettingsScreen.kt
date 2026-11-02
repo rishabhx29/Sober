@@ -15,14 +15,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -37,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -742,6 +747,19 @@ private fun CapAppsDialog(
     onDismiss: () -> Unit
 ) {
     val colors = SoberTheme.colors
+    var query by remember { mutableStateOf("") }
+    val coveredCount = apps.count { it.packageName !in exempt }
+    val filtered = remember(apps, query) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            apps
+        } else {
+            apps.filter {
+                it.label.contains(trimmed, ignoreCase = true) ||
+                    it.packageName.contains(trimmed, ignoreCase = true)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -762,6 +780,13 @@ private fun CapAppsDialog(
                     color = colors.textSecondary,
                     fontSize = 12.sp
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "$coveredCount of ${apps.size} apps covered",
+                    color = colors.textPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 if (apps.isEmpty()) {
                     Text(
@@ -770,27 +795,75 @@ private fun CapAppsDialog(
                         fontSize = 13.sp
                     )
                 } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                        items(apps, key = { it.packageName }) { app ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Text(
-                                    text = app.label,
-                                    color = colors.textPrimary,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                SoberToggleSwitch(
-                                    checked = app.packageName !in exempt,
-                                    onCheckedChange = { covered ->
-                                        onToggle(app.packageName, !covered)
-                                    }
-                                )
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Search apps") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = colors.textMuted
+                            )
+                        },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Clear search",
+                                        tint = colors.textMuted
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.primary,
+                            unfocusedBorderColor = colors.divider,
+                            focusedContainerColor = colors.surface,
+                            unfocusedContainerColor = colors.surface
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (filtered.isEmpty()) {
+                        Text(
+                            text = "No apps match \"${query.trim()}\".",
+                            color = colors.textSecondary,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
+                            items(filtered, key = { it.packageName }) { app ->
+                                val covered = app.packageName !in exempt
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .toggleable(
+                                            value = covered,
+                                            role = Role.Switch,
+                                            onValueChange = { next ->
+                                                onToggle(app.packageName, !next)
+                                            }
+                                        )
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = app.label,
+                                        color = colors.textPrimary,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    SoberToggleSwitch(
+                                        checked = covered,
+                                        onCheckedChange = null
+                                    )
+                                }
                             }
                         }
                     }
@@ -902,8 +975,17 @@ private fun AlertToggleRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     val colors = SoberTheme.colors
+    // The whole row is the target: a 48dp-wide switch alone is a small hit area,
+    // and screen readers get one "title, description, on" stop instead of three.
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -921,7 +1003,7 @@ private fun AlertToggleRow(
                 fontSize = 12.sp
             )
         }
-        SoberToggleSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        SoberToggleSwitch(checked = checked, onCheckedChange = null)
     }
 }
 

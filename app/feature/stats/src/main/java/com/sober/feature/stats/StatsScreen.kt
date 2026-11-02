@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +21,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PhoneDisabled
+import androidx.compose.material.icons.rounded.SelfImprovement
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -43,12 +58,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import com.sober.core.domain.model.AchievementId
 import com.sober.core.domain.usecase.UsageHeatmap
 import com.sober.core.domain.usecase.weekOverWeekLabel
+import com.sober.core.ui.components.SoberIconBadge
 import com.sober.core.ui.components.SoberProgressBar
 import com.sober.core.ui.components.SoberSectionLabel
 import com.sober.core.ui.components.SoberSegmentedControl
+import com.sober.core.ui.format.spokenDuration
 import com.sober.core.ui.theme.SoberTheme
+import com.sober.core.ui.theme.TabularNumberStyle
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -89,7 +108,8 @@ fun StatsScreen(
             text = "Statistics",
             fontSize = 22.sp,
             color = SoberTheme.colors.primary,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.semantics { heading() }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -130,7 +150,7 @@ fun StatsScreen(
             SoberSectionLabel(text = "SCREEN TIME")
             Spacer(modifier = Modifier.height(8.dp))
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = SoberTheme.colors.surface,
                 border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
             ) {
@@ -167,7 +187,7 @@ fun StatsScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(18.dp),
             color = SoberTheme.colors.surface,
             border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
         ) {
@@ -245,7 +265,7 @@ fun StatsScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(18.dp),
             color = SoberTheme.colors.surface,
             border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
         ) {
@@ -287,7 +307,7 @@ fun StatsScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(18.dp),
             color = SoberTheme.colors.surface,
             border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
         ) {
@@ -312,16 +332,22 @@ fun StatsScreen(
         uiState.achievements.chunked(2).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Spacer(modifier = Modifier.height(12.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                // Cards in one row share the taller description's height;
+                // otherwise a two-line hint leaves its neighbour visibly short.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 row.forEach { achievement ->
                     AchievementCard(
-                        emoji = achievement.id.emoji,
+                        id = achievement.id,
                         title = achievement.id.title,
                         description = achievement.id.description,
                         isUnlocked = achievement.isUnlocked,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
                 }
                 // Keeps an odd last card the same width as the ones above it.
@@ -342,14 +368,31 @@ private fun OverrideFlagCard(count: Int, minutesGranted: Int) {
     val colors = SoberTheme.colors
 
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = colors.danger.copy(alpha = 0.08f),
-        border = BorderStroke(1.dp, colors.danger.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(18.dp),
+        color = colors.dangerMuted,
+        border = BorderStroke(1.dp, colors.danger.copy(alpha = 0.35f)),
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = buildString {
+                append("Emergency override used. ")
+                append(if (count == 1) "1 unlock" else "$count unlocks")
+                append(", ")
+                append(spokenDuration(minutesGranted))
+                append(" granted.")
+            }
+        }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "⚑", fontSize = 16.sp, color = colors.danger)
-                Spacer(modifier = Modifier.width(8.dp))
+                SoberIconBadge(
+                    imageVector = Icons.Rounded.Flag,
+                    contentDescription = null,
+                    size = 28.dp,
+                    iconSize = 15.dp,
+                    containerColor = colors.surface,
+                    contentColor = colors.danger,
+                    shape = RoundedCornerShape(9.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Emergency override used",
                     fontSize = 14.sp,
@@ -382,7 +425,7 @@ private fun ScreenTimeCard(
     trendPercent: Int?
 ) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         color = SoberTheme.colors.surface,
         border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
     ) {
@@ -404,7 +447,8 @@ private fun ScreenTimeCard(
                 text = formatMinutes(totalMinutes),
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = SoberTheme.colors.primary
+                color = SoberTheme.colors.primary,
+                style = TabularNumberStyle
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -466,7 +510,15 @@ private fun DailyBarChart(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clickable { onSelect(index) },
+                    .clickable(
+                        role = androidx.compose.ui.semantics.Role.Button,
+                        onClickLabel = "Show this day",
+                        onClick = { onSelect(index) }
+                    )
+                    .semantics {
+                        selected = isSelected
+                        contentDescription = spokenDuration(minutes)
+                    },
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Box(
@@ -572,7 +624,8 @@ private fun HighlightRow(label: String, value: String, hint: String) {
             text = value,
             fontSize = 13.sp,
             color = SoberTheme.colors.textSecondary,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            style = TabularNumberStyle
         )
     }
 }
@@ -590,46 +643,87 @@ private fun formatDate(isoDate: String): String = runCatching {
 
 @Composable
 private fun AchievementCard(
-    emoji: String,
+    id: AchievementId,
     title: String,
     description: String,
     isUnlocked: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val colors = SoberTheme.colors
+
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         // Locked cards sink into the page rather than taking a fixed cream
         // tint, which would be a pale block in dark mode.
-        color = if (isUnlocked) {
-            SoberTheme.colors.surface
-        } else {
-            SoberTheme.colors.background
-        },
-        border = if (isUnlocked) BorderStroke(1.dp, SoberTheme.colors.divider) else null,
-        modifier = modifier
+        color = if (isUnlocked) colors.surface else colors.background,
+        border = BorderStroke(
+            1.dp,
+            if (isUnlocked) colors.divider else colors.divider.copy(alpha = 0.7f)
+        ),
+        modifier = modifier.semantics(mergeDescendants = true) {
+            contentDescription = if (isUnlocked) {
+                "$title, unlocked. $description"
+            } else {
+                "$title, locked. $description"
+            }
+        }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = emoji,
-                fontSize = 28.sp,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            Box {
+                SoberIconBadge(
+                    imageVector = id.badgeIcon(),
+                    contentDescription = null,
+                    size = 54.dp,
+                    iconSize = 26.dp,
+                    containerColor = if (isUnlocked) colors.primaryMuted else colors.surface,
+                    contentColor = if (isUnlocked) colors.primary else colors.textMuted,
+                    shape = RoundedCornerShape(17.dp),
+                    border = BorderStroke(1.dp, colors.divider)
+                )
+                if (!isUnlocked) {
+                    SoberIconBadge(
+                        imageVector = Icons.Rounded.Lock,
+                        contentDescription = null,
+                        size = 20.dp,
+                        iconSize = 10.dp,
+                        containerColor = colors.surface,
+                        contentColor = colors.textMuted,
+                        border = BorderStroke(1.dp, colors.divider),
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = title,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isUnlocked) SoberTheme.colors.primary else SoberTheme.colors.textMuted,
+                color = if (isUnlocked) colors.primary else colors.textSecondary,
                 textAlign = TextAlign.Center
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
                 fontSize = 11.sp,
-                color = SoberTheme.colors.textMuted,
+                color = colors.textMuted,
                 textAlign = TextAlign.Center
             )
         }
     }
+}
+
+/**
+ * One icon vocabulary for badges. The glyph is chosen here rather than stored
+ * on the domain enum so the UI can change it without touching persisted data.
+ */
+private fun AchievementId.badgeIcon(): ImageVector = when (this) {
+    AchievementId.SEVEN_DAY_STREAK -> Icons.Rounded.LocalFireDepartment
+    AchievementId.FOCUS_MASTER -> Icons.Rounded.SelfImprovement
+    AchievementId.SOCIAL_DETOX -> Icons.Rounded.PhoneDisabled
+    AchievementId.NIGHT_OWL -> Icons.Rounded.Bedtime
+    AchievementId.SPEED_DEMON -> Icons.Rounded.Bolt
+    AchievementId.SOBER_PRO -> Icons.Rounded.WorkspacePremium
 }
