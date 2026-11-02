@@ -802,6 +802,13 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: Website blocking is usually sold as DNS filtering, which needs a `VpnService` that forwards every other query upstream — the exact transmission the app promises not to make. Accessibility offers a narrower path: Chrome exposes its omnibox node (`com.android.chrome:id/url_bar`) with the current host as text, so the service can read where the user is without reading page content. The limits follow from that source. The id is per-browser and per-build, so the catalogue is best-effort beyond Chrome; the bar can be scrolled away, delaying detection; custom tabs run inside the host app's package; and a redirect can render for a frame before the address updates.  
 **Solution/Pattern**: Normalise both the user's input and the address-bar text through one function (strip scheme, `www.`, path, query and port; reject whitespace, `@`, `chrome:`, `about:`, `file:` and bare words), match host-equals-or-ends-with-dot-domain, and pick the most specific matching rule. Use `textByResourceId` rather than the flat text set, or an unrelated label containing the URL can trigger a block. Cover the page with the existing section overlay so the exit path (`GLOBAL_ACTION_BACK`) is the same one users already know. Document the browser catalogue as verified-for-Chrome-only and keep the address bar out of anything stored.
 
+### 11.26 An Overlay Service That Ignores Its Own Package Can Trap the User
+
+**Date**: 2026-11-02  
+**Context**: The website cover stayed on screen after switching back to Sober, hiding the screen where the rule is removed.  
+**Learning**: `SoberAccessibilityService` returns early for `packageName == this.packageName` so the overlay window it adds cannot feed its own events back into detection. The same rule means the foreground transition to Sober is never processed, and the cover — which exists to block *another* app — remains on top of the app that manages the rule. The user can still press the overlay's Go back, but the footnote promises removal in Sober while Sober itself is covered.  
+**Solution/Pattern**: Hide the cover when the app's own UI becomes visible (`onResume` on the single activity), rather than trying to tell the overlay window apart from the activity in the event stream. Because hiding happens outside the service, the service's "same block already shown" guard must also require `isShowing`; otherwise the retained rule id suppresses the re-show when the user returns to the blocked page. This also keeps the app-level block overlay behaviour intact, since its engine already maps Sober and the launcher to "no target".
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

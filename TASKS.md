@@ -1008,6 +1008,12 @@
   and no `INTERNET` permission: only the address bar is read, never page content.*
 - [x] Verify the three changes on the emulator and record the limits — *see the
   Phase 7 verification note below.*
+- [x] Release the section/website cover when Sober itself is opened — *the
+  accessibility service ignores its own package to avoid reacting to the overlay
+  window, so the cover used to stay on top of Sober and hid the screen where the
+  rule is removed. `MainActivity.onResume` now calls
+  `SectionBlockOverlayController.hide()`, and the match guards check
+  `isShowing` so the same rule re-attaches on returning to the blocked page.*
 
 > **Phase 7 verification (2026-11-02).** Signed release (same release key,
 > versionCode unchanged at 4) built and installed over v1.3 on
@@ -1018,6 +1024,8 @@
 > `https://example.com` draws the "example.com is blocked" overlay over the live
 > page, `https://wikipedia.org` loads uncovered, the rule appears in
 > Settings → Custom rules and removing it from the sheet clears the list.
+> Opening Sober while the cover is up now shows the app instead of the overlay,
+> and reopening `example.com` covers the page again.
 > `test` **401/401** (27 new: 14 `DetectBlockedWebsiteUseCaseTest`, 10
 > `UsageAggregationTest`, 2 `AppRowTest`, 1 `CustomRuleCodecTest`).
 >
@@ -1214,6 +1222,8 @@
 | 2026-11-02 | P7.2 | completed | QA Agent | Settings is the fifth bottom-nav tab; the Home header gear was removed. Opened as a root destination, `SettingsScreen` takes a null `onBack` and hides both arrows while keeping the PIN/active-session gate. Device-verified: tab selected, no back arrow, cap and rules intact |
 | 2026-11-02 | P7.3 | completed | QA Agent | Website blocking shipped without a VPN: `BLOCKED_WEBSITE` custom rules, `WebsiteAddress` host normalisation, `DetectBlockedWebsiteUseCase` (14 tests) and a `BrowserCatalog` of address-bar ids read by `SoberAccessibilityService`. UI in the browser's app sheet plus Settings → Custom rules. Device-verified: example.com covered, wikipedia.org unaffected, rule listed and removable. Google Play's Accessibility policy still needs the website use case added to the disclosure before a store release |
 | 2026-11-02 | P7.4 | completed | QA Agent | Signed release (versionCode 4, same key) installed over v1.3 and walked on `emulator-5554`. `test` 401/401. No GitHub release or version bump — explicitly held until the user asks |
+| 2026-11-02 | P7.5 | started | Implementation Agent | Found while capturing screenshots: the website cover stayed over Sober after switching back, because `onAccessibilityEvent` returns early for `packageName == this.packageName`. Added `MainActivity.onResume` hide and `isShowing` guards |
+| 2026-11-02 | P7.5 | completed | QA Agent | Device-verified on `emulator-5554`: cover over Chrome at `example.com`, then Sober opens cleanly, then returning to Chrome covers the page again. Signed release rebuilt and installed; `test` 401/401. No release published |
 
 ---
 

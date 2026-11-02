@@ -262,7 +262,9 @@ class SoberAccessibilityService : AccessibilityService() {
     }
 
     private fun showWebsiteBlock(domain: String) {
-        if (currentWebsiteDomain == domain) return
+        // The app hides the cover when Sober itself comes to the front, so the
+        // same domain still has to re-attach on the way back to the browser.
+        if (currentWebsiteDomain == domain && sectionOverlayController.isShowing) return
         currentWebsiteDomain = domain
         currentRuleId = null
         sectionOverlayController.showMessage(
@@ -283,7 +285,7 @@ class SoberAccessibilityService : AccessibilityService() {
     }
 
     private fun showBlock(rule: DetectionRule) {
-        if (currentRuleId == rule.id) return
+        if (currentRuleId == rule.id && sectionOverlayController.isShowing) return
         currentRuleId = rule.id
         currentWebsiteDomain = null
         sectionOverlayController.show(rule) {
