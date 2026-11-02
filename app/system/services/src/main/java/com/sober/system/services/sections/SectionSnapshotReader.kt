@@ -24,6 +24,7 @@ internal object SectionSnapshotReader {
         val resourceIds = mutableSetOf<String>()
         val selectedResourceIds = mutableSetOf<String>()
         val texts = mutableSetOf<String>()
+        val textByResourceId = mutableMapOf<String, String>()
 
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         queue.add(root)
@@ -55,9 +56,11 @@ internal object SectionSnapshotReader {
                 }
             }
 
-            node.text?.toString()?.trim()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let(texts::add)
+            val text = node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+            if (text != null) {
+                texts += text
+                resourceId?.let { textByResourceId[it] = text }
+            }
             node.contentDescription?.toString()?.trim()
                 ?.takeIf { it.isNotEmpty() }
                 ?.let(texts::add)
@@ -72,7 +75,8 @@ internal object SectionSnapshotReader {
             activityName = activityName,
             resourceIds = resourceIds,
             selectedResourceIds = selectedResourceIds,
-            texts = texts
+            texts = texts,
+            textByResourceId = textByResourceId
         )
     }
 }

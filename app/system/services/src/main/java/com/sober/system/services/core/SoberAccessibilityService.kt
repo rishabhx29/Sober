@@ -5,11 +5,16 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.sober.core.common.accessibility.AccessibilitySettingsDetector
+import com.sober.core.domain.model.BrowserCatalog
+import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
+import com.sober.core.domain.model.WebsiteAddress
+import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.usecase.DetectBlockedSectionUseCase
+import com.sober.core.domain.usecase.DetectBlockedWebsiteUseCase
 import com.sober.system.overlay.ui.SectionBlockOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
 import com.sober.system.services.sections.SectionSnapshotReader
@@ -48,6 +53,12 @@ class SoberAccessibilityService : AccessibilityService() {
     lateinit var detectBlockedSectionUseCase: DetectBlockedSectionUseCase
 
     @Inject
+    lateinit var detectBlockedWebsiteUseCase: DetectBlockedWebsiteUseCase
+
+    @Inject
+    lateinit var customRuleRepository: CustomRuleRepository
+
+    @Inject
     lateinit var sectionOverlayController: SectionBlockOverlayController
 
     @Inject
@@ -63,7 +74,10 @@ class SoberAccessibilityService : AccessibilityService() {
     private var monitoredPackages: Set<String> = emptySet()
     private var lastActivityName: String? = null
     private var lastEvaluatedAtMillis = 0L
+    private var lastWebsiteEvaluatedAtMillis = 0L
     private var currentRuleId: String? = null
+    private var currentWebsiteDomain: String? = null
+    private var blockedDomains: Set<String> = emptySet()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -89,6 +103,20 @@ class SoberAccessibilityService : AccessibilityService() {
                 // A rule switched off while its section is on screen must
                 // release the overlay without waiting for the next app switch.
                 if (catalog.rules.none { rule -> rule.id in enabledRuleIds && rule.id == currentRuleId }) {
+                    clearBlock()
+                }
+            }
+        }
+        scope.launch {
+            customRuleRepository.rules().collect { rules ->
+                blockedDomains = rules
+                    .asSequence()
+                    .filter { it.enabled && it.type == CustomRuleType.BLOCKED_WEBSITE }
+                    .mapNotNull { WebsiteAddress.normalizeDomain(it.value) }
+                    .toSet()
+                // Removing the rule while its site is on screen must release
+                // the cover immediately, like switching a section off does.
+                if (currentWebsiteDomain != null && currentWebsiteDomain !in blockedDomains) {
                     clearBlock()
                 }
             }
@@ -129,6 +157,14 @@ class SoberAccessibilityService : AccessibilityService() {
                 return
             }
             accessibilitySettingsGuard.hide()
+        }
+
+        // Browsers are not section-rule packages. They are evaluated on their
+        // own signal — the host in the address bar — so the section matcher,
+        // which reads tabs and resource ids, has nothing to do here.
+        if (BrowserCatalog.isBrowser(packageName)) {
+            evaluateWebsite(packageName, type)
+            return
         }
 
         if (packageName !in monitoredPackages) {
@@ -193,9 +229,63 @@ class SoberAccessibilityService : AccessibilityService() {
             .toSet()
     }
 
+    /**
+     * Reads the current page host and covers the window when it is blocked.
+     *
+     * Content events matter here: navigating inside a browser changes the
+     * address bar without a window transition, so a state-change-only check
+     * would let the first blocked page through but not the next one. The same
+     * throttle as section rules keeps a scrolling page from re-reading the
+     * tree on every frame.
+     */
+    private fun evaluateWebsite(packageName: String, eventType: Int) {
+        // No rules means nothing to compare against. Bailing out before the
+        // tree walk keeps Chrome's scrolling cheap for users who never set one.
+        if (blockedDomains.isEmpty()) {
+            clearWebsiteBlock()
+            return
+        }
+
+        val isStateChange = eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val now = SystemClock.uptimeMillis()
+        if (!isStateChange && now - lastWebsiteEvaluatedAtMillis < CONTENT_THROTTLE_MS) return
+        lastWebsiteEvaluatedAtMillis = now
+
+        val addressBarId = BrowserCatalog.addressBarIdFor(packageName) ?: return
+        val root = rootInActiveWindow?.takeIf { it.packageName == packageName } ?: return
+        val snapshot = SectionSnapshotReader.read(packageName, lastActivityName, root)
+        val domain = detectBlockedWebsiteUseCase(
+            addressBarText = snapshot.textByResourceId[addressBarId],
+            blockedDomains = blockedDomains
+        )
+        if (domain == null) clearWebsiteBlock() else showWebsiteBlock(domain)
+    }
+
+    private fun showWebsiteBlock(domain: String) {
+        if (currentWebsiteDomain == domain) return
+        currentWebsiteDomain = domain
+        currentRuleId = null
+        sectionOverlayController.showMessage(
+            key = "website:$domain",
+            title = "$domain is blocked",
+            subtitle = "You asked Sober to keep this website closed.",
+            footnote = "It stays covered until you remove it from Sober.",
+            onBack = { performGlobalAction(GLOBAL_ACTION_BACK) }
+        )
+    }
+
+    private fun clearWebsiteBlock() {
+        if (currentWebsiteDomain == null) return
+        currentWebsiteDomain = null
+        // A section rule cannot be active for a browser package, but the
+        // overlay slot is shared, so hide it unconditionally.
+        sectionOverlayController.hide()
+    }
+
     private fun showBlock(rule: DetectionRule) {
         if (currentRuleId == rule.id) return
         currentRuleId = rule.id
+        currentWebsiteDomain = null
         sectionOverlayController.show(rule) {
             // Back is the only exit offered: navigating the app off the tab
             // proves the section is gone, and the next event hides the window.
@@ -204,8 +294,9 @@ class SoberAccessibilityService : AccessibilityService() {
     }
 
     private fun clearBlock() {
-        if (currentRuleId == null) return
+        if (currentRuleId == null && currentWebsiteDomain == null) return
         currentRuleId = null
+        currentWebsiteDomain = null
         sectionOverlayController.hide()
     }
 
