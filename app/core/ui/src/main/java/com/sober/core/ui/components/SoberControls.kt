@@ -1,5 +1,8 @@
 package com.sober.core.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,16 +15,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -40,11 +51,17 @@ fun SoberProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     isDanger: Boolean = false,
-    height: Dp = 4.dp
+    height: Dp = 4.dp,
+    contentDescription: String? = null
 ) {
     val colors = SoberTheme.colors
     val fraction = progress.coerceIn(0f, 1f)
     val shape = RoundedCornerShape(height / 2)
+    val animatedFraction by animateFloatAsState(
+        targetValue = fraction,
+        animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        label = "progress-fill"
+    )
 
     Box(
         modifier = modifier
@@ -52,10 +69,23 @@ fun SoberProgressBar(
             .height(height)
             .clip(shape)
             .background(colors.divider)
+            .then(
+                if (contentDescription != null) {
+                    Modifier.semantics {
+                        this.contentDescription = contentDescription
+                        progressBarRangeInfo =
+                            ProgressBarRangeInfo(fraction, 0f..1f, 0)
+                    }
+                } else {
+                    // Decorative bars would otherwise each become a "0 percent"
+                    // stop in TalkBack; the row text already carries the number.
+                    Modifier.clearAndSetSemantics {}
+                }
+            )
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(fraction)
+                .fillMaxWidth(animatedFraction)
                 .fillMaxHeight()
                 .background(if (isDanger) colors.danger else colors.primary)
         )
@@ -80,9 +110,10 @@ fun <T> SoberSegmentedControl(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(colors.background)
-            .padding(3.dp),
+            .padding(3.dp)
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         options.forEach { option ->
@@ -90,8 +121,8 @@ fun <T> SoberSegmentedControl(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(11.dp))
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(13.dp))
                     .background(if (isSelected) colors.primary else Color.Transparent)
                     .selectable(
                         selected = isSelected,
@@ -113,11 +144,17 @@ fun <T> SoberSegmentedControl(
     }
 }
 
-/** Navy track when on, muted grey when off. No third colour state. */
+/**
+ * Navy track when on, muted grey when off. No third colour state.
+ *
+ * Pass a null [onCheckedChange] when the whole row is the switch target: the
+ * row carries the toggleable semantics, so the switch itself is removed from the
+ * accessibility tree instead of becoming a second, smaller duplicate stop.
+ */
 @Composable
 fun SoberToggleSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
@@ -126,7 +163,13 @@ fun SoberToggleSwitch(
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        modifier = modifier,
+        modifier = modifier.then(
+            if (onCheckedChange == null) {
+                Modifier.clearAndSetSemantics {}
+            } else {
+                Modifier
+            }
+        ),
         enabled = enabled,
         colors = SwitchDefaults.colors(
             checkedThumbColor = colors.onPrimary,

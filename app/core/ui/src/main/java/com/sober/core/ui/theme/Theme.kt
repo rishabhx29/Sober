@@ -31,7 +31,9 @@ data class SoberColors(
     val textSecondary: Color = SoberTextSecondary,
     val textMuted: Color = SoberTextMuted,
     val divider: Color = SoberDivider,
-    val danger: Color = SoberDanger
+    val danger: Color = SoberDanger,
+    val primaryMuted: Color = SoberPrimaryMuted,
+    val dangerMuted: Color = SoberDangerLight
 )
 
 val LightSoberColors = SoberColors()
@@ -46,7 +48,9 @@ val DarkSoberColors = SoberColors(
     textSecondary = SoberDarkTextSecondary,
     textMuted = SoberDarkTextMuted,
     divider = SoberDarkDivider,
-    danger = SoberDarkDanger
+    danger = SoberDarkDanger,
+    primaryMuted = SoberDarkPrimaryMuted,
+    dangerMuted = SoberDarkDangerMuted
 )
 
 val LocalSoberColors = staticCompositionLocalOf { LightSoberColors }

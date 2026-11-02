@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -29,15 +31,18 @@ import com.sober.core.ui.theme.SoberTheme
 @Composable
 fun SoberSectionLabel(
     text: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isHeading: Boolean = true
 ) {
     Text(
         text = text.uppercase(),
         color = SoberTheme.colors.textMuted,
         fontSize = 11.sp,
         fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        modifier = modifier
+        letterSpacing = 1.1.sp,
+        modifier = modifier.then(
+            if (isHeading) Modifier.semantics { heading() } else Modifier
+        )
     )
 }
 
@@ -93,6 +98,9 @@ fun SoberStatusRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // One stop in TalkBack: "Usage access, Granted" instead of reading
+            // the label, the dot (no semantics) and the value separately.
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
