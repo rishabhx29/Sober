@@ -56,5 +56,11 @@ data class WindowSnapshot(
     val activityName: String? = null,
     val resourceIds: Set<String> = emptySet(),
     val selectedResourceIds: Set<String> = emptySet(),
-    val texts: Set<String> = emptySet()
+    val texts: Set<String> = emptySet(),
+    /**
+     * Text keyed by the id of the node that owns it. A browser's address bar is
+     * the reason this exists: the host matters, not the fact that some node
+     * somewhere in the window contains it.
+     */
+    val textByResourceId: Map<String, String> = emptyMap()
 )

@@ -4,17 +4,25 @@ package com.sober.core.domain.model
  * A rule the user wrote themselves, as opposed to the bundled section catalog
  * or a scheduled window.
  *
- * Two kinds exist because they are enforced in different places: a keyword is
+ * Three kinds exist because they are enforced in different places: a keyword is
  * read by the notification listener (where the text exists), an app is read by
- * the block policy (where the foreground package is known). Keeping them in one
- * list means the user manages one screen.
+ * the block policy (where the foreground package is known), and a website is
+ * read by the accessibility service (where the browser address bar exists).
+ * Keeping them in one list means the user manages one screen.
  */
 enum class CustomRuleType {
     /** Notifications whose title or body contains [CustomRule.value] are hidden. */
     NOTIFICATION_KEYWORD,
 
     /** The app with package [CustomRule.value] is blocked outright, with no end. */
-    BLOCKED_APP
+    BLOCKED_APP,
+
+    /**
+     * A website domain ([CustomRule.value]) is covered inside a browser. Read by
+     * the accessibility service, where the address bar text exists; a browser
+     * that exposes no address-bar node simply never matches.
+     */
+    BLOCKED_WEBSITE
 }
 
 data class CustomRule(

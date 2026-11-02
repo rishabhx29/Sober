@@ -36,6 +36,13 @@ class CustomRuleCodecTest {
     }
 
     @Test
+    fun `a website rule survives a round trip`() {
+        val original = rule(value = "example.com", type = CustomRuleType.BLOCKED_WEBSITE)
+
+        assertEquals(original, CustomRuleCodec.decode(CustomRuleCodec.encode(original)))
+    }
+
+    @Test
     fun `a record with too few fields is dropped`() {
         assertNull(CustomRuleCodec.decode("rule-1|BLOCKED_APP|1"))
     }
