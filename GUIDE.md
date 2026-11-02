@@ -767,6 +767,27 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: realme/ColorOS routes sideloads through its own "StdSP Core" scanner. It is a normal foreground activity, and `am force-stop`/`am stop-service` do not reliably keep the enforcement service down, so the confirm button can be permanently hidden behind the overlay. Changing verifier settings (`package_verifier_enable`, `verifier_verify_adb_installs`) is one option but alters device security state.  
 **Solution/Pattern**: Disable the blocker briefly with `pm disable-user --user 0 com.sober.app`, complete the install through the UI (`uiautomator dump` locates the Install button; its bounds are in raw pixels), verify with `dumpsys package com.sober.app | grep versionName`, then `pm enable com.sober.app` and relaunch. With v1.2's blockability guard this is no longer necessary, because the OEM installer has no launcher activity — but the sequence is the fallback on older builds. Reinstalling also clears the Accessibility binding (`enabled_accessibility_services` becomes `null`); restore it with `settings put secure enabled_accessibility_services com.sober.app/com.sober.system.services.core.SoberAccessibilityService` and confirm `dumpsys accessibility` lists it under `Bound services`.
 
+### 11.21 Emoji Are Text, Not Icons
+
+**Date**: 2026-11-02  
+**Context**: The achievement badges and streak chip used emoji glyphs (flame, lotus, check marks). They rendered in each OEM's emoji font, at that font's weight and colour, and TalkBack read them as their Unicode name ("fire").  
+**Learning**: An emoji in a `Text` cannot be recoloured, sized independently of the font, or kept visually consistent across devices, and it disappears under some accessibility font settings. Material icons are vectors drawn by Compose, so they take `tint`, match stroke weight, and are silent to TalkBack when `contentDescription = null` because the surrounding row carries the meaning. Real application icons are the exception: those should stay as drawables so users recognise the app.  
+**Solution/Pattern**: Map domain ids to vectors in the UI layer (`AchievementId.badgeIcon()`), never store the glyph on the enum. Grep twice after a sweep: one pass for the literal characters, and one for the Unicode emoji ranges (`[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]`) because many emoji hide in strings that look like plain punctuation.
+
+### 11.22 `Text` Has No `fontFeatureSettings` Parameter
+
+**Date**: 2026-11-02  
+**Context**: Ticking minute counts shifted their own line width, so the usage ring's number jittered each second. Adding `fontFeatureSettings = "tnum"` to `Text` failed to compile with "none of the following candidates is applicable".  
+**Learning**: Compose's `Text` overloads accept colour, size, weight and style, but not `fontFeatureSettings`; that lives on `TextStyle`. The compiler error names the call, not the missing parameter, which makes it look like an overload-resolution problem.  
+**Solution/Pattern**: Keep one `TabularNumberStyle = TextStyle(fontFeatureSettings = "tnum")` in the theme and pass it as `style =`; explicit `fontSize`/`color` arguments still merge over it. Any value that updates on a timer — countdowns, screen-time totals — needs this, or it reflows on every tick.
+
+### 11.23 Equal Cards Need an Intrinsic Row Height
+
+**Date**: 2026-11-02  
+**Context**: In the achievements grid, a two-line description made its card taller than the one beside it; the pair looked ragged even though both used the same 18dp radius and padding.  
+**Learning**: `Row` measures children independently, and `weight(1f)` only equalises *width*. Equal height needs the row to first measure the tallest child's intrinsic height, then stretch every child to it. Without that, `fillMaxHeight()` has no bounded height to fill and does nothing.  
+**Solution/Pattern**: `Row(Modifier.height(IntrinsicSize.Max))` plus `Modifier.weight(1f).fillMaxHeight()` on each card. This is cheap for two-column grids of short content; avoid it for long scrollable children, where intrinsic measurement costs more.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
@@ -777,6 +798,7 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 | KSP annotation processing failures | Ensure KSP version matches Kotlin version |
 | Module not found in navigation | Check `settings.gradle.kts` includes the module |
 | `AAPT: resource not found` for fonts | Ensure font files are in `core/ui/src/main/res/font/` |
+| `Could not connect to the Gradle daemon` / `BindException: Cannot assign requested address: getsockopt` on Windows | Host IPv6 loopback is blocked; run Gradle with `JAVA_TOOL_OPTIONS="-Djava.net.preferIPv4Stack=true"` and `GRADLE_OPTS="-Djava.net.preferIPv4Stack=true"` |
 
 ### 12.2 Runtime Issues
 
@@ -799,6 +821,7 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 | OnePlus | Deep sleep kills background work | Disable "Adaptive Battery" for Sober |
 | realme / OPPO | `adb install` fails with `INSTALL_FAILED_VERIFICATION_FAILURE`; the StdSP installer is covered by the block overlay | Install through the UI after briefly running `pm disable-user --user 0 com.sober.app`, then `pm enable`. On v1.2+ the installer has no launcher activity, so the cap cannot cover it |
 | realme / OPPO | Accessibility binding resets after reinstall | `settings put secure enabled_accessibility_services com.sober.app/com.sober.system.services.core.SoberAccessibilityService`, then verify via `dumpsys accessibility` |
+| Emulator | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` when installing a debug APK | The AVD already holds the release-signed package. Install a release build signed with the same key (same `versionCode` works with `adb install -r`), or uninstall first — which deletes the app's setup state |
 
 ---
 

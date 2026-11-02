@@ -1,7 +1,7 @@
 # Sober — Master Task Tracker
 
 > **Maintained by**: Task Tracker Agent  
-> **Last Updated**: 2026-10-29  
+> **Last Updated**: 2026-11-02  
 > **Legend**: `[ ]` Not started · `[/]` In progress · `[x]` Complete · `[!]` Blocked  
 > **Rule**: No task moves to `[x]` until verified by the QA Agent. No phase begins until the prior phase is fully `[x]`.
 
@@ -843,6 +843,40 @@
 > was not rendered, no listing screenshots were taken and no console draft was
 > produced.
 
+### 5.9 Interface Polish & Accessibility (v1.3)
+
+- [x] Replace every emoji glyph with a Material icon, keeping real app icons as
+  drawables — *`AchievementId.badgeIcon()` maps each achievement to a vector;
+  Home and Focus use `LocalFireDepartment`, `PlayArrow`, `SelfImprovement`,
+  `Replay`, `CheckCircle` and `Cancel`. Two grep passes (a literal emoji table
+  and the Unicode emoji ranges) find none left in Kotlin sources.*
+- [x] Give every control a name, a role and its state — *headings on screen
+  titles; merged card descriptions that say durations in words ("22 minutes
+  used of 3 hours daily limit"); chart bars expose "Show this day" and a
+  selected state; decorative icons are `contentDescription = null`.*
+- [x] Make whole rows the switch target, not just the thumb — *the cap picker,
+  Apps limit rows, Settings notification rows and Focus setup rows each expose
+  one `toggleable(value, role = Switch)` stop with a passive `Switch`.*
+- [x] Stop minute counts from shifting and soften the motion — *`TabularNumberStyle`
+  on every ticking value; the usage ring eases over 900ms, the active-session
+  medallion breathes, the completion badge springs in, buttons press to 0.96
+  and tab changes cross-fade in 200ms.*
+- [x] Make the cap picker searchable — *filter by app name or package, a live
+  "N of M apps covered" count, a clear button and empty-match copy.*
+- [x] Build, install and walk the polished UI on the emulator — *signed release
+  installed over v1.2; Home, Apps, app-limit sheet, Focus, Stats including
+  achievements, Settings and the cap picker were screenshotted in dark mode,
+  and `uiautomator dump` confirms the merged descriptions.*
+
+> **5.9 verification (2026-11-02).** Signed release built with the release key
+> and installed with `adb install -r` over v1.2 on the `SoberQA` AVD
+> (`emulator-5554`). `testDebugUnitTest` green: 374 tests, 0 failures (7 new in
+> `TimeFormatTest`, covering spoken durations and singular units). Search
+> narrows the cap picker to one row and that row appears in the hierarchy dump
+> as a single `checkable`/`clickable` node. Not verified: TalkBack itself was
+> not enabled — semantics were inspected from `uiautomator dump` — and this
+> pass was not repeated on the physical phone.
+
 ---
 
 ## Phase 6 — Extended Section Blocking + VPN (Post-Launch)
@@ -1115,6 +1149,11 @@
 | 2026-11-02 | P5.4-chrome | completed | QA Agent | User report: the overall cap covered System UI and Gboard. Root cause was two independent gaps — no block-target classifier in `EvaluateBlockDecisionUseCase`, and `SoberCoreService` excluding only Home and Sober. Added `BlockableAppsRepository` (launcher-only targets; System UI, IMEs, Settings, permission controllers, launcher excluded), a transient-chrome guard that keeps an existing overlay through keyboard/System UI windows, and `<queries>` for the IME interface and Settings actions. Verified on the realme phone (v1.2): `am start -a android.settings.SETTINGS` shows no overlay; Chrome and Photos still blocked by the cap. `test` 367/367 |
 | 2026-11-02 | P5.4a-cap-picker | completed | QA Agent | Settings → Daily screen time → **Apps covered** with a **Choose apps** dialog over every blockable app, copy stating that left-out apps still count as screen time, and a note that Home, Settings, System UI and the keyboard are never blocked. Exemptions persist in DataStore as a string set and are read by the policy engine at decision time. Device-verified: unchecking Chrome made it open under a 397/120-minute cap while Photos stayed blocked; re-checking restored "All of them". Accessibility binding was re-enabled after the reinstall and `Bound services` shows `Sober` |
 | 2026-11-02 | P5.7c | completed | QA Agent | Rebuilt and installed signed v1.2 (versionCode 3) over v1.1 with the same release key; `dumpsys package` reports `versionName=1.2`. Signed APK 3,940,156 bytes, SHA-256 `b5888a7e…b169c`, cert unchanged (`f9fc8e71…c36c64`). The OEM installer (`com.oplus.stdsp`) blocked the first ADB install; the UI install path was used instead and the incident is recorded in GUIDE.md |
+| 2026-11-02 | P5.9-icons | completed | Implementation Agent | Replaced emoji glyphs with vectors: achievements (flame, meditation, phone-off, moon, bolt, medal), Home streak, session actions and completion states. Real app icons stay drawables and now sit in tinted tiles. No emoji remains in Kotlin sources |
+| 2026-11-02 | P5.9-a11y | completed | QA Agent | Accessibility pass: screen headings, merged card descriptions, worded durations (`spokenDuration`, `spokenRemaining`), single-stop switches via whole-row `toggleable`, chart bar labels and selection state, decorative icons silenced. Added `TimeFormatTest` (7 tests), including singular units. Fixed a Material3 API misuse from the pass: `Text` has no `fontFeatureSettings`, so tabular figures moved into `TabularNumberStyle` |
+| 2026-11-02 | P5.9-polish | completed | Implementation Agent | Motion and surface polish: 900ms eased usage ring, breathing session medallion, spring completion badge, 0.96 press scale, 200ms nav cross-fade, tabular digits, 18dp cards, tinted icon tiles and equal-height achievement cards. Verified visually on the emulator; review found the uneven achievement row and fixed it with `IntrinsicSize.Max` |
+| 2026-11-02 | P5.9-cap-search | completed | QA Agent | Cap picker: search by name/package, live covered count, clear action and empty-match copy. `uiautomator dump` shows each app row as one `checkable`/`clickable` node with the app name, so the switch is a single TalkBack stop |
+| 2026-11-02 | P5.9-verify | completed | QA Agent | Signed release rebuilt and installed over v1.2 on `emulator-5554`; walked Home, Apps, limit sheet, Focus, Stats, Settings and cap picker in dark mode. `testDebugUnitTest` 374/374. TalkBack was not enabled — semantics were read from the hierarchy dump; physical-phone recheck pending |
 
 ---
 
