@@ -1038,6 +1038,62 @@
 
 ---
 
+## Phase 7.6 — Editorial UI Refactor (v1.4, unreleased)
+
+- [x] Add one shared editorial component set — *`SoberEditorial.kt` in
+  `:core:ui` ships `SoberScreenHeader` (eyebrow with accent rule, 40sp title,
+  deck line), `SoberSectionHeader` (mono index, hairline rule),
+  `SoberListRow` (13dp vertical breathing, trailing slot), `SoberFilterChips`
+  (pill chips, single selection), `SoberQuietButton` (40dp text action with a
+  leading icon) and `SoberInlineMetric`. Screens compose these instead of
+  re-styling cards locally, so a spacing change is one edit.*
+- [x] Rebuild the shell around a floating tab capsule — *the Material
+  `NavigationBar` and its full-width divider are gone; a 26dp-radius surface
+  with a 1dp border and 10dp shadow floats 16dp from the sides, holds five
+  64dp tabs, marks selection with a 20dp `primary` pill and is exposed as
+  `Role.Tab` with `selectable`.*
+- [x] Restyle Home, Apps, Focus, Stats and Settings in the editorial language —
+  *oversized tabular numbers, hairline rows instead of nested bordered cards,
+  numbered sections, mono eyebrows and pill chips. Rows that used to carry a
+  card border now use dividers only, and sections keep their read order.*
+- [x] Restyle Schedules, Custom rules and Onboarding to match — *section
+  numbering starts at `01` whether or not suggestions exist, add actions carry
+  a `+`, battery actions stack instead of sharing one squeezed line, and the
+  onboarding wordmark grows to 52sp with 32sp page titles.*
+- [x] Restyle the block overlays — *the section and app covers use a 28sp
+  headline, a mono `SOBER` wordmark with an accent rule, and matching line
+  heights; copy is unchanged, so the block-screen tests only needed the new
+  wordmark casing.*
+- [x] Fix the defects the pass exposed — *focus countdowns now share their
+  state eagerly (a `WhileSubscribed` flow read through `.value` never
+  collected, so the timer showed `--:--` for a whole session); the app-limit
+  sheet opens fully so Save is reachable; preset cards are 92dp tall so
+  "2h · Social blocked" is not clipped; section indices renumber when a
+  section above them is hidden; navigation-bar icon appearance tracks the
+  app theme rather than only the system theme.*
+- [x] Verify the refactor on the emulator and keep the version — *walked in
+  light mode (Home, Apps, Focus setup/active/complete, Stats, Settings and all
+  its sub-screens, limit sheet) and in dark mode (Home, Stats) on
+  `emulator-5554`. Signed release rebuilt with the same key; versionName 1.3 /
+  versionCode 4 unchanged, so no new release was published.*
+
+> **Phase 7.6 verification (2026-11-03).** `testDebugUnitTest` **401/401**,
+> signed `:app:assembleRelease` green and installed over the v1.3 build with
+> `adb install -r`. Focus was exercised end to end with a 6-minute custom
+> session: the countdown renders numeric (`05:29`), the active state shows
+> `01 Recent sessions`, cancellation returns to setup at `01`, and the
+> completed state renumbers Quick modes to `01` and Recent sessions to `02`.
+> Section numbering on Schedules starts at `01` on a fresh install and the
+> custom-duration dialog rejects 1 minute with "Choose between 5 minutes and
+> 12 hours."
+>
+> Not verified: TalkBack was not enabled (semantics were read from the
+> hierarchy dump only); the onboarding pages, the block overlay and website
+> cover were not re-walked after the restyle; a hardware phone was not used;
+> the floating capsule was checked at the emulator's 1080×2400 density only.
+
+---
+
 ## Task Log
 
 | Date       | Task ID | Action                | Agent              | Notes |
@@ -1224,6 +1280,13 @@
 | 2026-11-02 | P7.4 | completed | QA Agent | Signed release (versionCode 4, same key) installed over v1.3 and walked on `emulator-5554`. `test` 401/401. No GitHub release or version bump — explicitly held until the user asks |
 | 2026-11-02 | P7.5 | started | Implementation Agent | Found while capturing screenshots: the website cover stayed over Sober after switching back, because `onAccessibilityEvent` returns early for `packageName == this.packageName`. Added `MainActivity.onResume` hide and `isShowing` guards |
 | 2026-11-02 | P7.5 | completed | QA Agent | Device-verified on `emulator-5554`: cover over Chrome at `example.com`, then Sober opens cleanly, then returning to Chrome covers the page again. Signed release rebuilt and installed; `test` 401/401. No release published |
+| 2026-11-03 | P7.6-components | completed | Implementation Agent | Added `SoberEditorial.kt` (`SoberScreenHeader`, `SoberSectionHeader`, `SoberListRow`, `SoberFilterChips`, `SoberQuietButton`, `SoberInlineMetric`) and wired `material-icons-extended` into `:core:ui`; screens consume shared spacing instead of local card styling |
+| 2026-11-03 | P7.6-shell | completed | Implementation Agent | Replaced the Material `NavigationBar` with a floating bordered capsule: five 64dp tabs, `Role.Tab` selection, 20dp selected pill, 19dp icons and 10sp labels. Navigation behaviour (save/restore state, single top) is unchanged |
+| 2026-11-03 | P7.6-screens | completed | Implementation Agent | Restyled Home, Apps, Focus, Stats, Settings, Schedules, Custom rules and Onboarding: hairline rows, mono section indices, oversized tabular figures, pill chips and quiet icon actions. Layout and copy semantics preserved for existing tests |
+| 2026-11-03 | P7.6-overlay | completed | Implementation Agent | Block and section overlays restyled to match (28sp headline, mono `SOBER` wordmark with accent rule). `BlockOverlayScreenTest` updated for the casing change; the test still asserts the blocked reason is displayed |
+| 2026-11-03 | P7.6-fixes | completed | QA Agent | Five defects found while walking the restyled screens and fixed: the focus countdown showed `--:--` because eagerly-needed state was shared `WhileSubscribed`; the limit sheet opened half-height and hid Save; a two-line preset description was clipped at 80dp; section indices started at 02/03 when sections above were hidden; nav-bar icon appearance followed only the system theme |
+| 2026-11-03 | P7.6-verify | completed | QA Agent | Signed release installed over v1.3 on `emulator-5554`. Light walk covered Home, Apps, Focus (setup, active, complete), Stats, Settings and sub-screens; dark walk covered Home and Stats. 6-minute custom session confirmed the numeric countdown and the `01/02` renumbering. `test` 401/401. Version left at 1.3 / versionCode 4, no release published |
+| 2026-11-03 | P7.6-docs | completed | Guide Agent | Recorded the `WhileSubscribed` + `.value` countdown trap, the emulator SystemUI status-bar artifact, the editorial component contract and conditional-layout defects in GUIDE.md 11.27–11.30 |
 
 ---
 

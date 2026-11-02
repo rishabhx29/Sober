@@ -809,6 +809,34 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: `SoberAccessibilityService` returns early for `packageName == this.packageName` so the overlay window it adds cannot feed its own events back into detection. The same rule means the foreground transition to Sober is never processed, and the cover — which exists to block *another* app — remains on top of the app that manages the rule. The user can still press the overlay's Go back, but the footnote promises removal in Sober while Sober itself is covered.  
 **Solution/Pattern**: Hide the cover when the app's own UI becomes visible (`onResume` on the single activity), rather than trying to tell the overlay window apart from the activity in the event stream. Because hiding happens outside the service, the service's "same block already shown" guard must also require `isShowing`; otherwise the retained rule id suppresses the re-show when the user returns to the blocked page. This also keeps the app-level block overlay behaviour intact, since its engine already maps Sober and the launcher to "no target".
 
+### 11.27 A Lazy Share Read Through `.value` Never Collects
+
+**Date**: 2026-11-03  
+**Context**: The Focus countdown showed `--:--` for the entire session, while the active-session card still knew the session existed.  
+**Learning**: `stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)` only starts collecting upstream while someone is subscribed. The countdown loop read `.value` once per second — reading a `StateFlow` is not subscribing — so the upstream `DataStore` flow never started, the shared state stayed at its `null` initial value, and the formatter rendered the placeholder. Nothing crashed and no test failed, because both sides are individually correct. The same bug was waiting in the meal-break until value.  
+**Solution/Pattern**: When a value is consumed by polling or by a non-Compose caller, share it with `SharingStarted.Eagerly`. Reserve `WhileSubscribed` for flows that are collected by UI, where the subscription is guaranteed. The tell is a `StateFlow` whose initial value can still be observed minutes later.
+
+### 11.28 The Emulator Can Repaint the Status Bar With the Wrong Icon Colour
+
+**Date**: 2026-11-03  
+**Context**: In light mode the status bar showed white icons on the cream background, making the clock and battery unreadable.  
+**Learning**: `dumpsys window` reported `vsysui=LIGHT_STATUS_BAR LIGHT_NAVIGATION_BAR` for Sober, and the system Settings app showed the same white icons on its light background. The app was asking for the correct appearance; Android's SystemUI had kept the dark-mode icon tint after a theme toggle. This is an emulator/SystemUI artifact, not a Compose bug — but an app cannot rely on the system being right.  
+**Solution/Pattern**: Verify a suspected status-bar defect against a system app before changing app code. To reset a stuck SystemUI on the emulator, `adb root` then `pkill -f com.android.systemui` (it restarts on its own) and re-apply the night mode. Independently, set both `isAppearanceLightStatusBars` and `isAppearanceLightNavigationBars` from the app's own `darkTheme` value in a `SideEffect`, because `enableEdgeToEdge` can only follow the system theme while the app may be forcing the other one.
+
+### 11.29 An Editorial System Is a Spacing Contract, Not a Theme
+
+**Date**: 2026-11-03  
+**Context**: The refactor moved every screen from nested bordered cards to hairline-separated rows.  
+**Learning**: Restyling eleven screens one file at a time produced near-duplicates: the same 13dp row padding, the same mono index treatment, the same pill chip and the same quiet text action, each written locally. A screen that drifts by 2dp is invisible in review and obvious in a screenshot walk. Colour tokens alone do not prevent that, because the defect is layout rather than palette.  
+**Solution/Pattern**: Put the repeated structure in one file — `SoberEditorial.kt` — and let screens supply content, not spacing: `SoberScreenHeader`, `SoberSectionHeader`, `SoberListRow`, `SoberFilterChips`, `SoberQuietButton`, `SoberInlineMetric`. Keep cards for things that are genuinely a single object (the active session, the completion card); use rows plus dividers for lists. Two consequences to expect: copy-dependent tests need updating when a wordmark changes casing (`Sober` → `SOBER`), and a mid-session or post-session screen must derive its section indices instead of hard-coding them.
+
+### 11.30 Fixed Heights and Fixed Indices Break When Sections Are Conditional
+
+**Date**: 2026-11-03  
+**Context**: Three layout defects surfaced in one pass: a focus session sheet hid its Save button, the Study preset clipped its second description line, and section numbering started at `02` or `03` when sections above were hidden.  
+**Learning**: Each value was correct when written and wrong once the content around it changed. `ModalBottomSheet` opens at half height by default, and the drum picker plus Save button are taller than that half. A `80.dp` preset card fitted one description line until the copy gained a second. A hard-coded `"03"` index was right in the setup form and wrong in the active and completed states, where the two sections above it are gone. Unit tests do not see any of it; the layout is only wrong on screen.  
+**Solution/Pattern**: Open a sheet that owns a confirm button with `skipPartiallyExpanded = true` or size it beyond its own content. Size text containers for the copy they actually hold (the preset card is `92.dp` with an explicit `lineHeight` and `maxLines = 2`). Treat section numbers as data derived from the state that decides visibility (see `sectionIndex` in Schedules and `setupVisible` in Focus), never as literals beside a conditional header.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
