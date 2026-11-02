@@ -1,26 +1,40 @@
 package com.sober.app.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,53 +84,83 @@ fun SoberApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
                 val showBottomBar = currentRoute in tabs.map { it.route }
 
                 if (showBottomBar) {
-                    Column {
-                        HorizontalDivider(color = SoberTheme.colors.divider)
-                        NavigationBar(
-                            containerColor = SoberTheme.colors.surface,
-                            tonalElevation = 0.dp
+                    // A floating capsule rather than an edge-to-edge bar: it
+                    // lifts the tabs off the page, keeps the content's bottom
+                    // edge visible and reads as one control instead of five
+                    // separate icons.
+                    val colors = SoberTheme.colors
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(26.dp),
+                            color = colors.surface,
+                            border = BorderStroke(1.dp, colors.cardBorder),
+                            shadowElevation = 10.dp,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            tabs.forEach { tab ->
-                                val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
-                                NavigationBarItem(
-                                    icon = {
-                                        // The label already names the tab; a
-                                        // contentDescription here would make
-                                        // TalkBack say "Home, Home".
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(64.dp)
+                                    .padding(horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                tabs.forEach { tab ->
+                                    val selected = currentDestination?.hierarchy
+                                        ?.any { it.route == tab.route } == true
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .padding(vertical = 7.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(
+                                                if (selected) colors.primary else Color.Transparent
+                                            )
+                                            .selectable(
+                                                selected = selected,
+                                                role = Role.Tab,
+                                                onClick = {
+                                                    navController.navigate(tab.route) {
+                                                        popUpTo(
+                                                            navController.graph
+                                                                .findStartDestination().id
+                                                        ) {
+                                                            saveState = true
+                                                        }
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                }
+                                            ),
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
                                         Icon(
                                             imageVector = tab.icon,
-                                            contentDescription = null
+                                            // The label names the tab; a
+                                            // description would say it twice.
+                                            contentDescription = null,
+                                            tint = if (selected) colors.onPrimary else colors.textMuted,
+                                            modifier = Modifier.size(19.dp)
                                         )
-                                    },
-                                    label = {
+                                        Spacer(modifier = Modifier.height(3.dp))
                                         Text(
                                             text = tab.title,
-                                            fontSize = 11.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = if (selected) {
                                                 FontWeight.SemiBold
                                             } else {
                                                 FontWeight.Medium
-                                            }
+                                            },
+                                            color = if (selected) colors.onPrimary else colors.textMuted
                                         )
-                                    },
-                                    selected = selected,
-                                    onClick = {
-                                        navController.navigate(tab.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = SoberTheme.colors.primary,
-                                        selectedTextColor = SoberTheme.colors.primary,
-                                        unselectedIconColor = SoberTheme.colors.textMuted,
-                                        unselectedTextColor = SoberTheme.colors.textMuted,
-                                        indicatorColor = SoberTheme.colors.primaryMuted
-                                    )
-                                )
+                                    }
+                                }
                             }
                         }
                     }
