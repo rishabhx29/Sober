@@ -30,6 +30,11 @@ class SyncUsageSessionsUseCase @Inject constructor(
         val usage = usageStatsRepository.getUsageStatsForToday()
 
         usage.forEach { appUsage ->
+            // Sober's own foreground service and the launcher are not screen
+            // time. Writing them here would put a permanently growing row in
+            // the rollup that later survives even if the live query is fixed.
+            if (appUsage.packageName in usageStatsRepository.excludedPackages) return@forEach
+
             val usedMinutes = (appUsage.totalTimeInForeground / 60_000L).toInt()
             if (usedMinutes <= 0) return@forEach
 

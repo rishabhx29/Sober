@@ -47,7 +47,7 @@ class UsageStatsRepositoryImpl @Inject constructor(
     }
 
     /** Sober's own UI and the launcher are never block targets. */
-    private val ignoredPackages: Set<String> by lazy {
+    override val excludedPackages: Set<String> by lazy {
         buildSet {
             add(context.packageName)
             homePackage?.let(::add)
@@ -107,7 +107,7 @@ class UsageStatsRepositoryImpl @Inject constructor(
         if (!cacheInitialized) {
             val history = readEvents(endTime - INITIAL_LOOKBACK_MS, endTime) ?: return null
             cacheInitialized = true
-            cachedForeground = replayForeground(history, initial = null, ignoredPackages)
+            cachedForeground = replayForeground(history, initial = null, excludedPackages)
             return cachedForeground
         }
 
@@ -116,7 +116,7 @@ class UsageStatsRepositoryImpl @Inject constructor(
         // is. Replaying an empty window would only repeat the cached answer.
         if (recent.isEmpty()) return cachedForeground
 
-        cachedForeground = replayForeground(recent, cachedForeground, ignoredPackages)
+        cachedForeground = replayForeground(recent, cachedForeground, excludedPackages)
         return cachedForeground
     }
 

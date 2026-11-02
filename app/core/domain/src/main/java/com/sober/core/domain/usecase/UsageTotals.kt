@@ -17,13 +17,15 @@ import java.util.Locale
  */
 internal object UsageTotals {
 
-    /** Total foreground minutes across every app today. */
+    /** Total foreground minutes across every app today, excluding Sober and the launcher. */
     suspend fun deviceMinutesToday(
         stats: UsageStatsRepository,
         sessions: UsageSessionRepository
     ): Int {
+        val excluded = stats.excludedPackages
         val live = try {
             stats.getUsageStatsForToday()
+                .filterNot { it.packageName in excluded }
                 .sumOf { it.totalTimeInForeground / 60_000L }
                 .toInt()
         } catch (e: Exception) {
@@ -32,6 +34,7 @@ internal object UsageTotals {
 
         val stored = sessions.getAllUsageForDate(today())
             .first()
+            .filterNot { it.packageName in excluded }
             .sumOf { it.usedMinutes }
 
         return maxOf(live, stored)
@@ -42,16 +45,20 @@ internal object UsageTotals {
         stats: UsageStatsRepository,
         sessions: UsageSessionRepository
     ): Map<String, Int> {
+        val excluded = stats.excludedPackages
         val live = try {
-            stats.getUsageStatsForToday().associate {
-                it.packageName to (it.totalTimeInForeground / 60_000L).toInt()
-            }
+            stats.getUsageStatsForToday()
+                .filterNot { it.packageName in excluded }
+                .associate {
+                    it.packageName to (it.totalTimeInForeground / 60_000L).toInt()
+                }
         } catch (e: Exception) {
             emptyMap()
         }
 
         val stored = sessions.getAllUsageForDate(today())
             .first()
+            .filterNot { it.packageName in excluded }
             .groupBy { it.packageName }
             .mapValues { (_, rows) -> rows.sumOf { it.usedMinutes } }
 

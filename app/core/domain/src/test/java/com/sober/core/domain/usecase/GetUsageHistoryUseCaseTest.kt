@@ -30,7 +30,7 @@ class GetUsageHistoryUseCaseTest {
             )
         )
 
-        val history = GetUsageHistoryUseCase(repo)(days = 3)
+        val history = GetUsageHistoryUseCase(repo, FakeUsageStatsRepository())(days = 3)
 
         assertEquals(3, history.dailyTotals.size)
         assertEquals(daysAgo(2), history.dailyTotals[0].date)
@@ -49,7 +49,7 @@ class GetUsageHistoryUseCaseTest {
             )
         )
 
-        val history = GetUsageHistoryUseCase(repo)(days = 2)
+        val history = GetUsageHistoryUseCase(repo, FakeUsageStatsRepository())(days = 2)
 
         assertEquals(mapOf("a" to 15, "b" to 7), history.perAppMinutes)
         assertEquals(22, history.totalMinutes)
@@ -61,10 +61,29 @@ class GetUsageHistoryUseCaseTest {
         val repo = FakeUsageSessionRepository()
         var threw = false
         try {
-            GetUsageHistoryUseCase(repo)(days = 0)
+            GetUsageHistoryUseCase(repo, FakeUsageStatsRepository())(days = 0)
         } catch (e: IllegalArgumentException) {
             threw = true
         }
         assertTrue("expected a range validation failure", threw)
+    }
+
+    @Test
+    fun `drops rows for packages that are not screen time`() = runTest {
+        val repo = FakeUsageSessionRepository(
+            listOf(
+                UsageSession(packageName = "com.sober.app", date = daysAgo(0), usedMinutes = 76),
+                UsageSession(packageName = "launcher", date = daysAgo(0), usedMinutes = 9),
+                UsageSession(packageName = "com.google.android.calendar", date = daysAgo(0), usedMinutes = 3)
+            )
+        )
+
+        val history = GetUsageHistoryUseCase(
+            repo,
+            FakeUsageStatsRepository(excludedPackages = setOf("com.sober.app", "launcher"))
+        )(days = 1)
+
+        assertEquals(3, history.totalMinutes)
+        assertEquals(mapOf("com.google.android.calendar" to 3), history.perAppMinutes)
     }
 }

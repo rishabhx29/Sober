@@ -132,7 +132,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val usageList = usageStatsRepository.getUsageStatsForToday()
-                val totalMinutes = usageList.sumOf { it.totalTimeInForeground / 60000 }.toInt()
+                // Same exclusion the enforcer applies: Sober's foreground
+                // service and the launcher are not screen time, and counting
+                // them here would draw a ring that disagrees with Stats and
+                // with the cap that actually blocks.
+                val totalMinutes = usageList
+                    .filter { it.packageName !in nonAppPackages }
+                    .sumOf { it.totalTimeInForeground / 60000 }
+                    .toInt()
                 val appsUsed = countAppsUsed(usageList, nonAppPackages)
                 val topApps = usageList
                     // Filter before taking, otherwise a filtered-out app eats one

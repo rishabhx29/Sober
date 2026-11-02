@@ -58,4 +58,27 @@ class GetDailyScreenTimeUseCaseTest {
 
         assertEquals(25, GetDailyScreenTimeUseCase(stats, sessions)())
     }
+
+    @Test
+    fun `does not count Sober's own foreground service or the launcher`() = runTest {
+        val stats = FakeUsageStatsRepository(
+            usage = listOf(
+                AppUsage("com.sober.app", minutes(76), 0),
+                AppUsage("launcher", minutes(9), 0),
+                AppUsage("com.google.android.calendar", minutes(3), 0)
+            ),
+            excludedPackages = setOf("com.sober.app", "launcher")
+        )
+        val sessions = FakeUsageSessionRepository(
+            listOf(
+                // Rollup rows written before the exclusion existed must not
+                // keep inflating today either.
+                UsageSession(packageName = "com.sober.app", date = today(), usedMinutes = 76),
+                UsageSession(packageName = "launcher", date = today(), usedMinutes = 9),
+                UsageSession(packageName = "com.google.android.calendar", date = today(), usedMinutes = 3)
+            )
+        )
+
+        assertEquals(3, GetDailyScreenTimeUseCase(stats, sessions)())
+    }
 }

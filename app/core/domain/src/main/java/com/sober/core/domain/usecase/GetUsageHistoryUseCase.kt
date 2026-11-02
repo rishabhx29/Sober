@@ -2,6 +2,7 @@ package com.sober.core.domain.usecase
 
 import com.sober.core.domain.model.UsageSession
 import com.sober.core.domain.repository.UsageSessionRepository
+import com.sober.core.domain.repository.UsageStatsRepository
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -36,14 +37,19 @@ data class UsageHistory(
 }
 
 class GetUsageHistoryUseCase @Inject constructor(
-    private val usageSessionRepository: UsageSessionRepository
+    private val usageSessionRepository: UsageSessionRepository,
+    private val usageStatsRepository: UsageStatsRepository
 ) {
     suspend operator fun invoke(days: Int): UsageHistory {
         require(days > 0) { "days must be positive" }
         val dates = recentDates(days)
 
+        // Excluded rows (Sober's own foreground service, the launcher) are
+        // dropped on read as well as skipped on write: a row written by an
+        // older build must not keep inflating the history forever.
         val rows = runCatching {
             usageSessionRepository.getUsageForDates(dates)
+                .filterNot { it.packageName in usageStatsRepository.excludedPackages }
         }.getOrDefault(emptyList())
 
         val minutesByDate = rows.groupBy { it.date }

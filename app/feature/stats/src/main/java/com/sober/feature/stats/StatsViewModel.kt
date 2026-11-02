@@ -143,7 +143,10 @@ class StatsViewModel @Inject constructor(
             }
 
             val totals = if (timeframe == Timeframe.TODAY) {
-                val liveTotal = live.values.sum()
+                val liveTotal = live
+                    .filterKeys { it !in nonAppPackages }
+                    .values
+                    .sum()
                 listOf(maxOf(liveTotal, selectedTotals.lastOrNull()?.totalMinutes ?: 0))
             } else {
                 selectedTotals.map { it.totalMinutes }

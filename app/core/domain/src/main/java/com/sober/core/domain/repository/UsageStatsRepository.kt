@@ -8,6 +8,17 @@ interface UsageStatsRepository {
     fun getUsageForApp(packageName: String): AppUsage?
 
     /**
+     * Packages whose foreground time is not screen time the user chose: Sober
+     * itself and the launcher.
+     *
+     * Sober is the important one. Its blocker runs a foreground service, and a
+     * foreground service is reported as foreground usage, so an unfiltered
+     * total charges the app for the very time it spends protecting the user —
+     * and once that total crosses the cap, Sober blocks its own settings.
+     */
+    val excludedPackages: Set<String>
+
+    /**
      * Foreground intervals between two instants, derived from usage-event
      * transitions.
      *

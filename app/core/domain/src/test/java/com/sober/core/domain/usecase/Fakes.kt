@@ -84,7 +84,8 @@ class FakeUsageSessionRepository(
 class FakeUsageStatsRepository(
     private val usage: List<AppUsage> = emptyList(),
     private val foreground: String? = null,
-    private val intervals: List<UsageInterval> = emptyList()
+    private val intervals: List<UsageInterval> = emptyList(),
+    override val excludedPackages: Set<String> = emptySet()
 ) : UsageStatsRepository {
     override fun getUsageStatsForToday(): List<AppUsage> = usage
     override fun getUsageForApp(packageName: String): AppUsage? =
