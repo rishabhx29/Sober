@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SelfImprovement
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -60,7 +59,6 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    onOpenSettings: () -> Unit = {},
     onStartFocusSession: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -98,36 +96,22 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         // -- Header --
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = dayFormat.format(today).uppercase(),
-                    fontSize = 11.sp,
-                    color = SoberTheme.colors.textMuted,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = dateFormat.format(today),
-                    fontSize = 22.sp,
-                    color = SoberTheme.colors.primary,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.semantics { heading() }
-                )
-            }
-
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    imageVector = Icons.Rounded.Settings,
-                    contentDescription = "Settings",
-                    tint = SoberTheme.colors.primary
-                )
-            }
+        Column {
+            Text(
+                text = dayFormat.format(today).uppercase(),
+                fontSize = 11.sp,
+                color = SoberTheme.colors.textMuted,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = dateFormat.format(today),
+                fontSize = 22.sp,
+                color = SoberTheme.colors.primary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.semantics { heading() }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

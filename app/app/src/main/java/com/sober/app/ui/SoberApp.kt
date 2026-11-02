@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -55,7 +56,8 @@ fun SoberApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
             BottomNavTab(SoberDestinations.HOME, "Home", Icons.Rounded.Home),
             BottomNavTab(SoberDestinations.APPS, "Apps", Icons.Rounded.Apps),
             BottomNavTab(SoberDestinations.FOCUS, "Focus", Icons.Rounded.Shield),
-            BottomNavTab(SoberDestinations.STATS, "Stats", Icons.Rounded.BarChart)
+            BottomNavTab(SoberDestinations.STATS, "Stats", Icons.Rounded.BarChart),
+            BottomNavTab(SoberDestinations.SETTINGS, "Settings", Icons.Rounded.Settings)
         )
 
         Scaffold(

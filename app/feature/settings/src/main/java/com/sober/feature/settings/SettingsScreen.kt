@@ -84,7 +84,7 @@ import com.sober.feature.settings.admin.SoberDeviceAdminReceiver
  */
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onOpenSchedules: () -> Unit,
     onOpenCustomRules: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
@@ -163,12 +163,14 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
-                tint = colors.primary,
-                modifier = Modifier.clickable { onBack() }
-            )
+            if (onBack != null) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = colors.primary,
+                    modifier = Modifier.clickable { onBack() }
+                )
+            }
             Text(
                 text = "Settings",
                 color = colors.textPrimary,
@@ -302,7 +304,7 @@ fun SettingsScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Keep an app closed, or mute notifications containing a word you choose.",
+                text = "Keep an app or website closed, or mute notifications containing a word you choose.",
                 color = colors.textSecondary,
                 fontSize = 12.sp
             )
@@ -701,13 +703,15 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        SoberButton(
-            text = "Back",
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        )
+        if (onBack != null) {
+            SoberButton(
+                text = "Back",
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 
     if (showPinDialog) {
@@ -924,8 +928,9 @@ private fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
                         "during a session — their content is never stored or sent. " +
                         "Accessibility is optional and off by default: it reads which app is " +
                         "open and the structure of the screen so a single section can be " +
-                        "closed, never text fields or what you type, and nothing on screen " +
-                        "is stored. Device admin is optional and only prevents " +
+                        "closed, and the browser's address bar when you block a website. It " +
+                        "does not read page content or what you type in other fields, and " +
+                        "nothing on screen is stored. Device admin is optional and only prevents " +
                         "uninstallation; it is never used to lock or wipe the device."
                 )
                 PrivacySection(
@@ -1022,7 +1027,7 @@ private fun appVersion(context: Context): String =
  */
 @Composable
 private fun SettingsLockScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     onUnlock: (String, (Boolean) -> Unit) -> Unit,
     onUnlocked: () -> Unit
 ) {
@@ -1041,12 +1046,14 @@ private fun SettingsLockScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
-                tint = colors.primary,
-                modifier = Modifier.clickable { onBack() }
-            )
+            if (onBack != null) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = colors.primary,
+                    modifier = Modifier.clickable { onBack() }
+                )
+            }
             Text(
                 text = "Settings",
                 color = colors.textPrimary,
@@ -1106,13 +1113,15 @@ private fun SettingsLockScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        if (onBack != null) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-        SoberButton(
-            text = "Back",
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        )
+            SoberButton(
+                text = "Back",
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

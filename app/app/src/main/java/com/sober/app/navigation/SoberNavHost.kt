@@ -90,7 +90,6 @@ fun SoberNavHost(
         }
         composable(SoberDestinations.HOME) {
             HomeScreen(
-                onOpenSettings = { navController.navigate(SoberDestinations.SETTINGS) },
                 // Same options as tapping the Focus tab, so Home's CTA and the
                 // bottom bar do not produce two different Focus back stacks.
                 onStartFocusSession = {
@@ -115,7 +114,9 @@ fun SoberNavHost(
         }
         composable(SoberDestinations.SETTINGS) {
             SettingsScreen(
-                onBack = { navController.popBackStack() },
+                // Settings is a bottom-bar tab now, so it has no back arrow;
+                // the sub-screens below keep theirs.
+                onBack = null,
                 onOpenSchedules = { navController.navigate(SoberDestinations.SCHEDULES) },
                 onOpenCustomRules = { navController.navigate(SoberDestinations.CUSTOM_RULES) }
             )
