@@ -15,6 +15,7 @@ import androidx.core.app.NotificationCompat
 import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PauseRulesRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.usecase.BlockDecision
 import com.sober.core.domain.usecase.BlockReason
 import com.sober.core.domain.usecase.CheckBedtimeWarningUseCase
@@ -114,6 +115,9 @@ class SoberCoreService : Service() {
 
     @Inject
     lateinit var blockableAppsRepository: BlockableAppsRepository
+
+    @Inject
+    lateinit var protectionSettingsRepository: ProtectionSettingsRepository
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
@@ -256,7 +260,61 @@ class SoberCoreService : Service() {
                 }
             }
         }
+
+        // Bedtime silence runs independently of the screen state: the window
+        // usually opens while the phone is idle, and the enforcement loop
+        // deliberately does no work then. One DataStore read a minute is far
+        // cheaper than waking the full poll to change a single filter.
+        scope.launch {
+            while (true) {
+                runCatching { syncBedtimeSilence() }
+                delay(BEDTIME_SYNC_INTERVAL_MS)
+            }
+        }
     }
+
+    /**
+     * Turns Do Not Disturb on for the bedtime window and puts the user's own
+     * filter back when it closes.
+     *
+     * The previous filter is stored before the first change. Without it, ending
+     * bedtime would force "all" and quietly cancel a Do Not Disturb the user had
+     * chosen for themselves. Policy access is checked every time: a revoked
+     * grant must leave the filter alone rather than throw, and the stored flag
+     * stays set so the restore runs once access returns.
+     */
+    private suspend fun syncBedtimeSilence() {
+        val bedtime = protectionSettingsRepository.bedtime.first()
+        val active = bedtime.enabled && bedtime.isActive(minuteOfDay(System.currentTimeMillis()))
+        val silenced = protectionSettingsRepository.bedtimeSilenced.first()
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!manager.isNotificationPolicyAccessGranted) return
+
+        if (active && !silenced) {
+            protectionSettingsRepository.setBedtimePreviousFilter(
+                manager.currentInterruptionFilter
+            )
+            protectionSettingsRepository.setBedtimeSilenced(true)
+            manager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
+        } else if (!active && silenced) {
+            val previous = protectionSettingsRepository.bedtimePreviousFilter.first()
+            manager.setInterruptionFilter(
+                if (previous in RESTORABLE_INTERRUPTION_FILTERS) {
+                    previous
+                } else {
+                    // An unrecognised value means the write was interrupted or
+                    // the user changed DND by hand; "all" is the safe answer.
+                    NotificationManager.INTERRUPTION_FILTER_ALL
+                }
+            )
+            protectionSettingsRepository.setBedtimePreviousFilter(-1)
+            protectionSettingsRepository.setBedtimeSilenced(false)
+        }
+    }
+
+    private fun minuteOfDay(now: Long): Int = java.util.Calendar.getInstance().apply {
+        timeInMillis = now
+    }.let { it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE) }
 
     private suspend fun runEnforcementCycle() {
         // 1. Daily rollover before anything reads counters.
@@ -583,6 +641,21 @@ class SoberCoreService : Service() {
          * unlocking short while doing no UsageStats or database work overnight.
          */
         private const val SCREEN_OFF_RECHECK_MS = 5_000L
+
+        /** How often the bedtime window is checked for DND changes. */
+        private const val BEDTIME_SYNC_INTERVAL_MS = 60_000L
+
+        /**
+         * Filters worth putting back after bedtime. `UNKNOWN` (0) and the
+         * sentinel -1 are not values Sober could have seen before its own
+         * change, so restoring them would be worse than restoring "all".
+         */
+        private val RESTORABLE_INTERRUPTION_FILTERS = setOf(
+            NotificationManager.INTERRUPTION_FILTER_ALL,
+            NotificationManager.INTERRUPTION_FILTER_PRIORITY,
+            NotificationManager.INTERRUPTION_FILTER_NONE,
+            NotificationManager.INTERRUPTION_FILTER_ALARMS
+        )
 
         fun start(context: Context) {
             val intent = Intent(context, SoberCoreService::class.java)

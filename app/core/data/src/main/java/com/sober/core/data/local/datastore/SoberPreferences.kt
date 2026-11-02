@@ -151,9 +151,12 @@ class SoberPreferences @Inject constructor(
         val KEY_BEDTIME_ALLOWED =
             androidx.datastore.preferences.core.stringSetPreferencesKey("bedtime_allowed_packages")
 
-        // True only while Sober, not the user, turned Do Not Disturb on.
+        // True only while Sober, not the user, turned Do Not Disturb on, plus
+        // the filter that was active before it did (so it can be restored).
         val KEY_BEDTIME_SILENCED =
             androidx.datastore.preferences.core.booleanPreferencesKey("bedtime_silenced")
+        val KEY_BEDTIME_PREVIOUS_FILTER =
+            androidx.datastore.preferences.core.intPreferencesKey("bedtime_previous_filter")
 
         // YYYY-MM-DD of the week the last weekly report covered.
         val KEY_WEEKLY_REPORT_LAST =
@@ -617,6 +620,22 @@ class SoberPreferences @Inject constructor(
     suspend fun setBedtimeSilenced(silenced: Boolean) {
         dataStore.edit { preferences ->
             preferences[KEY_BEDTIME_SILENCED] = silenced
+        }
+    }
+
+    /**
+     * The interruption filter in force before Sober silenced the phone for
+     * bedtime, or -1 when Sober has not changed it. Restoring this, rather than
+     * assuming the user's own filter was "all", keeps bedtime from overriding a
+     * Do Not Disturb setting they turned on themselves.
+     */
+    val bedtimePreviousFilter: Flow<Int> = dataStore.data.map {
+        it[KEY_BEDTIME_PREVIOUS_FILTER] ?: -1
+    }
+
+    suspend fun setBedtimePreviousFilter(filter: Int) {
+        dataStore.edit { preferences ->
+            preferences[KEY_BEDTIME_PREVIOUS_FILTER] = filter
         }
     }
 

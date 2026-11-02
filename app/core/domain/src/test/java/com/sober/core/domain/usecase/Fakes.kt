@@ -449,6 +449,7 @@ class FakeProtectionSettingsRepository : ProtectionSettingsRepository {
     override val allowOnly = MutableStateFlow(AllowOnlyMode())
     override val bedtime = MutableStateFlow(BedtimeSettings())
     override val bedtimeSilenced = MutableStateFlow(false)
+    override val bedtimePreviousFilter = MutableStateFlow(-1)
     override val categoryLimits = MutableStateFlow<List<CategoryLimit>>(emptyList())
 
     override suspend fun setPausedUntil(until: Long?) {
@@ -469,6 +470,10 @@ class FakeProtectionSettingsRepository : ProtectionSettingsRepository {
 
     override suspend fun setBedtimeSilenced(silenced: Boolean) {
         bedtimeSilenced.value = silenced
+    }
+
+    override suspend fun setBedtimePreviousFilter(filter: Int) {
+        bedtimePreviousFilter.value = filter
     }
 
     override suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?) {

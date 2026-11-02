@@ -88,6 +88,17 @@ object PermissionUtils {
         return dpm.isAdminActive(ComponentName(context, adminReceiver))
     }
 
+    /**
+     * Policy access is what lets an app change the system Do Not Disturb
+     * filter. Bedtime mode uses it to silence the phone without any root or
+     * secure-settings write.
+     */
+    fun hasDndAccess(context: Context): Boolean {
+        val manager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        return manager.isNotificationPolicyAccessGranted
+    }
+
     // Intents for launching settings
     
     fun getUsageStatsIntent(): Intent {
@@ -154,6 +165,13 @@ object PermissionUtils {
     fun getAppNotificationSettingsIntent(context: Context): Intent {
         return Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+    }
+
+    /** The screen where Do Not Disturb access is granted to Sober. */
+    fun getDndAccessIntent(): Intent {
+        return Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
     }

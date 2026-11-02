@@ -29,6 +29,13 @@ interface ProtectionSettingsRepository {
      */
     val bedtimeSilenced: Flow<Boolean>
 
+    /**
+     * The interruption filter that was active before Sober silenced the phone,
+     * or -1 when Sober has not changed it. Needed to restore the user's own
+     * choice instead of forcing "all" back on.
+     */
+    val bedtimePreviousFilter: Flow<Int>
+
     val categoryLimits: Flow<List<CategoryLimit>>
 
     suspend fun setPausedUntil(until: Long?)
@@ -40,6 +47,8 @@ interface ProtectionSettingsRepository {
     suspend fun setBedtime(settings: BedtimeSettings)
 
     suspend fun setBedtimeSilenced(silenced: Boolean)
+
+    suspend fun setBedtimePreviousFilter(filter: Int)
 
     /** Writes [limit], or removes [category]'s budget when [limit] is null. */
     suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?)
