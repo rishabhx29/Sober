@@ -19,7 +19,11 @@ import javax.inject.Inject
  * Two distinct jobs live here and they must not be confused:
  *
  *  1. **Usage totals** (`getUsageStatsForToday`) — how long each app has been
- *     used today. Sourced from `queryUsageStats`. Fine for reporting.
+ *     used today. Folded from `queryEvents`, not `queryUsageStats`: the latter
+ *     is bucketed by calendar day and expands the requested range to the
+ *     nearest whole bucket, so asking for "today at 6am" can return hours that
+ *     were used yesterday. Events carry timestamps, so clipping them to the
+ *     range gives a total that cannot exceed the time elapsed today.
  *
  *  2. **Foreground detection** (`getForegroundPackage`) — which app is on
  *     screen *right now*. This must **not** be derived from
@@ -72,19 +76,17 @@ class UsageStatsRepositoryImpl @Inject constructor(
         val startTime = startOfToday()
         val endTime = System.currentTimeMillis()
 
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            startTime,
-            endTime
-        )
+        // A locked device returns null from queryEvents; reporting nothing is
+        // better than inventing totals from a coarser source.
+        val events = readEvents(startTime, endTime) ?: return emptyList()
 
-        return stats?.map {
+        return aggregateUsageByPackage(events, startTime, endTime).map { (packageName, usage) ->
             AppUsage(
-                packageName = it.packageName,
-                totalTimeInForeground = it.totalTimeInForeground,
-                lastTimeUsed = it.lastTimeUsed
+                packageName = packageName,
+                totalTimeInForeground = usage.millis,
+                lastTimeUsed = usage.lastResumedAt
             )
-        } ?: emptyList()
+        }
     }
 
     override fun getUsageForApp(packageName: String): AppUsage? {
@@ -148,7 +150,11 @@ class UsageStatsRepositoryImpl @Inject constructor(
                     ForegroundEventKind.SCREEN_OFF
                 else -> continue
             }
-            transitions += ForegroundEvent(kind, event.packageName.orEmpty())
+            transitions += ForegroundEvent(
+                kind = kind,
+                packageName = event.packageName.orEmpty(),
+                timestampMillis = event.timeStamp
+            )
         }
         return transitions
     }
@@ -264,7 +270,8 @@ internal enum class ForegroundEventKind { RESUMED, PAUSED, SCREEN_OFF }
 
 internal data class ForegroundEvent(
     val kind: ForegroundEventKind,
-    val packageName: String = ""
+    val packageName: String = "",
+    val timestampMillis: Long = 0L
 )
 
 /**
@@ -295,4 +302,63 @@ internal fun replayForeground(
         }
     }
     return foreground
+}
+
+internal data class PackageUsage(val millis: Long, val lastResumedAt: Long)
+
+/**
+ * Folds [events] into per-package foreground time within [fromMillis, toMillis].
+ *
+ * Same pairing rules as [replayForeground]: a pause only closes the app that
+ * is open, and an interval still open at [toMillis] is closed there so an app
+ * on screen right now counts. Intervals are clipped to the range, so the sum
+ * can never exceed the time elapsed in it.
+ *
+ * An app already on screen at [fromMillis] has no resume inside the range and
+ * therefore starts counting at its next resume; the rollup in
+ * `UsageSessionRepository` covers the stretch before that. Under-counting is
+ * deliberate: an inflated total would enforce a limit early.
+ */
+internal fun aggregateUsageByPackage(
+    events: List<ForegroundEvent>,
+    fromMillis: Long,
+    toMillis: Long
+): Map<String, PackageUsage> {
+    if (toMillis <= fromMillis) return emptyMap()
+
+    val totals = HashMap<String, Long>()
+    val lastResumed = HashMap<String, Long>()
+    var currentPackage: String? = null
+    var currentStart = 0L
+
+    fun closeCurrent(at: Long) {
+        val pkg = currentPackage ?: return
+        val start = currentStart.coerceAtLeast(fromMillis)
+        val end = at.coerceAtMost(toMillis)
+        if (end > start) totals[pkg] = (totals[pkg] ?: 0L) + (end - start)
+        currentPackage = null
+        currentStart = 0L
+    }
+
+    events.forEach { event ->
+        val timestamp = event.timestampMillis.coerceIn(fromMillis, toMillis)
+        when (event.kind) {
+            ForegroundEventKind.RESUMED -> {
+                closeCurrent(timestamp)
+                if (event.packageName.isNotEmpty()) {
+                    currentPackage = event.packageName
+                    currentStart = timestamp
+                    lastResumed[event.packageName] = timestamp
+                }
+            }
+            ForegroundEventKind.PAUSED ->
+                if (event.packageName == currentPackage) closeCurrent(timestamp)
+            ForegroundEventKind.SCREEN_OFF -> closeCurrent(timestamp)
+        }
+    }
+    closeCurrent(toMillis)
+
+    return totals.mapValues { (packageName, millis) ->
+        PackageUsage(millis = millis, lastResumedAt = lastResumed[packageName] ?: 0L)
+    }
 }
