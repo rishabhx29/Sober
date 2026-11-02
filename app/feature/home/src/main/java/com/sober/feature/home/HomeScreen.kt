@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material3.*
@@ -299,6 +300,83 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // -- Pause everything --
+        SoberSectionHeader(title = "Pause", index = "03")
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (uiState.isPaused) {
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = SoberTheme.colors.surface,
+                border = BorderStroke(1.dp, SoberTheme.colors.cardBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {
+                        contentDescription =
+                            "Protection paused. ${uiState.pauseRemainingText}."
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SoberIconBadge(
+                        imageVector = Icons.Rounded.Pause,
+                        contentDescription = null,
+                        size = 44.dp,
+                        iconSize = 22.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Protection paused",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SoberTheme.colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = uiState.pauseRemainingText.orEmpty(),
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textMuted,
+                            style = TabularNumberStyle
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    SoberOutlinedButton(
+                        text = "Resume",
+                        onClick = { viewModel.resumeProtection() },
+                        modifier = Modifier.width(128.dp)
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(15 to "15 min", 60 to "1 hour", 180 to "3 hours").forEach { (minutes, label) ->
+                    SoberOutlinedButton(
+                        text = label,
+                        onClick = { viewModel.pauseProtection(minutes) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Lifts every block and limit for a while, then protection returns on its own.",
+                color = SoberTheme.colors.textMuted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))

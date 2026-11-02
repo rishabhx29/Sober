@@ -11,6 +11,7 @@ import com.sober.core.domain.model.NotificationSilenceScope
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.EnforcementController
 import com.sober.core.domain.repository.FocusSessionRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.StreakRecordRepository
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.core.domain.usecase.CalculateStreakUseCase
@@ -61,8 +62,12 @@ data class HomeUiState(
     val sessionsToday: Int = 0,
     /** Explains why the Focus Mode toggle did nothing, e.g. no apps to block. */
     val focusModeNotice: String? = null,
+    /** Non-null while protection is paused, e.g. "42m left". */
+    val pauseRemainingText: String? = null,
     val isLoading: Boolean = true
-)
+) {
+    val isPaused: Boolean get() = pauseRemainingText != null
+}
 
 /** The running session, already formatted for display. */
 data class ActiveSessionUi(
@@ -91,6 +96,7 @@ class HomeViewModel @Inject constructor(
     private val recordStreakUseCase: RecordStreakUseCase,
     private val streakRecordRepository: StreakRecordRepository,
     private val enforcementController: EnforcementController,
+    private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val soberPreferences: SoberPreferences
 ) : ViewModel() {
 
@@ -104,6 +110,61 @@ class HomeViewModel @Inject constructor(
         loadUsageData()
         observeActiveSession()
         observeSessionsToday()
+        observePause()
+    }
+
+    /**
+     * Pause everything is a window, not a toggle, so Home ticks it down the
+     * same way it ticks a session: both derive the remaining time from the
+     * stored instant, and neither can disagree with the engine about when the
+     * pause ends.
+     */
+    private fun observePause() {
+        viewModelScope.launch {
+            protectionSettingsRepository.pausedUntil.collectLatest { until ->
+                if (until == null) {
+                    _uiState.update { it.copy(pauseRemainingText = null) }
+                    return@collectLatest
+                }
+                while (true) {
+                    val remaining = until - System.currentTimeMillis()
+                    if (remaining <= 0L) {
+                        _uiState.update { it.copy(pauseRemainingText = null) }
+                        return@collectLatest
+                    }
+                    _uiState.update { it.copy(pauseRemainingText = pauseText(remaining)) }
+                    delay(30_000)
+                }
+            }
+        }
+    }
+
+    /** Lifts every block for [minutes]; the window ends on its own. */
+    fun pauseProtection(minutes: Int) {
+        viewModelScope.launch {
+            protectionSettingsRepository.setPausedUntil(
+                System.currentTimeMillis() + minutes * 60_000L
+            )
+            enforcementController.ensureRunning()
+        }
+    }
+
+    fun resumeProtection() {
+        viewModelScope.launch {
+            protectionSettingsRepository.setPausedUntil(null)
+            enforcementController.ensureRunning()
+        }
+    }
+
+    private fun pauseText(remainingMs: Long): String {
+        val totalMinutes = (remainingMs / 60_000L).coerceAtLeast(1L)
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return when {
+            hours > 0 && minutes > 0 -> "${hours}h ${minutes}m left"
+            hours > 0 -> "${hours}h left"
+            else -> "${minutes}m left"
+        }
     }
 
     /**
