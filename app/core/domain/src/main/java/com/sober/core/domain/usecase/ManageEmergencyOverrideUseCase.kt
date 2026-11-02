@@ -3,6 +3,7 @@ package com.sober.core.domain.usecase
 import com.sober.core.domain.model.OverrideLog
 import com.sober.core.domain.repository.OverrideLogRepository
 import com.sober.core.domain.repository.OverrideStateRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -31,7 +32,8 @@ data class OverrideState(
  */
 class ManageEmergencyOverrideUseCase @Inject constructor(
     private val overrideStateRepository: OverrideStateRepository,
-    private val overrideLogRepository: OverrideLogRepository
+    private val overrideLogRepository: OverrideLogRepository,
+    private val protectionSettingsRepository: ProtectionSettingsRepository
 ) {
     val state: Flow<OverrideState> = combine(
         overrideStateRepository.requestPackage,
@@ -47,13 +49,30 @@ class ManageEmergencyOverrideUseCase @Inject constructor(
         )
     }
 
-    /** Records the moment the PIN gate was passed and starts the wait. */
-    suspend fun request(packageName: String, now: Long = System.currentTimeMillis()) {
+    /**
+     * Records the moment the PIN gate was passed and starts the wait.
+     *
+     * Refused while lock mode is on: the point of a lock is that a weak moment
+     * cannot be negotiated with a PIN the user already knows. Returns whether
+     * the request was stored.
+     */
+    suspend fun request(
+        packageName: String,
+        now: Long = System.currentTimeMillis()
+    ): Boolean {
+        if (isLocked(now)) return false
         overrideStateRepository.setRequest(packageName, now)
+        return true
     }
 
     suspend fun cancelRequest() {
         overrideStateRepository.clearRequest()
+    }
+
+    /** True while the user asked for the rules to be non-negotiable. */
+    suspend fun isLocked(now: Long = System.currentTimeMillis()): Boolean {
+        val until = protectionSettingsRepository.lockedUntil.first()
+        return until != null && until > now
     }
 
     /**
@@ -75,6 +94,9 @@ class ManageEmergencyOverrideUseCase @Inject constructor(
         sessionId: Int?,
         now: Long = System.currentTimeMillis()
     ) {
+        // Checked again, not only at request time: a wait can be started before
+        // the lock begins, and it must not mature into a grant after it.
+        if (isLocked(now)) return
         overrideStateRepository.setOverride(packageName, now + GRANT_MILLIS)
         overrideStateRepository.clearRequest()
         overrideLogRepository.insertLog(

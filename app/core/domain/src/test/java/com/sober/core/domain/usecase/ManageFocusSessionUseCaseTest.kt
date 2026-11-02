@@ -23,9 +23,10 @@ class ManageFocusSessionUseCaseTest {
         sessions: FakeFocusSessionRepository = FakeFocusSessionRepository(),
         state: FakeSessionStateRepository = FakeSessionStateRepository(),
         alerts: FakeAlertNotifier = FakeAlertNotifier(),
-        prefs: FakeNotificationPreferencesRepository = FakeNotificationPreferencesRepository()
+        prefs: FakeNotificationPreferencesRepository = FakeNotificationPreferencesRepository(),
+        protection: FakeProtectionSettingsRepository = FakeProtectionSettingsRepository()
     ): Triple<ManageFocusSessionUseCase, FakeFocusSessionRepository, FakeSessionStateRepository> {
-        val case = ManageFocusSessionUseCase(sessions, state, alerts, prefs)
+        val case = ManageFocusSessionUseCase(sessions, state, alerts, prefs, protection)
         return Triple(case, sessions, state)
     }
 
@@ -42,7 +43,8 @@ class ManageFocusSessionUseCaseTest {
         usageStatsRepository = stats,
         manageEmergencyOverrideUseCase = ManageEmergencyOverrideUseCase(
             FakeOverrideStateRepository(),
-            FakeOverrideLogRepository()
+            FakeOverrideLogRepository(),
+            FakeProtectionSettingsRepository()
         ),
         evaluateScheduleUseCase = EvaluateScheduleUseCase(schedules),
         accessibilityStateRepository = FakeAccessibilityStateRepository(),
@@ -80,6 +82,22 @@ class ManageFocusSessionUseCaseTest {
 
         assertEquals("COMPLETED", sessions.getSessionById(id)!!.status.name)
         assertNull(state.activeSessionId.value)
+    }
+
+    @Test
+    fun `lock mode refuses to end a running session`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            lockedUntil.value = System.currentTimeMillis() + 60 * 60_000L
+        }
+        val state = FakeSessionStateRepository()
+        val (case, sessions, _) = useCase(state = state, protection = protection)
+        val id = case.startSession("Locked in", 25, emptyList()).toInt()
+
+        val cancelled = case.cancelSession(id)
+
+        assertEquals(false, cancelled)
+        assertEquals("ACTIVE", sessions.getSessionById(id)!!.status.name)
+        assertEquals(id, state.activeSessionId.value)
     }
 
     @Test

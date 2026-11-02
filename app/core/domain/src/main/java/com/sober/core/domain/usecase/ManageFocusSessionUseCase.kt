@@ -6,6 +6,7 @@ import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.AlertNotifier
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.NotificationPreferencesRepository
+import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
@@ -15,7 +16,8 @@ class ManageFocusSessionUseCase @Inject constructor(
     private val focusSessionRepository: FocusSessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val alertNotifier: AlertNotifier,
-    private val notificationPreferences: NotificationPreferencesRepository
+    private val notificationPreferences: NotificationPreferencesRepository,
+    private val protectionSettings: ProtectionSettingsRepository
 ) {
     /**
      * [durationMinutes] of 0 starts an open-ended session (PRD 2.6): the
@@ -72,9 +74,17 @@ class ManageFocusSessionUseCase @Inject constructor(
         }
     }
 
-    suspend fun cancelSession(sessionId: Int) {
-        val session = focusSessionRepository.getSessionById(sessionId) ?: return
-        if (session.status != SessionStatus.ACTIVE) return
+    /**
+     * Cancels a running session. Returns false when lock mode is on, because
+     * "I cannot end this for the next two hours" is exactly what the lock is
+     * for. Callers surface the refusal; nothing here ends the session.
+     */
+    suspend fun cancelSession(sessionId: Int): Boolean {
+        val lockedUntil = protectionSettings.lockedUntil.first()
+        if (lockedUntil != null && lockedUntil > System.currentTimeMillis()) return false
+
+        val session = focusSessionRepository.getSessionById(sessionId) ?: return true
+        if (session.status != SessionStatus.ACTIVE) return true
         val elapsedMinutes = ((System.currentTimeMillis() - session.startedAt) / 60000).toInt()
 
         focusSessionRepository.updateSession(
@@ -95,6 +105,7 @@ class ManageFocusSessionUseCase @Inject constructor(
         ) {
             alertNotifier.notifyStreakWarning(cancelledToday)
         }
+        return true
     }
 
     private fun startOfToday(): Long = Calendar.getInstance().apply {

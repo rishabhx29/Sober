@@ -12,7 +12,8 @@ class ManageEmergencyOverrideUseCaseTest {
 
     private val state = FakeOverrideStateRepository()
     private val logs = FakeOverrideLogRepository()
-    private val useCase = ManageEmergencyOverrideUseCase(state, logs)
+    private val protection = FakeProtectionSettingsRepository()
+    private val useCase = ManageEmergencyOverrideUseCase(state, logs, protection)
 
     private val now = 1_000_000L
     private val pkg = "com.example.social"
@@ -100,6 +101,29 @@ class ManageEmergencyOverrideUseCaseTest {
         val current = useCase.state.first()
         assertNull(current.requestedPackage)
         assertNull(current.overridePackage)
+        assertTrue(logs.logs.isEmpty())
+    }
+
+    @Test
+    fun `lock mode refuses a new request`() = runTest {
+        protection.lockedUntil.value = now + 60_000L
+
+        val accepted = useCase.request(pkg, now)
+
+        assertEquals(false, accepted)
+        assertNull(useCase.state.first().requestedPackage)
+    }
+
+    @Test
+    fun `a request that matures during lock mode is not granted`() = runTest {
+        useCase.request(pkg, now)
+        // The lock must outlast the wait for this to test what it claims: a
+        // one-minute lock would already have expired when the request matures.
+        protection.lockedUntil.value = now + ManageEmergencyOverrideUseCase.WAIT_MILLIS + 60_000L
+
+        useCase.grant(pkg, sessionId = null, now + ManageEmergencyOverrideUseCase.WAIT_MILLIS)
+
+        assertNull(useCase.state.first().overridePackage)
         assertTrue(logs.logs.isEmpty())
     }
 

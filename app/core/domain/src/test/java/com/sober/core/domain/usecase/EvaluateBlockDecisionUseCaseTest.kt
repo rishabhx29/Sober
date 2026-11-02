@@ -34,7 +34,8 @@ class EvaluateBlockDecisionUseCaseTest {
         usageStatsRepository = usage,
         manageEmergencyOverrideUseCase = ManageEmergencyOverrideUseCase(
             overrideStateRepository = overrides,
-            overrideLogRepository = FakeOverrideLogRepository()
+            overrideLogRepository = FakeOverrideLogRepository(),
+            protectionSettingsRepository = protection
         ),
         evaluateScheduleUseCase = EvaluateScheduleUseCase(schedules),
         accessibilityStateRepository = accessibility,
