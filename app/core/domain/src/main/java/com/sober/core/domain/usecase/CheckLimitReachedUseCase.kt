@@ -13,6 +13,9 @@ class CheckLimitReachedUseCase @Inject constructor(
         val limit = limitRepository.getLimit(packageName) ?: return false
 
         if (!limit.isActive) return false
+        // A zero-minute row is an opens-only rule: it has no time budget, so
+        // "reached" is never true for time.
+        if (limit.dailyLimitMinutes <= 0) return false
 
         return usage.usedMinutes >= limit.dailyLimitMinutes
     }

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,6 +60,9 @@ import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
 import com.sober.core.ui.theme.TabularNumberStyle
 
+/** Pause lengths offered in the sheet: long enough to interrupt, short enough to wait. */
+private val PAUSE_DELAYS = listOf(5, 10, 30, 60)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppsScreen(
@@ -80,6 +84,9 @@ fun AppsScreen(
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
     var sheetLimitHours by remember { mutableIntStateOf(1) }
     var sheetLimitMinutes by remember { mutableIntStateOf(0) }
+    var sheetOpenLimit by remember { mutableIntStateOf(0) }
+    var sheetPauseEnabled by remember { mutableStateOf(false) }
+    var sheetPauseDelay by remember { mutableIntStateOf(10) }
     // Opens fully: the drum picker and the Save button together are taller
     // than the half-expanded height, which would hide the only way to confirm.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -201,6 +208,92 @@ fun AppsScreen(
                             formatter = { it.toString().padStart(2, '0') }
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Opens budget. Time and opens limit different habits: a short
+                // check-in five times a day fits inside any minutes cap, so the
+                // count needs its own control.
+                SoberSectionLabel("Opens per day")
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (app.openCount > 0) {
+                        "Opened ${app.openCount} times today. 0 turns the budget off."
+                    } else {
+                        "How many separate times this app can open. 0 turns the budget off."
+                    },
+                    fontSize = 11.sp,
+                    color = SoberTheme.colors.textMuted
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { sheetOpenLimit = (sheetOpenLimit - 1).coerceAtLeast(0) },
+                        enabled = sheetOpenLimit > 0
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Remove,
+                            contentDescription = "Fewer opens",
+                            tint = if (sheetOpenLimit > 0) SoberTheme.colors.textPrimary
+                            else SoberTheme.colors.textMuted
+                        )
+                    }
+                    Text(
+                        text = if (sheetOpenLimit == 0) "Off" else "$sheetOpenLimit",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = JetBrainsMono,
+                        style = TabularNumberStyle,
+                        color = SoberTheme.colors.textPrimary,
+                        modifier = Modifier
+                            .widthIn(min = 64.dp)
+                            .padding(horizontal = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                    IconButton(
+                        onClick = { sheetOpenLimit = (sheetOpenLimit + 1).coerceAtMost(50) },
+                        enabled = sheetOpenLimit < 50
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "More opens",
+                            tint = SoberTheme.colors.textPrimary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Pause before opening. The delay is the point, so it is chosen
+                // here and enforced by the service on first foreground entry.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        SoberSectionLabel("Pause before opening")
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "A short breather first, so opening it is a choice.",
+                            fontSize = 11.sp,
+                            color = SoberTheme.colors.textMuted
+                        )
+                    }
+                    SoberToggleSwitch(
+                        checked = sheetPauseEnabled,
+                        onCheckedChange = { sheetPauseEnabled = it }
+                    )
+                }
+                if (sheetPauseEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SoberFilterChips(
+                        options = PAUSE_DELAYS,
+                        selected = sheetPauseDelay,
+                        onSelect = { sheetPauseDelay = it },
+                        label = { "$it seconds" }
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -351,26 +444,33 @@ fun AppsScreen(
                 }
 
                 SoberButton(
-                    text = "Save Limit",
+                    text = "Save rules",
                     onClick = {
-                        val totalMinutes = sheetLimitHours * 60 + sheetLimitMinutes
-                        viewModel.setAppLimit(app.packageName, app.name, totalMinutes)
+                        viewModel.saveAppRules(
+                            packageName = app.packageName,
+                            appName = app.name,
+                            limitMinutes = sheetLimitHours * 60 + sheetLimitMinutes,
+                            openLimit = sheetOpenLimit,
+                            pauseDelaySeconds = if (sheetPauseEnabled) sheetPauseDelay else null
+                        )
                         selectedApp = null
                     },
-                    enabled = sheetLimitHours * 60 + sheetLimitMinutes > 0
+                    enabled = sheetLimitHours * 60 + sheetLimitMinutes > 0 ||
+                        sheetOpenLimit > 0 ||
+                        sheetPauseEnabled
                 )
 
-                if (app.isLimited) {
+                if (app.isLimited || app.pauseDelaySeconds != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(
                         onClick = {
-                            viewModel.removeAppLimit(app.packageName)
+                            viewModel.removeAppRules(app.packageName)
                             selectedApp = null
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "Remove Limit",
+                            "Remove all rules",
                             color = SoberTheme.colors.danger,
                             fontWeight = FontWeight.Medium
                         )
@@ -523,6 +623,9 @@ fun AppsScreen(
                             selectedApp = app
                             sheetLimitHours = (app.limitMinutes ?: 60) / 60
                             sheetLimitMinutes = (app.limitMinutes ?: 60) % 60
+                            sheetOpenLimit = app.openLimit
+                            sheetPauseEnabled = app.pauseDelaySeconds != null
+                            sheetPauseDelay = app.pauseDelaySeconds ?: 10
                             viewModel.loadHistory(app.packageName)
                         },
                         onLimitToggle = { enabled ->
@@ -550,9 +653,13 @@ internal fun AppRow(
     onLimitToggle: (Boolean) -> Unit
 ) {
     val colors = SoberTheme.colors
-    val hasLimit = app.limitMinutes != null
-    val atLimit = app.isLimited &&
-        app.usageMinutes >= (app.limitMinutes ?: Int.MAX_VALUE)
+    // A pause rule on its own has nothing to switch off, so it does not earn
+    // the row's switch — but it does change what "Set limit" means.
+    val hasLimit = app.limitMinutes != null || app.openLimit > 0
+    val atMinuteLimit = app.isLimited && app.limitMinutes != null &&
+        app.usageMinutes >= app.limitMinutes
+    val atOpenLimit = app.isLimited && app.openLimit > 0 && app.openCount >= app.openLimit
+    val atLimit = atMinuteLimit || atOpenLimit
 
     Column {
         Row(
@@ -624,7 +731,8 @@ internal fun AppRow(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Text(
-                    text = limitText(app.limitMinutes ?: 0),
+                    text = app.limitMinutes?.let { limitText(it) }
+                        ?: "${app.openLimit} opens/day",
                     fontSize = 13.sp,
                     color = when {
                         atLimit -> colors.danger

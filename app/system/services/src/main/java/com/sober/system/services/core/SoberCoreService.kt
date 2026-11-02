@@ -329,15 +329,10 @@ class SoberCoreService : Service() {
             return
         }
 
-        // Counting happens on the transition, not on every poll. Going to the
-        // launcher clears the marker, so returning to the same app is a new
-        // open; a keyboard or dialog never reaches here, so it cannot inflate
-        // the count either.
-        if (target != lastCountedPackage) {
-            lastCountedPackage = target
-            runCatching { recordAppOpenUseCase(target) }
-        }
-
+        // Evaluation happens before counting this entry: the opens budget is
+        // "how many times may this open", so the current attempt must be
+        // checked against the previous count, not against a count it just
+        // incremented itself. Otherwise a budget of one blocks the first open.
         val decision = evaluateBlockDecisionUseCase(target)
         if (decision != null) {
             // A block outranks a pause: the app is not usable either way, and
@@ -363,8 +358,19 @@ class SoberCoreService : Service() {
                     overlayController.hide()
                 }
                 pauseOverlayController.show(target, rule.delaySeconds)
+                // Not counted yet: backing out at the pause is not an open.
                 return
             }
+        }
+
+        // Counting happens on the transition, not on every poll. Going to the
+        // launcher clears the marker, so returning to the same app is a new
+        // open; a keyboard or dialog never reaches here, so it cannot inflate
+        // the count either. Blocked and abandoned entries are not counted, so
+        // the budget measures use rather than attempts.
+        if (target != lastCountedPackage) {
+            lastCountedPackage = target
+            runCatching { recordAppOpenUseCase(target) }
         }
 
         if (currentlyBlocked != null) {

@@ -155,7 +155,7 @@ class StatsViewModel @Inject constructor(
             val limits = runCatching {
                 appLimitRepository.getAllLimits().first()
             }.getOrDefault(emptyList())
-                .filter { it.isActive }
+                .filter { it.isActive && it.dailyLimitMinutes > 0 }
                 .associate { it.packageName to it.dailyLimitMinutes }
 
             val now = System.currentTimeMillis()

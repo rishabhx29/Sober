@@ -7,15 +7,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.model.AppLimit
+import com.sober.core.domain.model.AppPauseRule
 import com.sober.core.domain.model.AppUsage
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
+import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.core.domain.usecase.GetAppUsageHistoryUseCase
@@ -34,7 +37,12 @@ data class InstalledApp(
     /** True only when the app actually held the foreground today. */
     val usedToday: Boolean = false,
     val limitMinutes: Int? = null,
-    val isLimited: Boolean = false
+    val isLimited: Boolean = false,
+    /** 0 means the opens budget is off. */
+    val openLimit: Int = 0,
+    val openCount: Int = 0,
+    /** Null when no pause-before-opening rule is active for this app. */
+    val pauseDelaySeconds: Int? = null
 )
 
 enum class AppFilter {
@@ -53,7 +61,9 @@ class AppsViewModel @Inject constructor(
     private val getAppUsageHistoryUseCase: GetAppUsageHistoryUseCase,
     private val detectionRuleRepository: DetectionRuleRepository,
     private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
-    private val customRuleRepository: CustomRuleRepository
+    private val customRuleRepository: CustomRuleRepository,
+    private val pauseRulesRepository: PauseRulesRepository,
+    private val appOpenRepository: AppOpenRepository
 ) : ViewModel() {
 
     private val _apps = MutableStateFlow<List<InstalledApp>>(emptyList())
@@ -78,6 +88,18 @@ class AppsViewModel @Inject constructor(
         viewModelScope.launch {
             sectionRulePreferencesRepository.enabledRuleIds().collect {
                 _enabledSectionRules.value = it
+            }
+        }
+        // Pause rules are edited here but enforced in the service; keeping them
+        // as a flow means the sheet's toggle reflects a change made elsewhere.
+        viewModelScope.launch {
+            pauseRulesRepository.rules.collect { rules ->
+                val activeByPackage = rules
+                    .filter { it.isActive }
+                    .associate { it.packageName to it.delaySeconds }
+                _apps.value = _apps.value.map { app ->
+                    app.copy(pauseDelaySeconds = activeByPackage[app.packageName])
+                }
             }
         }
         refreshAccessibilityStatus()
@@ -186,6 +208,17 @@ class AppsViewModel @Inject constructor(
                 val usageMap = usageList.associateBy { it.packageName }
                 val limits = appLimitRepository.getAllLimits().first()
                 val limitMap = limits.associateBy { it.packageName }
+                // One grouped query for the whole list rather than one per app:
+                // the counts only feed a row label, so a snapshot is enough and
+                // loadApps already re-runs whenever the screen resumes.
+                val openCounts = try {
+                    appOpenRepository.observeTodayCounts(System.currentTimeMillis()).first()
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+                val pauseByPackage = pauseRulesRepository.rules.first()
+                    .filter { it.isActive }
+                    .associate { it.packageName to it.delaySeconds }
 
                 val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
                 val appList = installedApps.filter { appInfo ->
@@ -206,8 +239,11 @@ class AppsViewModel @Inject constructor(
                         // view would claim a visit that never happened.
                         usageMinutes = (usageMillis / 60000).toInt(),
                         usedToday = usageMillis > 0,
-                        limitMinutes = limit?.dailyLimitMinutes,
-                        isLimited = limit != null && limit.isActive
+                        limitMinutes = limit?.dailyLimitMinutes?.takeIf { it > 0 },
+                        isLimited = limit != null && limit.isActive,
+                        openLimit = limit?.dailyOpenLimit ?: 0,
+                        openCount = openCounts[appInfo.packageName] ?: 0,
+                        pauseDelaySeconds = pauseByPackage[appInfo.packageName]
                     )
                 }.sortedBy { it.name }
 
@@ -240,38 +276,78 @@ class AppsViewModel @Inject constructor(
         }
     }
 
-    fun setAppLimit(packageName: String, appName: String, limitMinutes: Int) {
+    /**
+     * Saves every rule the detail sheet owns in one pass.
+     *
+     * Minutes and opens are separate budgets but one row, because a user may
+     * want either alone: ten opens with no time cap is a valid rule, and so is
+     * an hour with no opens cap. A row with neither is deleted rather than kept
+     * at zero, which enforcement would have to special-case forever. The pause
+     * rule lives in its own store because it outlives the limit.
+     */
+    fun saveAppRules(
+        packageName: String,
+        appName: String,
+        limitMinutes: Int,
+        openLimit: Int,
+        pauseDelaySeconds: Int?
+    ) {
         viewModelScope.launch {
             val existing = appLimitRepository.getLimit(packageName)
-            if (existing != null) {
-                appLimitRepository.updateLimit(existing.copy(dailyLimitMinutes = limitMinutes, isActive = true))
-            } else {
-                appLimitRepository.insertLimit(
+            val hasBudget = limitMinutes > 0 || openLimit > 0
+            when {
+                !hasBudget && existing != null -> appLimitRepository.deleteLimit(existing)
+                hasBudget && existing != null -> appLimitRepository.updateLimit(
+                    existing.copy(
+                        dailyLimitMinutes = limitMinutes,
+                        dailyOpenLimit = openLimit,
+                        isActive = true
+                    )
+                )
+                hasBudget -> appLimitRepository.insertLimit(
                     AppLimit(
                         packageName = packageName,
                         appName = appName,
-                        dailyLimitMinutes = limitMinutes
+                        dailyLimitMinutes = limitMinutes,
+                        dailyOpenLimit = openLimit
                     )
                 )
             }
-            // Refresh the app list
+
+            pauseRulesRepository.setRule(
+                packageName,
+                pauseDelaySeconds?.let { AppPauseRule(packageName = packageName, delaySeconds = it) }
+            )
+
             _apps.value = _apps.value.map { app ->
                 if (app.packageName == packageName) {
-                    app.copy(limitMinutes = limitMinutes, isLimited = true)
+                    app.copy(
+                        limitMinutes = limitMinutes.takeIf { it > 0 },
+                        openLimit = openLimit,
+                        isLimited = hasBudget,
+                        pauseDelaySeconds = pauseDelaySeconds
+                    )
                 } else app
             }
         }
     }
 
-    fun removeAppLimit(packageName: String) {
+    /** Removes every rule the sheet owns, including the pause, in one action. */
+    fun removeAppRules(packageName: String) {
         viewModelScope.launch {
             val existing = appLimitRepository.getLimit(packageName)
             if (existing != null) {
                 appLimitRepository.deleteLimit(existing)
             }
+            pauseRulesRepository.setRule(packageName, null)
             _apps.value = _apps.value.map { app ->
                 if (app.packageName == packageName) {
-                    app.copy(limitMinutes = null, isLimited = false)
+                    app.copy(
+                        limitMinutes = null,
+                        openLimit = 0,
+                        isLimited = false,
+                        pauseDelaySeconds = null
+                    )
                 } else app
             }
         }

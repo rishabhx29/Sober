@@ -686,6 +686,29 @@ class EvaluateBlockDecisionUseCaseTest {
         )
     }
 
+    @Test
+    fun `an opens-only rule has no time budget to exceed`() = runTest {
+        // Zero minutes means "no time cap", not "a cap of zero": an opens-only
+        // row must not block an app that has been used for a single minute.
+        val limits = FakeAppLimitRepository(
+            listOf(
+                com.sober.core.domain.model.AppLimit(
+                    packageName = "com.instagram.android",
+                    appName = "Instagram",
+                    dailyLimitMinutes = 0,
+                    dailyOpenLimit = 3
+                )
+            )
+        )
+
+        assertNull(
+            useCase(
+                limits = limits,
+                opens = FakeAppOpenRepository(mapOf("com.instagram.android" to 1))
+            )("com.instagram.android")
+        )
+    }
+
     // ---- Category limits (F5) ---------------------------------------
 
     @Test

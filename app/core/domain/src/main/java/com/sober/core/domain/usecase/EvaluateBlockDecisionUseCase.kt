@@ -272,9 +272,13 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             ?: 0
         val usedMinutes = maxOf(liveMinutes, storedMinutes)
 
-        // 2. The app's own daily limit.
+        // 2. The app's own daily limit. Zero minutes means there is no time
+        //    budget (an opens-only rule), not a limit of zero — without the
+        //    guard every app with an open budget would block on its first use.
         val limit = appLimitRepository.getLimit(foregroundPackage)
-        if (limit != null && limit.isActive && usedMinutes >= limit.dailyLimitMinutes) {
+        if (limit != null && limit.isActive && limit.dailyLimitMinutes > 0 &&
+            usedMinutes >= limit.dailyLimitMinutes
+        ) {
             return BlockDecision(
                 packageName = foregroundPackage,
                 reason = BlockReason.APP_DAILY_LIMIT,
