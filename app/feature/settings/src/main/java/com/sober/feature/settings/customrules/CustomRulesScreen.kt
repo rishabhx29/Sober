@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,10 +48,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.WebsiteAddress
-import com.sober.core.ui.components.SoberCard
 import com.sober.core.ui.components.SoberDivider
-import com.sober.core.ui.components.SoberOutlinedButton
-import com.sober.core.ui.components.SoberSectionLabel
+import com.sober.core.ui.components.SoberQuietButton
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.components.SoberToggleSwitch
 import com.sober.core.ui.theme.SoberTheme
 
@@ -184,24 +186,25 @@ fun CustomRulesScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Back",
                 tint = colors.primary,
-                modifier = Modifier.clickable { onBack() }
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable { onBack() }
+                    .padding(8.dp)
             )
-            Text(
-                text = "Custom rules",
-                color = colors.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
+            Spacer(modifier = Modifier.height(8.dp))
+            SoberScreenHeader(
+                title = "Custom rules",
+                eyebrow = "Written by you",
+                subtitle = "They stay in force until you switch them off."
             )
         }
 
@@ -212,113 +215,102 @@ fun CustomRulesScreen(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp)
         ) {
-            Text(
-                text = "Rules you write yourself. They stay in force until you switch them off.",
-                color = colors.textSecondary,
-                fontSize = 13.sp
+            SoberSectionHeader(title = "Blocked apps", index = "01")
+            Spacer(modifier = Modifier.height(2.dp))
+
+            if (appRows.isEmpty()) {
+                Text(
+                    text = "No apps blocked. An app added here stays closed all day, with no end time.",
+                    color = colors.textMuted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            } else {
+                appRows.forEachIndexed { index, row ->
+                    RuleRow(
+                        title = row.title,
+                        subtitle = row.subtitle,
+                        checked = row.rule.enabled,
+                        onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
+                        onOpen = { actionsFor = row.rule }
+                    )
+                    if (index != appRows.lastIndex) SoberDivider()
+                }
+            }
+            SoberQuietButton(
+                text = "Block an app",
+                icon = Icons.Rounded.Add,
+                onClick = {
+                    viewModel.updatePickerQuery("")
+                    pickerFor = ""
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            SoberSectionLabel("Blocked apps")
-            Spacer(modifier = Modifier.height(8.dp))
+            SoberSectionHeader(title = "Blocked websites", index = "02")
+            Spacer(modifier = Modifier.height(2.dp))
 
-            SoberCard {
-                if (appRows.isEmpty()) {
-                    Text(
-                        text = "No apps blocked. An app added here stays closed all day, with no end time.",
-                        color = colors.textMuted,
-                        fontSize = 13.sp
-                    )
-                } else {
-                    appRows.forEachIndexed { index, row ->
-                        RuleRow(
-                            title = row.title,
-                            subtitle = row.subtitle,
-                            checked = row.rule.enabled,
-                            onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
-                            onOpen = { actionsFor = row.rule }
-                        )
-                        if (index != appRows.lastIndex) SoberDivider()
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                SoberOutlinedButton(
-                    text = "Block an app",
-                    onClick = {
-                        viewModel.updatePickerQuery("")
-                        pickerFor = ""
-                    }
+            if (websiteRows.isEmpty()) {
+                Text(
+                    text = "No websites blocked. A site added here is covered in the browser, including its subdomains.",
+                    color = colors.textMuted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 12.dp)
                 )
+            } else {
+                websiteRows.forEachIndexed { index, row ->
+                    RuleRow(
+                        title = row.title,
+                        subtitle = row.subtitle,
+                        checked = row.rule.enabled,
+                        onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
+                        onOpen = { actionsFor = row.rule }
+                    )
+                    if (index != websiteRows.lastIndex) SoberDivider()
+                }
             }
+            SoberQuietButton(
+                text = "Block a website",
+                icon = Icons.Rounded.Add,
+                onClick = {
+                    websiteEditingId = null
+                    websiteEditorFor = ""
+                }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            SoberSectionLabel("Blocked websites")
-            Spacer(modifier = Modifier.height(8.dp))
+            SoberSectionHeader(title = "Muted words", index = "03")
+            Spacer(modifier = Modifier.height(2.dp))
 
-            SoberCard {
-                if (websiteRows.isEmpty()) {
-                    Text(
-                        text = "No websites blocked. A site added here is covered in the browser, including its subdomains.",
-                        color = colors.textMuted,
-                        fontSize = 13.sp
-                    )
-                } else {
-                    websiteRows.forEachIndexed { index, row ->
-                        RuleRow(
-                            title = row.title,
-                            subtitle = row.subtitle,
-                            checked = row.rule.enabled,
-                            onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
-                            onOpen = { actionsFor = row.rule }
-                        )
-                        if (index != websiteRows.lastIndex) SoberDivider()
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                SoberOutlinedButton(
-                    text = "Block a website",
-                    onClick = {
-                        websiteEditingId = null
-                        websiteEditorFor = ""
-                    }
+            if (keywordRows.isEmpty()) {
+                Text(
+                    text = "No muted words. Notifications containing a word you add are hidden, whatever app sends them.",
+                    color = colors.textMuted,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(vertical = 12.dp)
                 )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            SoberSectionLabel("Muted words")
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SoberCard {
-                if (keywordRows.isEmpty()) {
-                    Text(
-                        text = "No muted words. Notifications containing a word you add are hidden, whatever app sends them.",
-                        color = colors.textMuted,
-                        fontSize = 13.sp
+            } else {
+                keywordRows.forEachIndexed { index, row ->
+                    RuleRow(
+                        title = row.title,
+                        subtitle = row.subtitle,
+                        checked = row.rule.enabled,
+                        onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
+                        onOpen = { actionsFor = row.rule }
                     )
-                } else {
-                    keywordRows.forEachIndexed { index, row ->
-                        RuleRow(
-                            title = row.title,
-                            subtitle = row.subtitle,
-                            checked = row.rule.enabled,
-                            onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
-                            onOpen = { actionsFor = row.rule }
-                        )
-                        if (index != keywordRows.lastIndex) SoberDivider()
-                    }
+                    if (index != keywordRows.lastIndex) SoberDivider()
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                SoberOutlinedButton(
-                    text = "Mute a word",
-                    onClick = {
-                        keywordEditingId = null
-                        keywordEditorFor = ""
-                    }
-                )
             }
+            SoberQuietButton(
+                text = "Mute a word",
+                icon = Icons.Rounded.Add,
+                onClick = {
+                    keywordEditingId = null
+                    keywordEditorFor = ""
+                }
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -326,7 +318,8 @@ fun CustomRulesScreen(
                 text = "Muted words need Notification access; blocked apps need nothing extra. " +
                     "Blocked websites need Accessibility access. Calls are never hidden by a keyword.",
                 color = colors.textMuted,
-                fontSize = 11.sp
+                fontSize = 11.sp,
+                lineHeight = 16.sp
             )
         }
     }
@@ -431,7 +424,7 @@ private fun RuleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(

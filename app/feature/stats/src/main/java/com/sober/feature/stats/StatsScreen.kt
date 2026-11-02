@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneDisabled
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.WorkspacePremium
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -61,11 +59,14 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.domain.model.AchievementId
 import com.sober.core.domain.usecase.UsageHeatmap
 import com.sober.core.domain.usecase.weekOverWeekLabel
+import com.sober.core.ui.components.SoberDivider
+import com.sober.core.ui.components.SoberFilterChips
 import com.sober.core.ui.components.SoberIconBadge
 import com.sober.core.ui.components.SoberProgressBar
-import com.sober.core.ui.components.SoberSectionLabel
-import com.sober.core.ui.components.SoberSegmentedControl
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.format.spokenDuration
+import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
 import com.sober.core.ui.theme.TabularNumberStyle
 import java.time.LocalDate
@@ -97,6 +98,12 @@ fun StatsScreen(
         mutableStateOf<Int?>(null)
     }
 
+    // The chart only exists for multi-day ranges, so the section numbers are
+    // derived rather than fixed: otherwise "Today" would start at 02.
+    val hasChart = uiState.dailyTotals.size > 1
+    fun sectionIndex(base: Int): String =
+        (if (hasChart) base else base - 1).toString().padStart(2, '0')
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -104,30 +111,28 @@ fun StatsScreen(
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Text(
-            text = "Statistics",
-            fontSize = 22.sp,
-            color = SoberTheme.colors.primary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() }
+        SoberScreenHeader(
+            title = "Statistics",
+            eyebrow = "The record",
+            subtitle = "No scores, no judgement. Just what actually happened."
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        SoberSegmentedControl(
+        SoberFilterChips(
             options = Timeframe.entries.toList(),
             selected = uiState.selectedTimeframe,
             onSelect = { viewModel.selectTimeframe(it) },
             label = {
                 when (it) {
                     Timeframe.TODAY -> "Today"
-                    Timeframe.WEEK -> "7 Days"
-                    Timeframe.MONTH -> "30 Days"
+                    Timeframe.WEEK -> "7 days"
+                    Timeframe.MONTH -> "30 days"
                 }
             }
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         if (uiState.overrideSummary.hasOverrides) {
             OverrideFlagCard(
@@ -137,7 +142,7 @@ fun StatsScreen(
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        ScreenTimeCard(
+        ScreenTimeHero(
             totalMinutes = uiState.totalScreenTimeMinutes,
             averageMinutes = uiState.averageDailyMinutes,
             timeframe = uiState.selectedTimeframe,
@@ -145,10 +150,10 @@ fun StatsScreen(
             trendPercent = uiState.highlights.weekOverWeekPercent
         )
 
-        if (uiState.dailyTotals.size > 1) {
-            Spacer(modifier = Modifier.height(20.dp))
-            SoberSectionLabel(text = "SCREEN TIME")
-            Spacer(modifier = Modifier.height(8.dp))
+        if (hasChart) {
+            Spacer(modifier = Modifier.height(24.dp))
+            SoberSectionHeader(title = "By day", index = "01")
+            Spacer(modifier = Modifier.height(6.dp))
             Surface(
                 shape = RoundedCornerShape(18.dp),
                 color = SoberTheme.colors.surface,
@@ -181,130 +186,125 @@ fun StatsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "TOP APPS")
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "Top apps", index = sectionIndex(2))
+        Spacer(modifier = Modifier.height(2.dp))
 
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = SoberTheme.colors.surface,
-            border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                if (uiState.topApps.isEmpty() && !uiState.isLoading) {
-                    Text(
-                        text = "No usage data yet. Use your phone and check back!",
-                        fontSize = 14.sp,
-                        color = SoberTheme.colors.textMuted,
-                        modifier = Modifier.padding(vertical = 16.dp)
-                    )
-                }
+        if (uiState.topApps.isEmpty() && !uiState.isLoading) {
+            Text(
+                text = "No usage data yet. Use your phone and check back.",
+                fontSize = 13.sp,
+                color = SoberTheme.colors.textMuted,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+        }
 
-                val peak = uiState.topApps.maxOfOrNull { it.usageMinutes } ?: 1
+        val peak = uiState.topApps.maxOfOrNull { it.usageMinutes } ?: 1
 
-                uiState.topApps.forEachIndexed { index, app ->
-                    // Red means "this app's own limit", not the overall cap: an
-                    // app without a limit can never be at it.
-                    val atLimit = app.limitMinutes != null &&
-                        app.usageMinutes >= app.limitMinutes
+        uiState.topApps.forEachIndexed { index, app ->
+            // Red means "this app's own limit", not the overall cap: an
+            // app without a limit can never be at it.
+            val atLimit = app.limitMinutes != null &&
+                app.usageMinutes >= app.limitMinutes
 
-                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (app.icon != null) {
-                                Image(
-                                    painter = rememberDrawablePainter(drawable = app.icon),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                            }
-                            Text(
-                                text = app.appName,
-                                fontSize = 15.sp,
-                                color = SoberTheme.colors.primary,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1
-                            )
-                            Text(
-                                text = if (app.limitMinutes != null) {
-                                    "${formatMinutes(app.usageMinutes)} / ${formatMinutes(app.limitMinutes)}"
-                                } else {
-                                    formatMinutes(app.usageMinutes)
-                                },
-                                fontSize = 14.sp,
-                                color = if (atLimit) {
-                                    SoberTheme.colors.danger
-                                } else {
-                                    SoberTheme.colors.textSecondary
-                                },
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SoberProgressBar(
-                            progress = app.usageMinutes.toFloat() / peak,
-                            isDanger = atLimit
+            Column(modifier = Modifier.padding(vertical = 12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (app.icon != null) {
+                        Image(
+                            painter = rememberDrawablePainter(drawable = app.icon),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = app.appName,
+                            fontSize = 15.sp,
+                            color = SoberTheme.colors.textPrimary,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = if (app.limitMinutes != null) {
+                                "Limit ${formatMinutes(app.limitMinutes)}"
+                            } else {
+                                "No limit set"
+                            },
+                            fontSize = 11.sp,
+                            color = SoberTheme.colors.textMuted
                         )
                     }
-
-                    if (index < uiState.topApps.lastIndex) {
-                        HorizontalDivider(color = SoberTheme.colors.divider)
-                    }
+                    Text(
+                        text = formatMinutes(app.usageMinutes),
+                        fontSize = 14.sp,
+                        color = if (atLimit) {
+                            SoberTheme.colors.danger
+                        } else {
+                            SoberTheme.colors.textSecondary
+                        },
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = JetBrainsMono,
+                        style = TabularNumberStyle
+                    )
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                SoberProgressBar(
+                    progress = app.usageMinutes.toFloat() / peak,
+                    isDanger = atLimit,
+                    modifier = Modifier.padding(start = 46.dp)
+                )
+            }
+
+            if (index < uiState.topApps.lastIndex) {
+                SoberDivider()
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "PATTERNS")
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "Patterns", index = sectionIndex(3))
+        Spacer(modifier = Modifier.height(2.dp))
 
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = SoberTheme.colors.surface,
-            border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                HighlightRow(
-                    label = "Most productive day",
-                    value = uiState.highlights.mostProductiveWeekday ?: "—",
-                    hint = "Lowest screen time"
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                HighlightRow(
-                    label = "Focus sessions",
-                    value = "${uiState.highlights.focusCompleted} done · ${uiState.highlights.focusCancelled} cancelled",
-                    hint = "In this period"
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                HighlightRow(
-                    label = "Days under your limit",
-                    value = if (uiState.highlights.hasAdherence) {
-                        "${uiState.highlights.daysUnderLimit} of ${uiState.highlights.daysMeasured}"
-                    } else {
-                        "—"
-                    },
-                    // Only an invitation while there is nothing to measure;
-                    // once a cap exists the row is showing a real count, and
-                    // telling the user to set one contradicts the number.
-                    hint = if (uiState.highlights.hasAdherence) {
-                        "Days measured"
-                    } else {
-                        "Set an overall cap to measure this"
-                    }
-                )
+        HighlightRow(
+            label = "Most productive day",
+            value = uiState.highlights.mostProductiveWeekday ?: "—",
+            hint = "Lowest screen time"
+        )
+        SoberDivider()
+        HighlightRow(
+            label = "Focus sessions",
+            value = "${uiState.highlights.focusCompleted} done · ${uiState.highlights.focusCancelled} cancelled",
+            hint = "In this period"
+        )
+        SoberDivider()
+        HighlightRow(
+            label = "Days under your limit",
+            value = if (uiState.highlights.hasAdherence) {
+                "${uiState.highlights.daysUnderLimit} of ${uiState.highlights.daysMeasured}"
+            } else {
+                "—"
+            },
+            // Only an invitation while there is nothing to measure;
+            // once a cap exists the row is showing a real count, and
+            // telling the user to set one contradicts the number.
+            hint = if (uiState.highlights.hasAdherence) {
+                "Days measured"
+            } else {
+                "Set an overall cap to measure this"
             }
-        }
+        )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "WHEN YOU USE YOUR PHONE")
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "When you use your phone", index = sectionIndex(4))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Surface(
             shape = RoundedCornerShape(18.dp),
@@ -324,10 +324,10 @@ fun StatsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "ACHIEVEMENTS")
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "Achievements", index = sectionIndex(5))
+        Spacer(modifier = Modifier.height(6.dp))
 
         uiState.achievements.chunked(2).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Spacer(modifier = Modifier.height(12.dp))
@@ -417,59 +417,60 @@ private fun OverrideFlagCard(count: Int, minutesGranted: Int) {
 }
 
 @Composable
-private fun ScreenTimeCard(
+private fun ScreenTimeHero(
     totalMinutes: Int,
     averageMinutes: Int,
     timeframe: Timeframe,
     trendLabel: String,
     trendPercent: Int?
 ) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = SoberTheme.colors.surface,
-        border = BorderStroke(1.dp, SoberTheme.colors.cardBorder)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "TOTAL SCREEN TIME",
-                fontSize = 11.sp,
-                color = SoberTheme.colors.textMuted,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 1.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = formatMinutes(totalMinutes),
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
-                color = SoberTheme.colors.primary,
-                style = TabularNumberStyle
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+    val colors = SoberTheme.colors
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "TOTAL SCREEN TIME",
+            fontSize = 10.sp,
+            color = colors.textMuted,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.4.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = formatMinutes(totalMinutes),
+            fontSize = 52.sp,
+            lineHeight = 56.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-1.5).sp,
+            color = colors.textPrimary,
+            fontFamily = JetBrainsMono,
+            style = TabularNumberStyle
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = when (timeframe) {
                     Timeframe.TODAY -> "today"
-                    Timeframe.WEEK -> "${formatMinutes(averageMinutes)} daily average"
-                    Timeframe.MONTH -> "${formatMinutes(averageMinutes)} daily average"
+                    Timeframe.WEEK, Timeframe.MONTH ->
+                        "${formatMinutes(averageMinutes)} daily average"
                 },
-                fontSize = 14.sp,
-                color = SoberTheme.colors.textSecondary
+                fontSize = 13.sp,
+                color = colors.textSecondary
             )
-            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "  ·  ",
+                fontSize = 13.sp,
+                color = colors.textMuted
+            )
             Text(
                 // Down is good: the trend line is the one place red is used for
                 // an increase without also being a limit breach.
                 text = trendLabel,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
                 color = when {
-                    trendPercent == null -> SoberTheme.colors.textMuted
-                    trendPercent > 0 -> SoberTheme.colors.danger
-                    else -> SoberTheme.colors.textSecondary
+                    trendPercent == null -> colors.textMuted
+                    trendPercent > 0 -> colors.danger
+                    else -> colors.textSecondary
                 }
             )
         }
@@ -604,7 +605,11 @@ private fun UsageHeatmapGrid(heatmap: UsageHeatmap) {
 @Composable
 private fun HighlightRow(label: String, value: String, hint: String) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        // Matches SoberListRow, so a pattern row and a settings row breathe the
+        // same amount around their hairline.
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {

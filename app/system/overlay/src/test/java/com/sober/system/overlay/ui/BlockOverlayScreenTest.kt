@@ -55,7 +55,7 @@ class BlockOverlayScreenTest {
         )
 
         compose.onNodeWithText("Sleep Mode is on.").assertIsDisplayed()
-        compose.onNodeWithText("Sober").assertIsDisplayed()
+        compose.onNodeWithText("SOBER").assertIsDisplayed()
     }
 
     @Test

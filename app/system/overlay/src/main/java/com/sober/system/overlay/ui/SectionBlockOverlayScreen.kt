@@ -90,7 +90,9 @@ fun SectionBlockOverlayScreen(
 
             Text(
                 text = title,
-                fontSize = 22.sp,
+                fontSize = 28.sp,
+                lineHeight = 33.sp,
+                letterSpacing = (-0.6).sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.textPrimary,
                 textAlign = TextAlign.Center
@@ -101,6 +103,7 @@ fun SectionBlockOverlayScreen(
             Text(
                 text = subtitle,
                 fontSize = 14.sp,
+                lineHeight = 20.sp,
                 color = colors.textSecondary,
                 textAlign = TextAlign.Center
             )

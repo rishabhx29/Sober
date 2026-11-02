@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -194,13 +195,26 @@ private fun BlockBody(
     }
 
     // Wordmark, top-left, per spec.
-    Text(
-        text = "Sober",
-        color = colors.textMuted,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(start = 20.dp, top = 24.dp)
-    )
+    Row(
+        modifier = Modifier.padding(start = 24.dp, top = 28.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(14.dp)
+                .height(2.dp)
+                .background(colors.accent)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "SOBER",
+            color = colors.textMuted,
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -216,7 +230,9 @@ private fun BlockBody(
         Text(
             text = headlineFor(decision, appLabel),
             color = colors.textPrimary,
-            fontSize = 22.sp,
+            fontSize = 28.sp,
+            lineHeight = 33.sp,
+            letterSpacing = (-0.6).sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
@@ -227,6 +243,7 @@ private fun BlockBody(
             text = reasonFor(decision),
             color = colors.textSecondary,
             fontSize = 14.sp,
+            lineHeight = 20.sp,
             textAlign = TextAlign.Center
         )
 

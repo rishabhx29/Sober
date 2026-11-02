@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -49,8 +50,9 @@ import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberCard
 import com.sober.core.ui.components.SoberDivider
 import com.sober.core.ui.components.SoberDrumPicker
-import com.sober.core.ui.components.SoberOutlinedButton
-import com.sober.core.ui.components.SoberSectionLabel
+import com.sober.core.ui.components.SoberQuietButton
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.components.SoberToggleSwitch
 import com.sober.core.ui.theme.SoberTheme
 
@@ -125,24 +127,35 @@ fun SchedulesScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.ArrowBack,
                 contentDescription = if (editing == null) "Back" else "Cancel editing",
                 tint = colors.primary,
-                modifier = Modifier.clickable { if (editing == null) onBack() else draft = null }
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable { if (editing == null) onBack() else draft = null }
+                    .padding(8.dp)
             )
-            Text(
-                text = if (editing == null) "Schedules" else if (editing.id == 0) "New schedule" else "Edit schedule",
-                color = colors.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
+            Spacer(modifier = Modifier.height(8.dp))
+            SoberScreenHeader(
+                title = if (editing == null) {
+                    "Schedules"
+                } else if (editing.id == 0) {
+                    "New schedule"
+                } else {
+                    "Edit schedule"
+                },
+                eyebrow = if (editing == null) "Automate" else "Schedule",
+                subtitle = if (editing == null) {
+                    "Block apps automatically during set times, every week."
+                } else {
+                    null
+                }
             )
         }
 
@@ -202,6 +215,12 @@ private fun ScheduleList(
 ) {
     val colors = SoberTheme.colors
 
+    // Suggestions only appear once usage exists, so Templates must not be
+    // "02" on a fresh install where there is no "01" above it.
+    val hasSuggestions = suggestions.isNotEmpty()
+    fun sectionIndex(base: Int): String =
+        (if (hasSuggestions) base else base - 1).toString().padStart(2, '0')
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -209,131 +228,121 @@ private fun ScheduleList(
             .padding(horizontal = 20.dp)
             .padding(bottom = 24.dp)
     ) {
-        Text(
-            text = "Block apps automatically during set times, every week.",
-            color = colors.textSecondary,
-            fontSize = 13.sp
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (suggestions.isNotEmpty()) {
-            SoberSectionLabel(text = "Suggestions")
-            Spacer(modifier = Modifier.height(8.dp))
+        if (hasSuggestions) {
+            SoberSectionHeader(title = "Suggestions", index = "01")
+            Spacer(modifier = Modifier.height(4.dp))
 
             suggestions.forEach { suggestion ->
-                SoberCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = suggestion.title,
+                            color = colors.textPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = suggestion.message,
+                            color = colors.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    SoberQuietButton(
+                        text = "Apply",
+                        onClick = { onApplySuggestion(suggestion) }
+                    )
+                    SoberQuietButton(
+                        text = "Dismiss",
+                        onClick = { onDismissSuggestion(suggestion) }
+                    )
+                }
+                SoberDivider()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        SoberSectionHeader(title = "Templates", index = sectionIndex(2))
+        Spacer(modifier = Modifier.height(4.dp))
+
+        ScheduleTemplate.entries.forEach { template ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = suggestion.title,
+                        text = template.label,
                         color = colors.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = suggestion.message,
+                        text = template.description,
                         color = colors.textSecondary,
                         fontSize = 12.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    SoberOutlinedButton(
-                        text = "Apply",
-                        onClick = { onApplySuggestion(suggestion) }
-                    )
-                    TextButton(
-                        onClick = { onDismissSuggestion(suggestion) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Dismiss",
-                            color = colors.textMuted,
-                            fontSize = 13.sp
-                        )
-                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        SoberSectionLabel(text = "Templates")
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        ScheduleTemplate.entries.forEach { template ->
-            SoberCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = template.label,
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = template.description,
-                    color = colors.textSecondary,
-                    fontSize = 12.sp
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                SoberOutlinedButton(
-                    text = "Use template",
+                SoberQuietButton(
+                    text = "Use",
                     onClick = { onTemplate(template) }
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            SoberDivider()
         }
 
         if (templateError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = templateError,
                 color = colors.danger,
                 fontSize = 12.sp
             )
-            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Your schedules")
-
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "Your schedules", index = sectionIndex(3))
+        Spacer(modifier = Modifier.height(4.dp))
 
         if (rules.isEmpty()) {
-            SoberCard(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "No schedules yet.",
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Without a schedule, blocking follows your app limits and any focus session.",
-                    color = colors.textSecondary,
-                    fontSize = 12.sp
-                )
-            }
+            Text(
+                text = "No schedules yet. Without one, blocking follows your app limits " +
+                    "and any focus session.",
+                color = colors.textSecondary,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
         } else {
             rules.forEach { rule ->
-                ScheduleRuleCard(
+                ScheduleRuleRow(
                     rule = rule,
                     onToggle = { onToggle(rule, it) },
                     onEdit = { onEdit(rule) },
                     onDelete = { onDelete(rule) }
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                SoberDivider()
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         SoberButton(text = "New schedule", onClick = onNew)
     }
 }
 
 @Composable
-private fun ScheduleRuleCard(
+private fun ScheduleRuleRow(
     rule: ScheduleRule,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
@@ -341,11 +350,10 @@ private fun ScheduleRuleCard(
 ) {
     val colors = SoberTheme.colors
 
-    SoberCard(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.padding(vertical = 12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -356,18 +364,13 @@ private fun ScheduleRuleCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = SchedulesViewModel.timeLabel(rule),
+                    text = SchedulesViewModel.timeLabel(rule) + " · " +
+                        if (rule.blockedPackages.isEmpty()) {
+                            "No apps selected"
+                        } else {
+                            "${rule.blockedPackages.size} app${if (rule.blockedPackages.size == 1) "" else "s"}"
+                        },
                     color = colors.textSecondary,
-                    fontSize = 12.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (rule.blockedPackages.isEmpty()) {
-                        "No apps selected"
-                    } else {
-                        "${rule.blockedPackages.size} app${if (rule.blockedPackages.size == 1) "" else "s"}"
-                    },
-                    color = colors.textMuted,
                     fontSize = 12.sp
                 )
             }
@@ -377,19 +380,10 @@ private fun ScheduleRuleCard(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        SoberDivider()
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(onClick = onEdit) {
-                Text("Edit", color = colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SoberQuietButton(text = "Edit", onClick = onEdit)
             TextButton(onClick = onDelete) {
-                Text("Delete", color = colors.danger, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("Delete", color = colors.danger, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -412,9 +406,9 @@ private fun ScheduleEditor(
             .padding(horizontal = 20.dp)
             .padding(bottom = 24.dp)
     ) {
-        SoberSectionLabel(text = "Name")
+        SoberSectionHeader(title = "Name", index = "01")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedTextField(
             value = draft.name,
@@ -437,9 +431,9 @@ private fun ScheduleEditor(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Days")
+        SoberSectionHeader(title = "Days", index = "02")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -484,49 +478,53 @@ private fun ScheduleEditor(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Window")
+        SoberSectionHeader(title = "Window", index = "03")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
-        SoberCard(modifier = Modifier.fillMaxWidth()) {
-            TimeRow(
-                label = "From",
-                hour = draft.startHour,
-                minute = draft.startMinute,
-                onChange = { h, m -> onDraftChange(draft.copy(startHour = h, startMinute = m)) }
+        TimeRow(
+            label = "From",
+            hour = draft.startHour,
+            minute = draft.startMinute,
+            onChange = { h, m -> onDraftChange(draft.copy(startHour = h, startMinute = m)) }
+        )
+        SoberDivider()
+        TimeRow(
+            label = "To",
+            hour = draft.endHour,
+            minute = draft.endMinute,
+            onChange = { h, m -> onDraftChange(draft.copy(endHour = h, endMinute = m)) }
+        )
+
+        if (!draft.timesValid) {
+            Text(
+                text = "Start and end can't be the same time.",
+                color = colors.danger,
+                fontSize = 12.sp
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            SoberDivider()
-            Spacer(modifier = Modifier.height(8.dp))
-            TimeRow(
-                label = "To",
-                hour = draft.endHour,
-                minute = draft.endMinute,
-                onChange = { h, m -> onDraftChange(draft.copy(endHour = h, endMinute = m)) }
+        } else if (draft.endTime < draft.startTime) {
+            Text(
+                text = "Crosses midnight — the window ends the next morning.",
+                color = colors.textMuted,
+                fontSize = 12.sp
             )
-
-            if (!draft.timesValid) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Start and end can't be the same time.",
-                    color = colors.danger,
-                    fontSize = 12.sp
-                )
-            } else if (draft.endTime < draft.startTime) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Crosses midnight — the window ends the next morning.",
-                    color = colors.textMuted,
-                    fontSize = 12.sp
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Apps to block (${draft.packages.size} selected)")
+        SoberSectionHeader(
+            title = "Apps to block",
+            index = "04",
+            action = {
+                Text(
+                    text = "${draft.packages.size} selected",
+                    color = colors.textMuted,
+                    fontSize = 11.sp
+                )
+            }
+        )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         OutlinedTextField(
             value = query,

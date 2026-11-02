@@ -57,7 +57,7 @@ class AppRowTest {
         compose.onNodeWithContentDescription("Limit for Instagram")
             .assertIsDisplayed()
             .assertIsOn()
-        compose.onNodeWithText("60m").assertIsDisplayed()
+        compose.onNodeWithText("1h").assertIsDisplayed()
     }
 
     @Test

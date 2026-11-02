@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
@@ -23,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -54,13 +57,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberCard
 import com.sober.core.ui.components.SoberDivider
+import com.sober.core.ui.components.SoberFilterChips
+import com.sober.core.ui.components.SoberListRow
 import com.sober.core.ui.components.SoberOutlinedButton
-import com.sober.core.ui.components.SoberSectionLabel
-import com.sober.core.ui.components.SoberSegmentedControl
+import com.sober.core.ui.components.SoberQuietButton
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.components.SoberStatusRow
-import com.sober.core.ui.components.SoberTextLink
 import com.sober.core.ui.components.SoberToggleSwitch
+import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
+import com.sober.core.ui.theme.TabularNumberStyle
 import com.sober.core.common.battery.BatteryOptimizationUtils
 import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.repository.AlertKind
@@ -158,170 +165,150 @@ fun SettingsScreen(
             .verticalScroll(scrollState)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (onBack != null) {
+        if (onBack != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     tint = colors.primary,
-                    modifier = Modifier.clickable { onBack() }
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable { onBack() }
+                        .padding(8.dp)
                 )
             }
-            Text(
-                text = "Settings",
-                color = colors.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
-            )
         }
+
+        SoberScreenHeader(
+            title = "Settings",
+            eyebrow = "Preferences",
+            subtitle = "The rules, the permissions, and how Sober behaves."
+        )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        SoberSectionLabel(text = "Daily screen time")
+        SoberSectionHeader(title = "Daily screen time", index = "01")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        SoberCard {
-            Text(
-                text = "${formatMinutes(dailyLimitMinutes)} total per day",
-                color = colors.textPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold
+        Text(
+            text = formatMinutes(dailyLimitMinutes),
+            color = colors.textPrimary,
+            fontSize = 40.sp,
+            lineHeight = 44.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-1).sp,
+            fontFamily = JetBrainsMono,
+            style = TabularNumberStyle
+        )
+        Text(
+            text = "total per day",
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Applies across every app, on top of your individual app limits.",
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Stepped control rather than a free picker: this value governs a
+        // hard block, and a scroll picker makes it easy to land on an
+        // unintended number by accident.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SoberOutlinedButton(
+                text = "− 30m",
+                onClick = {
+                    viewModel.setDailyScreenTimeLimit(
+                        (dailyLimitMinutes - 30).coerceAtLeast(30)
+                    )
+                },
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Applies across every app, on top of your individual app limits.",
-                color = colors.textSecondary,
-                fontSize = 13.sp
+            SoberOutlinedButton(
+                text = "+ 30m",
+                onClick = {
+                    viewModel.setDailyScreenTimeLimit(
+                        (dailyLimitMinutes + 30).coerceAtMost(24 * 60)
+                    )
+                },
+                modifier = Modifier.weight(1f)
             )
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
+        SoberDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Stepped control rather than a free picker: this value governs a
-            // hard block, and a scroll picker makes it easy to land on an
-            // unintended number by accident.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SoberOutlinedButton(
-                    text = "− 30m",
-                    onClick = {
-                        viewModel.setDailyScreenTimeLimit(
-                            (dailyLimitMinutes - 30).coerceAtLeast(30)
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Apps covered",
+                    color = colors.textPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
                 )
-                SoberOutlinedButton(
-                    text = "+ 30m",
-                    onClick = {
-                        viewModel.setDailyScreenTimeLimit(
-                            (dailyLimitMinutes + 30).coerceAtMost(24 * 60)
-                        )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (capExemptPackages.size) {
+                        0 -> "All of them"
+                        1 -> "1 app left out"
+                        else -> "${capExemptPackages.size} apps left out"
                     },
-                    modifier = Modifier.weight(1f)
+                    color = colors.textSecondary,
+                    fontSize = 12.sp
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            SoberDivider()
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Apps covered",
-                color = colors.textPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = when (capExemptPackages.size) {
-                    0 -> "All of them. Leave an app out and the cap will never block it."
-                    1 -> "1 app is left out. It still counts as screen time, but the cap never blocks it."
-                    else -> "${capExemptPackages.size} apps are left out. They still count as " +
-                        "screen time, but the cap never blocks them."
-                },
-                color = colors.textSecondary,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            SoberOutlinedButton(
-                text = "Choose apps",
-                onClick = { showCapApps = true },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Home, Settings, System UI and your keyboard are never blocked.",
-                color = colors.textMuted,
-                fontSize = 11.sp
-            )
+            SoberQuietButton(text = "Choose", onClick = { showCapApps = true })
         }
+        Text(
+            text = "Apps left out still count as screen time, but the cap never blocks them. " +
+                "Home, Settings, System UI and your keyboard are never blocked.",
+            color = colors.textMuted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Schedules")
+        SoberSectionHeader(title = "Schedules", index = "02")
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
-            Text(
-                text = "Time-based blocking",
-                color = colors.textPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Block chosen apps during set hours, on set days.",
-                color = colors.textSecondary,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            SoberOutlinedButton(
-                text = "Manage schedules",
-                onClick = onOpenSchedules
-            )
-        }
+        SoberListRow(
+            title = "Time-based blocking",
+            subtitle = "Block chosen apps during set hours, on set days.",
+            showChevron = true,
+            onClick = onOpenSchedules
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Custom rules")
+        SoberSectionHeader(title = "Custom rules", index = "03")
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
-            Text(
-                text = "Your own rules",
-                color = colors.textPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Keep an app or website closed, or mute notifications containing a word you choose.",
-                color = colors.textSecondary,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            SoberOutlinedButton(
-                text = "Manage custom rules",
-                onClick = onOpenCustomRules
-            )
-        }
+        SoberListRow(
+            title = "Your own rules",
+            subtitle = "Keep an app or website closed, or mute notifications containing a word you choose.",
+            showChevron = true,
+            onClick = onOpenCustomRules
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Notifications")
+        SoberSectionHeader(title = "Notifications", index = "04")
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
+        Column(modifier = Modifier.padding(top = 6.dp)) {
             val rows = listOf(
                 Triple(
                     AlertKind.USAGE_WARNING,
@@ -349,148 +336,114 @@ fun SettingsScreen(
                     "15 minutes before a sleep schedule starts."
                 )
             )
-            Column {
-                rows.forEachIndexed { index, (kind, title, description) ->
-                    AlertToggleRow(
-                        title = title,
-                        description = description,
-                        checked = alerts[kind] ?: true,
-                        onCheckedChange = { viewModel.setAlertEnabled(kind, it) }
-                    )
-                    if (index != rows.lastIndex) {
-                        SoberDivider()
-                    }
+            rows.forEachIndexed { index, (kind, title, description) ->
+                AlertToggleRow(
+                    title = title,
+                    description = description,
+                    checked = alerts[kind] ?: true,
+                    onCheckedChange = { viewModel.setAlertEnabled(kind, it) }
+                )
+                if (index != rows.lastIndex) {
+                    SoberDivider()
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Streaks")
+        SoberSectionHeader(title = "Streaks", index = "05")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        SoberCard {
-            Text(
-                text = "What counts as a successful day",
-                color = colors.textPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (streakRule == StreakRule.UNDER_LIMITS) {
-                    "A day counts when you stay under your overall cap and every app limit."
-                } else {
-                    "A day also fails if you cancel a focus session that day."
-                },
-                color = colors.textSecondary,
-                fontSize = 12.sp
-            )
+        Text(
+            text = "What counts as a successful day",
+            color = colors.textPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = if (streakRule == StreakRule.UNDER_LIMITS) {
+                "A day counts when you stay under your overall cap and every app limit."
+            } else {
+                "A day also fails if you cancel a focus session that day."
+            },
+            color = colors.textSecondary,
+            fontSize = 12.sp
+        )
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            SoberSegmentedControl(
-                options = listOf(
-                    StreakRule.UNDER_LIMITS,
-                    StreakRule.LIMITS_AND_NO_CANCELLATIONS
-                ),
-                selected = streakRule,
-                onSelect = { viewModel.setStreakRule(it) },
-                label = {
-                    when (it) {
-                        StreakRule.UNDER_LIMITS -> "Under limits"
-                        StreakRule.LIMITS_AND_NO_CANCELLATIONS -> "Limits + sessions"
-                    }
+        SoberFilterChips(
+            options = listOf(
+                StreakRule.UNDER_LIMITS,
+                StreakRule.LIMITS_AND_NO_CANCELLATIONS
+            ),
+            selected = streakRule,
+            onSelect = { viewModel.setStreakRule(it) },
+            label = {
+                when (it) {
+                    StreakRule.UNDER_LIMITS -> "Under limits"
+                    StreakRule.LIMITS_AND_NO_CANCELLATIONS -> "Limits + sessions"
                 }
-            )
-        }
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Protection")
+        SoberSectionHeader(title = "Protection", index = "06")
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
-            Text(
-                text = if (hasPin) "PIN is set" else "No PIN set",
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (hasPin) {
-                    "Required to change limits while a focus session is running, and for emergency overrides."
-                } else {
-                    "Set a 4–6 digit PIN to lock these settings during focus sessions and to authorise emergency overrides."
-                },
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SoberOutlinedButton(
-                text = if (hasPin) "Change PIN" else "Set PIN",
-                onClick = { showPinDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            SoberDivider()
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Uninstall protection",
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (adminActive) {
-                    "Active. Android will not uninstall Sober until you deactivate it here. " +
-                        "It does not stop a force-stop from the app info screen."
-                } else {
-                    "Off. Sober can be uninstalled at any time, including mid-session."
-                },
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SoberOutlinedButton(
-                text = if (adminActive) "Deactivate" else "Activate",
-                onClick = {
-                    if (adminActive) {
-                        // The system's removal dialog is not part of the public
-                        // SDK surface any more; fall back to Security settings
-                        // rather than crashing if it does not resolve.
-                        runCatching {
+        SoberListRow(
+            title = if (hasPin) "PIN is set" else "No PIN set",
+            subtitle = if (hasPin) {
+                "Required to change limits while a focus session is running, and for emergency overrides."
+            } else {
+                "Set a 4–6 digit PIN to lock these settings during focus sessions and to authorise emergency overrides."
+            },
+            trailing = {
+                SoberQuietButton(
+                    text = if (hasPin) "Change" else "Set",
+                    onClick = { showPinDialog = true }
+                )
+            }
+        )
+        SoberDivider()
+        SoberListRow(
+            title = "Uninstall protection",
+            subtitle = if (adminActive) {
+                "Active. Android will not uninstall Sober until you deactivate it. " +
+                    "It does not stop a force-stop from the app info screen."
+            } else {
+                "Off. Sober can be uninstalled at any time, including mid-session."
+            },
+            trailing = {
+                SoberQuietButton(
+                    text = if (adminActive) "Deactivate" else "Activate",
+                    onClick = {
+                        if (adminActive) {
+                            // The system's removal dialog is not part of the public
+                            // SDK surface any more; fall back to Security settings
+                            // rather than crashing if it does not resolve.
+                            runCatching {
+                                context.startActivity(
+                                    PermissionUtils.getRemoveDeviceAdminIntent(context, SOBER_ADMIN)
+                                )
+                            }.onFailure {
+                                context.startActivity(PermissionUtils.getDeviceAdminSettingsIntent())
+                            }
+                        } else {
                             context.startActivity(
-                                PermissionUtils.getRemoveDeviceAdminIntent(context, SOBER_ADMIN)
+                                PermissionUtils.getDeviceAdminIntent(context, SOBER_ADMIN)
                             )
-                        }.onFailure {
-                            context.startActivity(PermissionUtils.getDeviceAdminSettingsIntent())
                         }
-                    } else {
-                        context.startActivity(
-                            PermissionUtils.getDeviceAdminIntent(context, SOBER_ADMIN)
-                        )
                     }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+                )
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Permission status")
-
-        Spacer(modifier = Modifier.height(8.dp))
+        SoberSectionHeader(title = "Permission status", index = "07")
 
         val permissions = listOf(
             Triple("Usage access", PermissionUtils.hasUsageStatsPermission(context), true),
@@ -508,198 +461,180 @@ fun SettingsScreen(
             Triple("Accessibility", PermissionUtils.hasAccessibilityPermission(context), false)
         )
 
-        SoberCard {
-            // SoberCard already applies the standard content padding; rows only
-            // add their own vertical rhythm here.
-            Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                permissions.forEachIndexed { index, (label, granted, required) ->
-                    SoberStatusRow(
-                        label = label,
-                        statusText = if (granted) "Granted" else if (required) "Required" else "Optional",
-                        isPositive = granted
-                    )
-                    if (index != permissions.lastIndex) {
-                        SoberDivider()
-                    }
+        Column(modifier = Modifier.padding(top = 4.dp)) {
+            permissions.forEachIndexed { index, (label, granted, required) ->
+                SoberStatusRow(
+                    label = label,
+                    statusText = if (granted) "Granted" else if (required) "Required" else "Optional",
+                    isPositive = granted
+                )
+                if (index != permissions.lastIndex) {
+                    SoberDivider()
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "Engine")
+        SoberSectionHeader(title = "Engine", index = "08")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        SoberCard {
-            Text(
-                text = "Sober checks your usage every 15 seconds and blocks any app that has hit a limit.",
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = if (batteryExempt) {
-                    "Sober is exempt from battery optimisation, so the engine keeps running after the screen turns off."
-                } else {
-                    "Phones stop background apps to save power. If Sober is stopped, your limits stop too — allow it to run in the background."
-                },
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            SoberOutlinedButton(
+        Text(
+            text = "Sober checks your usage every 15 seconds and blocks any app that has hit a limit.",
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = if (batteryExempt) {
+                "Sober is exempt from battery optimisation, so the engine keeps running after the screen turns off."
+            } else {
+                "Phones stop background apps to save power. If Sober is stopped, your limits stop too — allow it to run in the background."
+            },
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        // Stacked rather than side by side: the vendor label can be long
+        // ("Open Xiaomi background settings"), and two buttons sharing one line
+        // would squeeze it into a ragged multi-line link.
+        Column {
+            SoberQuietButton(
                 text = "Battery settings",
+                icon = Icons.Rounded.OpenInNew,
                 onClick = {
                     // The list screen needs no permission, unlike the direct
                     // exemption dialog, which is restricted on Play.
                     context.startActivity(
                         BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
                     )
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-            BatteryOptimizationUtils.getOemBatterySettingsIntent(context)?.let { intent ->
-                Spacer(modifier = Modifier.height(12.dp))
-                SoberTextLink(
-                    text = "Open ${BatteryOptimizationUtils.manufacturerLabel() ?: "vendor"} background settings",
-                    onClick = { runCatching { context.startActivity(intent) } }
-                )
-                Text(
-                    text = "Some phones need a second switch (autostart or 'never sleeping apps') before blocking survives.",
-                    color = colors.textMuted,
-                    fontSize = 12.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SoberSectionLabel(text = "Data")
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
-            Text(
-                text = "Export usage data",
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "The last 30 days of per-app usage as a CSV. Nothing leaves the " +
-                    "device unless you pick an app in the share sheet.",
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SoberOutlinedButton(
-                text = if (exporting) "Preparing…" else "Export usage data",
-                onClick = {
-                    // Ignore repeat taps while the file is being written; the
-                    // button has no disabled state to do this for us.
-                    if (exporting) return@SoberOutlinedButton
-                    exporting = true
-                    exportError = null
-                    viewModel.exportUsageCsv { uri, error ->
-                        exporting = false
-                        if (uri == null) {
-                            exportError = error
-                            return@exportUsageCsv
-                        }
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/csv"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            putExtra(Intent.EXTRA_SUBJECT, "Sober usage export")
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(Intent.createChooser(send, "Export usage data"))
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            exportError?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = it,
-                    color = colors.danger,
-                    fontSize = 12.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SoberSectionLabel(text = "Appearance")
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SoberCard {
-            Text(
-                text = "Theme",
-                color = colors.textPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = if (themeMode == ThemeMode.SYSTEM) {
-                    "Following the system setting."
-                } else {
-                    "Sober ignores the system setting while this is chosen."
-                },
-                color = colors.textSecondary,
-                fontSize = 12.sp
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SoberSegmentedControl(
-                options = ThemeMode.entries,
-                selected = themeMode,
-                onSelect = { viewModel.setThemeMode(it) },
-                label = {
-                    when (it) {
-                        ThemeMode.SYSTEM -> "System"
-                        ThemeMode.LIGHT -> "Light"
-                        ThemeMode.DARK -> "Dark"
-                    }
                 }
             )
+            BatteryOptimizationUtils.getOemBatterySettingsIntent(context)?.let { intent ->
+                SoberQuietButton(
+                    text = "Open ${BatteryOptimizationUtils.manufacturerLabel() ?: "vendor"} background settings",
+                    icon = Icons.Rounded.OpenInNew,
+                    onClick = { runCatching { context.startActivity(intent) } }
+                )
+            }
+        }
+        Text(
+            text = "Some phones need a second switch (autostart or 'never sleeping apps') before blocking survives.",
+            color = colors.textMuted,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SoberSectionHeader(title = "Data", index = "09")
+
+        SoberListRow(
+            title = "Export usage data",
+            subtitle = "The last 30 days of per-app usage as a CSV. Nothing leaves the " +
+                "device unless you pick an app in the share sheet.",
+            trailing = {
+                SoberQuietButton(
+                    text = if (exporting) "Preparing…" else "Export",
+                    onClick = {
+                        // Ignore repeat taps while the file is being written; the
+                        // button has no disabled state to do this for us.
+                        if (exporting) return@SoberQuietButton
+                        exporting = true
+                        exportError = null
+                        viewModel.exportUsageCsv { uri, error ->
+                            exporting = false
+                            if (uri == null) {
+                                exportError = error
+                                return@exportUsageCsv
+                            }
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/csv"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, "Sober usage export")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(send, "Export usage data"))
+                        }
+                    }
+                )
+            }
+        )
+
+        exportError?.let {
+            Text(
+                text = it,
+                color = colors.danger,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionLabel(text = "About")
+        SoberSectionHeader(title = "Appearance", index = "10")
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        SoberCard {
-            Text(
-                text = "Sober ${appVersion(context)}",
-                color = colors.textPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Sober has no internet permission: it cannot send anything anywhere, " +
-                    "even by accident.",
-                color = colors.textSecondary,
-                fontSize = 13.sp
-            )
+        Text(
+            text = "Theme",
+            color = colors.textPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = if (themeMode == ThemeMode.SYSTEM) {
+                "Following the system setting."
+            } else {
+                "Sober ignores the system setting while this is chosen."
+            },
+            color = colors.textSecondary,
+            fontSize = 12.sp
+        )
 
-            Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-            SoberTextLink(
-                text = "Privacy Policy",
-                onClick = { showPrivacy = true }
-            )
-        }
+        SoberFilterChips(
+            options = ThemeMode.entries,
+            selected = themeMode,
+            onSelect = { viewModel.setThemeMode(it) },
+            label = {
+                when (it) {
+                    ThemeMode.SYSTEM -> "System"
+                    ThemeMode.LIGHT -> "Light"
+                    ThemeMode.DARK -> "Dark"
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SoberSectionHeader(title = "About", index = "11")
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Sober ${appVersion(context)}",
+            color = colors.textPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Sober has no internet permission: it cannot send anything anywhere, " +
+                "even by accident.",
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        SoberListRow(
+            title = "Privacy Policy",
+            showChevron = true,
+            onClick = { showPrivacy = true }
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -1041,26 +976,30 @@ private fun SettingsLockScreen(
             .background(colors.background)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (onBack != null) {
+        if (onBack != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     tint = colors.primary,
-                    modifier = Modifier.clickable { onBack() }
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable { onBack() }
+                        .padding(8.dp)
                 )
             }
-            Text(
-                text = "Settings",
-                color = colors.textPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold
-            )
         }
+
+        SoberScreenHeader(
+            title = "Settings",
+            eyebrow = "Locked",
+            subtitle = "A focus session is running."
+        )
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -1073,7 +1012,7 @@ private fun SettingsLockScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "A focus session is running. Enter your PIN to change limits.",
+                text = "Enter your PIN to change limits while the session runs.",
                 color = colors.textSecondary,
                 fontSize = 13.sp
             )

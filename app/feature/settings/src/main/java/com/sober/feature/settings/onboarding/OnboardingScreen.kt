@@ -210,7 +210,7 @@ fun OnboardingScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(pagerState.pageCount) { iteration ->
-                val color = if (pagerState.currentPage == iteration) SoberTheme.colors.primary else SoberTheme.colors.textMuted
+                val color = if (pagerState.currentPage == iteration) SoberTheme.colors.accent else SoberTheme.colors.divider
                 Box(
                     modifier = Modifier
                         .padding(4.dp)
@@ -243,16 +243,27 @@ fun WelcomePage() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
+            text = "WELCOME",
+            color = SoberTheme.colors.textMuted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.4.sp
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
             text = "Sober.",
-            color = SoberTheme.colors.primary,
-            fontSize = 32.sp,
+            color = SoberTheme.colors.textPrimary,
+            fontSize = 52.sp,
+            lineHeight = 54.sp,
+            letterSpacing = (-1.5).sp,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = "Take back control of your time.",
             color = SoberTheme.colors.textSecondary,
             fontSize = 16.sp,
+            lineHeight = 23.sp,
             textAlign = TextAlign.Center
         )
     }
@@ -278,8 +289,10 @@ fun NotificationPermissionPage(
     ) {
         Text(
             text = "Notifications",
-            color = SoberTheme.colors.primary,
-            fontSize = 24.sp,
+            color = SoberTheme.colors.textPrimary,
+            fontSize = 32.sp,
+            lineHeight = 36.sp,
+            letterSpacing = (-0.8).sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
@@ -339,8 +352,10 @@ fun BatteryOptimizationPage(
     ) {
         Text(
             text = "Keep Sober Running",
-            color = SoberTheme.colors.primary,
-            fontSize = 24.sp,
+            color = SoberTheme.colors.textPrimary,
+            fontSize = 32.sp,
+            lineHeight = 36.sp,
+            letterSpacing = (-0.8).sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )
@@ -415,8 +430,10 @@ fun PermissionPage(
     ) {
         Text(
             text = title,
-            color = SoberTheme.colors.primary,
-            fontSize = 24.sp,
+            color = SoberTheme.colors.textPrimary,
+            fontSize = 32.sp,
+            lineHeight = 36.sp,
+            letterSpacing = (-0.8).sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center
         )

@@ -3,6 +3,7 @@ package com.sober.feature.apps
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,13 +46,18 @@ import com.sober.core.domain.model.DetectionType
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberDrumPicker
+import com.sober.core.ui.components.SoberFilterChips
 import com.sober.core.ui.components.SoberMiniBarChart
 import com.sober.core.ui.components.SoberOutlinedButton
 import com.sober.core.ui.components.SoberProgressBar
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.components.SoberSectionLabel
 import com.sober.core.ui.components.SoberSegmentedControl
 import com.sober.core.ui.components.SoberToggleSwitch
+import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
+import com.sober.core.ui.theme.TabularNumberStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,6 +66,7 @@ fun AppsScreen(
 ) {
     val context = LocalContext.current
     val apps by viewModel.filteredApps.collectAsState()
+    val allApps by viewModel.apps.collectAsState()
     val appHistory by viewModel.appHistory.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedFilter by viewModel.selectedFilter.collectAsState()
@@ -68,13 +75,14 @@ fun AppsScreen(
     val enabledSectionRules by viewModel.enabledSectionRules.collectAsState()
     val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsState()
     val websiteRules by viewModel.websiteRules.collectAsState()
-    val usedTodayCount by viewModel.usedTodayCount.collectAsState()
 
     // Bottom sheet state
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
     var sheetLimitHours by remember { mutableIntStateOf(1) }
     var sheetLimitMinutes by remember { mutableIntStateOf(0) }
-    val sheetState = rememberModalBottomSheetState()
+    // Opens fully: the drum picker and the Save button together are taller
+    // than the half-expanded height, which would hide the only way to confirm.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showWebsiteDialog by remember { mutableStateOf(false) }
     var websiteDraft by remember { mutableStateOf("") }
 
@@ -392,26 +400,31 @@ fun AppsScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
         // -- Header --
-        Text(
-            text = "Apps",
-            fontSize = 22.sp,
-            color = SoberTheme.colors.primary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.semantics { heading() }
+        SoberScreenHeader(
+            title = "Apps",
+            eyebrow = "Your library",
+            subtitle = "What you used today, and what each app is allowed."
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // -- Search Bar --
-        OutlinedTextField(
+        // -- Search --
+        TextField(
             value = searchQuery,
             onValueChange = { viewModel.updateSearchQuery(it) },
-            label = { Text("Search apps") },
+            placeholder = {
+                Text(
+                    text = "Search apps",
+                    color = SoberTheme.colors.textMuted,
+                    fontSize = 14.sp
+                )
+            },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
-                    tint = SoberTheme.colors.textMuted
+                    tint = SoberTheme.colors.textMuted,
+                    modifier = Modifier.size(20.dp)
                 )
             },
             trailingIcon = {
@@ -420,26 +433,34 @@ fun AppsScreen(
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Clear search",
-                            tint = SoberTheme.colors.textMuted
+                            tint = SoberTheme.colors.textMuted,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = SoberTheme.colors.primary,
-                unfocusedBorderColor = SoberTheme.colors.divider,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = SoberTheme.colors.cardBorder,
+                    shape = RoundedCornerShape(16.dp)
+                ),
+            shape = RoundedCornerShape(16.dp),
+            colors = TextFieldDefaults.colors(
                 focusedContainerColor = SoberTheme.colors.surface,
-                unfocusedContainerColor = SoberTheme.colors.surface
+                unfocusedContainerColor = SoberTheme.colors.surface,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                cursorColor = SoberTheme.colors.primary
             ),
             singleLine = true
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // -- Filter Chips --
-        SoberSegmentedControl(
+        // -- Filters --
+        SoberFilterChips(
             options = listOf(AppFilter.USED, AppFilter.LIMITED, AppFilter.BLOCKED, AppFilter.ALL),
             selected = selectedFilter,
             onSelect = { viewModel.updateFilter(it) },
@@ -450,33 +471,33 @@ fun AppsScreen(
                     AppFilter.BLOCKED -> "Blocked"
                     AppFilter.ALL -> "All"
                 }
+            },
+            count = { filter ->
+                when (filter) {
+                    AppFilter.USED -> allApps.count { it.usedToday }
+                    AppFilter.LIMITED -> allApps.count { it.isLimited }
+                    AppFilter.BLOCKED -> allApps.count {
+                        it.isLimited && it.usageMinutes >= (it.limitMinutes ?: Int.MAX_VALUE)
+                    }
+                    AppFilter.ALL -> allApps.size
+                }
             }
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // -- Section Label --
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            SoberSectionLabel(
-                when (selectedFilter) {
-                    AppFilter.USED -> "Used today"
-                    AppFilter.LIMITED -> "Limited apps"
-                    AppFilter.BLOCKED -> "At their limit"
-                    AppFilter.ALL -> "All installed apps"
-                }
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "$usedTodayCount used today",
-                fontSize = 11.sp,
-                color = SoberTheme.colors.textMuted
-            )
-        }
+        SoberSectionHeader(
+            title = when (selectedFilter) {
+                AppFilter.USED -> "Used today"
+                AppFilter.LIMITED -> "Limited apps"
+                AppFilter.BLOCKED -> "At their limit"
+                AppFilter.ALL -> "All installed apps"
+            },
+            index = "01"
+        )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // -- App List --
         if (isLoading) {
@@ -491,7 +512,10 @@ fun AppsScreen(
                 onShowAll = { viewModel.updateFilter(AppFilter.ALL) }
             )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
                 items(apps, key = { it.packageName }) { app ->
                     AppRow(
                         app = app,
@@ -545,8 +569,8 @@ internal fun AppRow(
             if (app.icon != null) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(13.dp))
                         .background(colors.primaryMuted),
                     contentAlignment = Alignment.Center
                 ) {
@@ -554,26 +578,27 @@ internal fun AppRow(
                         painter = rememberDrawablePainter(drawable = app.icon),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
                     )
                 }
             } else {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(colors.divider, RoundedCornerShape(12.dp))
+                        .size(44.dp)
+                        .background(colors.divider, RoundedCornerShape(13.dp))
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = app.name,
                     fontSize = 15.sp,
-                    color = colors.primary,
-                    fontWeight = FontWeight.Medium
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
                 )
                 if (app.usedToday) {
                     Text(
@@ -599,14 +624,15 @@ internal fun AppRow(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Text(
-                    text = "${app.limitMinutes}m",
+                    text = limitText(app.limitMinutes ?: 0),
                     fontSize = 13.sp,
                     color = when {
                         atLimit -> colors.danger
                         app.isLimited -> colors.textMuted
                         else -> colors.textMuted.copy(alpha = 0.6f)
                     },
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    style = TabularNumberStyle
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 SoberToggleSwitch(
@@ -616,6 +642,15 @@ internal fun AppRow(
                         contentDescription = "Limit for ${app.name}"
                     }
                 )
+            } else {
+                // Without a limit there is no switch to show; the row still
+                // opens the sheet, so this is the affordance that says so.
+                Text(
+                    text = "Set limit",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.textMuted
+                )
             }
         }
 
@@ -624,11 +659,23 @@ internal fun AppRow(
             val progress = (app.usageMinutes.toFloat() / app.limitMinutes).coerceAtMost(1f)
             SoberProgressBar(
                 progress = progress,
-                isDanger = progress >= 1f
+                isDanger = progress >= 1f,
+                modifier = Modifier.padding(start = 58.dp)
             )
         }
 
         HorizontalDivider(color = colors.divider)
+    }
+}
+
+/** Whole hours stay whole: "1h 30m" rather than "90m" in a tight row. */
+private fun limitText(minutes: Int): String {
+    val hours = minutes / 60
+    val rest = minutes % 60
+    return when {
+        hours == 0 -> "${rest}m"
+        rest == 0 -> "${hours}h"
+        else -> "${hours}h ${rest}m"
     }
 }
 

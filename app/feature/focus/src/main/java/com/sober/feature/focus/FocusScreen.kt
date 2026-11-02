@@ -41,10 +41,14 @@ import com.sober.core.common.presets.PresetMode
 import com.sober.core.domain.model.NotificationSilenceScope
 import com.sober.core.domain.model.SessionStatus
 import com.sober.core.ui.components.SoberButton
+import com.sober.core.ui.components.SoberDivider
 import com.sober.core.ui.components.SoberDrumPicker
+import com.sober.core.ui.components.SoberFilterChips
 import com.sober.core.ui.components.SoberIconBadge
-import com.sober.core.ui.components.SoberSectionLabel
-import com.sober.core.ui.components.SoberSegmentedControl
+import com.sober.core.ui.components.SoberListRow
+import com.sober.core.ui.components.SoberOutlinedButton
+import com.sober.core.ui.components.SoberScreenHeader
+import com.sober.core.ui.components.SoberSectionHeader
 import com.sober.core.ui.components.SoberToggleSwitch
 import com.sober.core.ui.components.rememberBreathingScale
 import com.sober.core.ui.format.spokenRemaining
@@ -80,6 +84,11 @@ fun FocusScreen(
 
     val scrollState = rememberScrollState()
 
+    // The setup form occupies sections 01 (Length) and 02 (Session). Once a
+    // session is running or has just finished those disappear, so the sections
+    // below renumber from 01 rather than starting at 03 with nothing above.
+    val setupVisible = activeSessionId == null && completedSession == null
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,16 +98,12 @@ fun FocusScreen(
     ) {
         if (activeSessionId != null) {
             // ============ ACTIVE SESSION VIEW ============
-            Text(
-                text = "ACTIVE SESSION",
-                fontSize = 11.sp,
-                color = SoberTheme.colors.danger,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.sp,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .semantics { heading() }
+            SoberScreenHeader(
+                title = "Focus",
+                eyebrow = "Active session"
             )
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             val breathe = rememberBreathingScale(
                 minScale = 1f,
@@ -108,7 +113,7 @@ fun FocusScreen(
 
             Surface(
                 shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(2.dp, SoberTheme.colors.primary),
+                border = BorderStroke(1.dp, SoberTheme.colors.cardBorder),
                 color = SoberTheme.colors.surface,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -117,10 +122,17 @@ fun FocusScreen(
                             "${spokenRemaining(remainingTime)} remaining."
                     }
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(SoberTheme.colors.primary)
+                    )
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     SoberIconBadge(
                         imageVector = Icons.Rounded.SelfImprovement,
                         contentDescription = null,
@@ -135,23 +147,25 @@ fun FocusScreen(
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
                         text = "Focus Mode Active",
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = SoberTheme.colors.primary
+                        color = SoberTheme.colors.textPrimary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = remainingTime,
-                        fontSize = 36.sp,
+                        fontSize = 44.sp,
+                        lineHeight = 48.sp,
+                        letterSpacing = (-1).sp,
                         fontWeight = FontWeight.Bold,
-                        color = SoberTheme.colors.primary,
+                        color = SoberTheme.colors.textPrimary,
                         fontFamily = JetBrainsMono,
                         style = TabularNumberStyle
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "remaining",
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         color = SoberTheme.colors.textSecondary
                     )
                     Spacer(modifier = Modifier.height(24.dp))
@@ -163,6 +177,7 @@ fun FocusScreen(
                             viewModel.cancelSession(activeSessionId!!)
                         }
                     )
+                    }
                 }
             }
         } else if (completedSession != null) {
@@ -174,258 +189,252 @@ fun FocusScreen(
             )
         } else {
             // ============ SETUP SESSION VIEW ============
-            Text(
-                text = "START A SESSION",
-                fontSize = 11.sp,
-                color = SoberTheme.colors.textMuted,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.sp,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .semantics { heading() }
+            SoberScreenHeader(
+                title = "Focus",
+                eyebrow = "Do not disturb",
+                subtitle = "One intention, one session. Choose how long it lasts."
             )
 
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.dp, SoberTheme.colors.divider),
-                color = SoberTheme.colors.surface,
-                modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(28.dp))
+
+            SoberSectionHeader(title = "Length", index = "01")
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = if (openEnded) {
+                        "Session length: open-ended"
+                    } else {
+                        "Session length: $selectedDuration minutes"
+                    }
+                },
+                verticalAlignment = Alignment.Bottom
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Session name
-                    OutlinedTextField(
-                        value = sessionLabel,
-                        onValueChange = { sessionLabel = it },
-                        placeholder = {
-                            Text("Name this session...", color = SoberTheme.colors.textMuted)
-                        },
-                        label = { Text("Session name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SoberTheme.colors.primary,
-                            unfocusedBorderColor = SoberTheme.colors.divider,
-                            focusedContainerColor = SoberTheme.colors.surface,
-                            unfocusedContainerColor = SoberTheme.colors.surface
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
+                Text(
+                    text = if (openEnded) "∞" else "$selectedDuration",
+                    fontSize = 58.sp,
+                    lineHeight = 62.sp,
+                    letterSpacing = (-2).sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SoberTheme.colors.textPrimary,
+                    fontFamily = JetBrainsMono,
+                    style = TabularNumberStyle
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (openEnded) "minutes · until you stop it" else "minutes",
+                    fontSize = 13.sp,
+                    color = SoberTheme.colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 9.dp)
+                )
+            }
+
+            if (!openEnded) {
+                Spacer(modifier = Modifier.height(14.dp))
+                SoberFilterChips(
+                    options = DURATION_PRESETS,
+                    selected = selectedDuration,
+                    onSelect = { selectedDuration = it },
+                    label = { durationLabel(it) }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SoberOutlinedButton(
+                    text = if (isCustomDuration) {
+                        "Custom · ${durationLabel(selectedDuration)}"
+                    } else {
+                        "Custom duration"
+                    },
+                    onClick = { showCustomDuration = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = openEnded,
+                        role = Role.Switch,
+                        onValueChange = { openEnded = it }
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Duration selector: presets in two rows, plus a validated
-                    // custom duration so the picker is not the old four-chip cap.
-                    // Open-ended replaces the whole selector because a session
-                    // with no end has nothing to pick.
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = openEnded,
-                                role = Role.Switch,
-                                onValueChange = { openEnded = it }
-                            )
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Open-ended",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = SoberTheme.colors.primary
-                            )
-                            Text(
-                                text = "Runs until you turn it off",
-                                fontSize = 12.sp,
-                                color = SoberTheme.colors.textSecondary
-                            )
-                        }
-                        SoberToggleSwitch(
-                            checked = openEnded,
-                            onCheckedChange = null
-                        )
-                    }
-
-                    if (!openEnded) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        SoberSegmentedControl(
-                            options = DURATION_PRESETS.take(4),
-                            selected = selectedDuration,
-                            onSelect = { selectedDuration = it },
-                            label = { durationLabel(it) }
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        SoberSegmentedControl(
-                            options = DURATION_PRESETS.drop(4),
-                            selected = selectedDuration,
-                            onSelect = { selectedDuration = it },
-                            label = { durationLabel(it) }
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        OutlinedButton(
-                            onClick = { showCustomDuration = true },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(
-                                1.dp,
-                                if (isCustomDuration) SoberTheme.colors.primary else SoberTheme.colors.divider
-                            ),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = SoberTheme.colors.primary
-                            )
-                        ) {
-                            Text(
-                                text = if (isCustomDuration) {
-                                    "Custom · ${durationLabel(selectedDuration)}"
-                                } else {
-                                    "Custom duration"
-                                },
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        if (showCustomDuration) {
-                            CustomDurationDialog(
-                                initialMinutes = selectedDuration,
-                                onDismiss = { showCustomDuration = false },
-                                onConfirm = { minutes ->
-                                    selectedDuration = minutes
-                                    showCustomDuration = false
-                                }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    var silenceScope by remember {
-                        mutableStateOf(NotificationSilenceScope.SELECTED_APPS)
-                    }
-                    val silenceEnabled = silenceScope != NotificationSilenceScope.NONE
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .toggleable(
-                                value = silenceEnabled,
-                                role = Role.Switch,
-                                onValueChange = { enabled ->
-                                    silenceScope = if (enabled) {
-                                        NotificationSilenceScope.SELECTED_APPS
-                                    } else {
-                                        NotificationSilenceScope.NONE
-                                    }
-                                }
-                            )
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Silence notifications",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = SoberTheme.colors.textPrimary
-                            )
-                            Text(
-                                text = if (silenceEnabled) {
-                                    scopeSummary(silenceScope)
-                                } else {
-                                    "Alerts come through as usual"
-                                },
-                                fontSize = 12.sp,
-                                color = SoberTheme.colors.textSecondary
-                            )
-                        }
-                        SoberToggleSwitch(
-                            checked = silenceEnabled,
-                            onCheckedChange = null
-                        )
-                    }
-
-                    if (silenceEnabled) {
-                        SoberSegmentedControl(
-                            options = SILENCE_SCOPES,
-                            selected = silenceScope,
-                            onSelect = { silenceScope = it },
-                            label = { scopeLabel(it) }
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = scopeDetail(silenceScope),
-                            fontSize = 12.sp,
-                            color = SoberTheme.colors.textMuted
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    var showAppSelection by remember { mutableStateOf(false) }
-                    var selectedApps by remember { mutableStateOf(setOf<String>()) }
-                    
-                    OutlinedButton(
-                        onClick = { showAppSelection = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = SoberTheme.colors.primary
-                        ),
-                        border = BorderStroke(1.dp, SoberTheme.colors.primary)
-                    ) {
-                        Text(
-                            text = when (selectedApps.size) {
-                                0 -> "Select apps to block"
-                                1 -> "1 app blocked"
-                                else -> "${selectedApps.size} apps blocked"
-                            },
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    if (showAppSelection) {
-                        val installedApps by viewModel.installedApps.collectAsState()
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        LaunchedEffect(Unit) {
-                            if (installedApps.isEmpty()) {
-                                viewModel.loadApps(context.packageManager)
-                            }
-                        }
-                        
-                        com.sober.feature.focus.components.AppSelectionBottomSheet(
-                            apps = installedApps,
-                            selectedApps = selectedApps,
-                            onAppSelected = { packageName, isSelected ->
-                                selectedApps = if (isSelected) {
-                                    selectedApps + packageName
-                                } else {
-                                    selectedApps - packageName
-                                }
-                            },
-                            onDismiss = { showAppSelection = false }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Start button
-                    SoberButton(
-                        text = "Start Session",
-                        icon = Icons.Rounded.PlayArrow,
-                        onClick = {
-                            val finalLabel = if (sessionLabel.isNotBlank()) sessionLabel else "Focus Session"
-                            val duration = if (openEnded) 0 else selectedDuration
-                            viewModel.startSession(finalLabel, duration, selectedApps.toList(), silenceScope)
-                            sessionLabel = ""
-                        }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Open-ended",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = SoberTheme.colors.textPrimary
+                    )
+                    Text(
+                        text = "Runs until you turn it off",
+                        fontSize = 12.sp,
+                        color = SoberTheme.colors.textSecondary
                     )
                 }
+                SoberToggleSwitch(
+                    checked = openEnded,
+                    onCheckedChange = null
+                )
             }
+
+            if (showCustomDuration) {
+                CustomDurationDialog(
+                    initialMinutes = selectedDuration,
+                    onDismiss = { showCustomDuration = false },
+                    onConfirm = { minutes ->
+                        selectedDuration = minutes
+                        showCustomDuration = false
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            SoberSectionHeader(title = "Session", index = "02")
+            Spacer(modifier = Modifier.height(6.dp))
+
+            TextField(
+                value = sessionLabel,
+                onValueChange = { sessionLabel = it },
+                placeholder = {
+                    Text(
+                        text = "Name this session…",
+                        color = SoberTheme.colors.textMuted,
+                        fontSize = 15.sp
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = SoberTheme.colors.primary,
+                    unfocusedIndicatorColor = SoberTheme.colors.divider,
+                    cursorColor = SoberTheme.colors.primary
+                ),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            var silenceScope by remember {
+                mutableStateOf(NotificationSilenceScope.SELECTED_APPS)
+            }
+            val silenceEnabled = silenceScope != NotificationSilenceScope.NONE
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = silenceEnabled,
+                        role = Role.Switch,
+                        onValueChange = { enabled ->
+                            silenceScope = if (enabled) {
+                                NotificationSilenceScope.SELECTED_APPS
+                            } else {
+                                NotificationSilenceScope.NONE
+                            }
+                        }
+                    )
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Silence notifications",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = SoberTheme.colors.textPrimary
+                    )
+                    Text(
+                        text = if (silenceEnabled) {
+                            scopeSummary(silenceScope)
+                        } else {
+                            "Alerts come through as usual"
+                        },
+                        fontSize = 12.sp,
+                        color = SoberTheme.colors.textSecondary
+                    )
+                }
+                SoberToggleSwitch(
+                    checked = silenceEnabled,
+                    onCheckedChange = null
+                )
+            }
+
+            if (silenceEnabled) {
+                Spacer(modifier = Modifier.height(10.dp))
+                SoberFilterChips(
+                    options = SILENCE_SCOPES,
+                    selected = silenceScope,
+                    onSelect = { silenceScope = it },
+                    label = { scopeLabel(it) }
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = scopeDetail(silenceScope),
+                    fontSize = 12.sp,
+                    color = SoberTheme.colors.textMuted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            var showAppSelection by remember { mutableStateOf(false) }
+            var selectedApps by remember { mutableStateOf(setOf<String>()) }
+
+            SoberDivider()
+            SoberListRow(
+                title = "Apps to block",
+                subtitle = when (selectedApps.size) {
+                    0 -> "None selected"
+                    1 -> "1 app blocked"
+                    else -> "${selectedApps.size} apps blocked"
+                },
+                showChevron = true,
+                onClick = { showAppSelection = true }
+            )
+            SoberDivider()
+
+            if (showAppSelection) {
+                val installedApps by viewModel.installedApps.collectAsState()
+                val context = LocalContext.current
+                LaunchedEffect(Unit) {
+                    if (installedApps.isEmpty()) {
+                        viewModel.loadApps(context.packageManager)
+                    }
+                }
+
+                com.sober.feature.focus.components.AppSelectionBottomSheet(
+                    apps = installedApps,
+                    selectedApps = selectedApps,
+                    onAppSelected = { packageName, isSelected ->
+                        selectedApps = if (isSelected) {
+                            selectedApps + packageName
+                        } else {
+                            selectedApps - packageName
+                        }
+                    },
+                    onDismiss = { showAppSelection = false }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            SoberButton(
+                text = "Start Session",
+                icon = Icons.Rounded.PlayArrow,
+                onClick = {
+                    val finalLabel = if (sessionLabel.isNotBlank()) sessionLabel else "Focus Session"
+                    val duration = if (openEnded) 0 else selectedDuration
+                    viewModel.startSession(finalLabel, duration, selectedApps.toList(), silenceScope)
+                    sessionLabel = ""
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -434,10 +443,12 @@ fun FocusScreen(
         // Hidden while a session runs: starting a preset would orphan the
         // active session, so the only actions offered then are end or pause.
         if (activeSessionId == null) {
-            SoberSectionLabel(
-                text = "Quick modes",
-                modifier = Modifier.padding(bottom = 8.dp)
+            SoberSectionHeader(
+                title = "Quick modes",
+                index = if (setupVisible) "03" else "01"
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PresetMode.entries.forEach { mode ->
@@ -471,10 +482,18 @@ fun FocusScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ============ RECENT SESSIONS ============
-        SoberSectionLabel(
-            text = "Recent sessions",
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Quick modes is hidden mid-session, so the last section shifts up
+        // instead of leaving a gap in the sequence.
+        SoberSectionHeader(
+            title = "Recent sessions",
+            index = when {
+                setupVisible -> "04"
+                completedSession != null -> "02"
+                else -> "01"
+            }
         )
+
+        Spacer(modifier = Modifier.height(4.dp))
 
         if (recentSessions.isEmpty()) {
             Text(
@@ -484,20 +503,18 @@ fun FocusScreen(
                 modifier = Modifier.padding(vertical = 16.dp)
             )
         } else {
-            recentSessions.forEach { session ->
-                val df = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            val df = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            recentSessions.forEachIndexed { index, session ->
                 val dateLabel = df.format(Date(session.startedAt))
                 val cancelledDetail = buildString {
                     append("Streak broken")
                     session.cancelledAtMinute?.let { append(" · cancelled at ${it}m") }
                 }
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, SoberTheme.colors.divider),
-                    color = SoberTheme.colors.surface,
+                if (index > 0) SoberDivider()
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(vertical = 12.dp)
                         .semantics(mergeDescendants = true) {
                             contentDescription = buildString {
                                 append("${session.label}, ")
@@ -508,67 +525,61 @@ fun FocusScreen(
                                     append(". $cancelledDetail")
                                 }
                             }
-                        }
+                        },
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = session.label,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SoberTheme.colors.textPrimary,
+                            fontSize = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${sessionLengthLabel(session.durationMinutes)} · $dateLabel",
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textSecondary
+                        )
+                        // PRD 4.2.4: a cancelled session is marked with a
+                        // broken-streak indicator, not just a red label.
+                        if (session.status == SessionStatus.CANCELLED) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = session.label,
-                                fontWeight = FontWeight.SemiBold,
-                                color = SoberTheme.colors.primary,
-                                fontSize = 15.sp
+                                text = cancelledDetail,
+                                fontSize = 11.sp,
+                                color = SoberTheme.colors.danger
                             )
-                            Text(
-                                text = "${sessionLengthLabel(session.durationMinutes)} · $dateLabel",
-                                fontSize = 12.sp,
-                                color = SoberTheme.colors.textSecondary
-                            )
-                            // PRD 4.2.4: a cancelled session is marked with a
-                            // broken-streak indicator, not just a red label.
-                            if (session.status == SessionStatus.CANCELLED) {
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = cancelledDetail,
-                                    fontSize = 11.sp,
-                                    color = SoberTheme.colors.danger
-                                )
-                            }
                         }
+                    }
 
-                        val statusColor = when (session.status) {
-                            SessionStatus.COMPLETED -> SoberTheme.colors.primary
-                            SessionStatus.CANCELLED -> SoberTheme.colors.danger
-                            else -> SoberTheme.colors.textMuted
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (session.status == SessionStatus.COMPLETED) {
-                                    Icons.Rounded.CheckCircle
-                                } else {
-                                    Icons.Rounded.Cancel
-                                },
-                                contentDescription = null,
-                                tint = statusColor,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = session.status.name
-                                    .lowercase()
-                                    .replaceFirstChar { it.uppercase() },
-                                color = statusColor,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp
-                            )
-                        }
+                    val statusColor = when (session.status) {
+                        SessionStatus.COMPLETED -> SoberTheme.colors.textSecondary
+                        SessionStatus.CANCELLED -> SoberTheme.colors.danger
+                        else -> SoberTheme.colors.textMuted
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (session.status == SessionStatus.COMPLETED) {
+                                Icons.Rounded.CheckCircle
+                            } else {
+                                Icons.Rounded.Cancel
+                            },
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = session.status.name
+                                .lowercase()
+                                .replaceFirstChar { it.uppercase() },
+                            color = statusColor,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
@@ -605,27 +616,30 @@ private fun SessionCompleteCard(
         label = "complete-badge-alpha"
     )
 
-    Text(
-        text = "SESSION COMPLETE",
-        fontSize = 11.sp,
-        color = SoberTheme.colors.primary,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 1.sp,
-        modifier = Modifier
-            .padding(bottom = 8.dp)
-            .semantics { heading() }
+    SoberScreenHeader(
+        title = "Well done",
+        eyebrow = "Session complete"
     )
+
+    Spacer(modifier = Modifier.height(20.dp))
 
     Surface(
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(2.dp, SoberTheme.colors.primary),
+        border = BorderStroke(1.dp, SoberTheme.colors.cardBorder),
         color = SoberTheme.colors.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(SoberTheme.colors.primary)
+            )
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             SoberIconBadge(
                 imageVector = Icons.Rounded.CheckCircle,
                 contentDescription = null,
@@ -648,16 +662,18 @@ private fun SessionCompleteCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = durationLabel(celebration.durationMinutes),
-                fontSize = 36.sp,
+                fontSize = 44.sp,
+                lineHeight = 48.sp,
+                letterSpacing = (-1).sp,
                 fontWeight = FontWeight.Bold,
-                color = SoberTheme.colors.primary,
+                color = SoberTheme.colors.textPrimary,
                 fontFamily = JetBrainsMono,
                 style = TabularNumberStyle
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "focused",
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 color = SoberTheme.colors.textSecondary
             )
 
@@ -692,6 +708,7 @@ private fun SessionCompleteCard(
                     color = SoberTheme.colors.textMuted,
                     fontSize = 13.sp
                 )
+            }
             }
         }
     }
