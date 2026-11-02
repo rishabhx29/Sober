@@ -240,6 +240,30 @@ class UsageStatsRepositoryImpl @Inject constructor(
         return intervals.filter { it.endMillis > it.startMillis }
     }
 
+    /**
+     * Counts keyguard dismissals.
+     *
+     * `KEYGUARD_HIDDEN` is API 28+, so older devices report null rather than a
+     * fabricated zero — "0 unlocks" would be a claim, and this is not one the
+     * platform can support there.
+     */
+    override fun getScreenUnlockCount(fromMillis: Long, toMillis: Long): Int? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        if (toMillis <= fromMillis) return 0
+        return try {
+            val events = usageStatsManager.queryEvents(fromMillis, toMillis) ?: return null
+            var count = 0
+            val event = UsageEvents.Event()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.KEYGUARD_HIDDEN) count++
+            }
+            count
+        } catch (e: SecurityException) {
+            null
+        }
+    }
+
     private fun startOfToday(): Long {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.HOUR_OF_DAY, 0)

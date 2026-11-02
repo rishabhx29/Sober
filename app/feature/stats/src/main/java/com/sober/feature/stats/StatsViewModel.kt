@@ -2,6 +2,8 @@ package com.sober.feature.stats
 
 import android.content.Context
 import android.graphics.drawable.Drawable
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.data.local.datastore.SoberPreferences
@@ -10,6 +12,8 @@ import com.sober.core.domain.model.AchievementId
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.UsageStatsRepository
+import com.sober.core.domain.usecase.DailyUsageTotal
+import com.sober.core.domain.usecase.ExtremeDay
 import com.sober.core.domain.usecase.GetAchievementsUseCase
 import com.sober.core.domain.usecase.GetOverrideSummaryUseCase
 import com.sober.core.domain.usecase.GetUsageHeatmapUseCase
@@ -17,6 +21,7 @@ import com.sober.core.domain.usecase.GetUsageHistoryUseCase
 import com.sober.core.domain.usecase.OverrideSummary
 import com.sober.core.domain.usecase.StatsHighlights
 import com.sober.core.domain.usecase.UsageHeatmap
+import com.sober.core.domain.usecase.bestAndWorstDays
 import com.sober.core.domain.usecase.limitAdherence
 import com.sober.core.domain.usecase.mostProductiveWeekday
 import com.sober.core.domain.usecase.weekOverWeekChange
@@ -27,6 +32,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 data class AppUsageDisplay(
@@ -52,10 +65,29 @@ data class StatsUiState(
     val highlights: StatsHighlights = StatsHighlights(),
     /** Emergency unlocks inside the selected range; shown as a flag when > 0. */
     val overrideSummary: OverrideSummary = OverrideSummary(),
+    /** Keyguard dismissals over 7 days, or null when the platform cannot report it. */
+    val screenUnlocks: Int? = null,
     val achievements: List<Achievement> = AchievementId.entries.map {
         Achievement(it, isUnlocked = false)
     },
     val isLoading: Boolean = true
+)
+
+/**
+ * Everything the shareable card needs, snapshotted so the bitmap is rendered
+ * from the same numbers the screen showed rather than from a second query.
+ */
+data class WeeklyReportData(
+    val rangeLabel: String,
+    val totalMinutes: Int,
+    val averageMinutes: Int,
+    val comparisonPercent: Int?,
+    val bestDay: ExtremeDay?,
+    val worstDay: ExtremeDay?,
+    val daysUnderLimit: Int,
+    val daysMeasured: Int,
+    val focusCompleted: Int,
+    val unlocks: Int?
 )
 
 enum class Timeframe(val days: Int) {
@@ -111,6 +143,82 @@ class StatsViewModel @Inject constructor(
     fun refresh() = loadStats(_uiState.value.selectedTimeframe)
 
     /**
+     * Renders the current 7-day view to a PNG and hands back a shareable URI.
+     *
+     * The card is drawn with Android canvas rather than by capturing the
+     * composable: a capture depends on what is laid out on screen, and the
+     * report has to fit on one image even when parts of the screen are scrolled
+     * out of view.
+     */
+    fun shareWeeklyReport(onResult: (Uri?, String?) -> Unit) {
+        val state = _uiState.value
+        if (state.selectedTimeframe != Timeframe.WEEK || state.dailyTotals.isEmpty()) {
+            onResult(null, "Switch to 7 days to share a weekly report.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val data = state.toWeeklyReportData()
+                val file = withContext(Dispatchers.IO) { writeWeeklyReport(data) }
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                onResult(uri, null)
+            } catch (e: Exception) {
+                onResult(null, "Couldn't create the weekly report.")
+            }
+        }
+    }
+
+    private fun StatsUiState.toWeeklyReportData(): WeeklyReportData {
+        val (best, worst) = bestAndWorstDays(
+            dailyDates.zip(dailyTotals) { date, minutes -> DailyUsageTotal(date, minutes) }
+        )
+        return WeeklyReportData(
+            rangeLabel = weekRangeLabel(dailyDates),
+            totalMinutes = totalScreenTimeMinutes,
+            averageMinutes = averageDailyMinutes,
+            comparisonPercent = highlights.weekOverWeekPercent,
+            bestDay = best,
+            worstDay = worst,
+            daysUnderLimit = highlights.daysUnderLimit,
+            daysMeasured = highlights.daysMeasured,
+            focusCompleted = highlights.focusCompleted,
+            unlocks = screenUnlocks
+        )
+    }
+
+    private fun weekRangeLabel(dates: List<String>): String {
+        fun parse(raw: String?): LocalDate? =
+            raw?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+        val first = parse(dates.firstOrNull()) ?: return "This week"
+        val last = parse(dates.lastOrNull()) ?: return "This week"
+        val formatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+        return "${first.format(formatter)} – ${last.format(formatter)}"
+    }
+
+    private fun writeWeeklyReport(data: WeeklyReportData): File {
+        val dir = File(context.cacheDir, EXPORT_DIR).apply { mkdirs() }
+        // One report file at a time: the cache is a hand-off, not a gallery.
+        dir.listFiles()?.filter { it.name.startsWith(WEEKLY_REPORT_PREFIX) }
+            ?.forEach { it.delete() }
+        val day = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        return File(dir, "$WEEKLY_REPORT_PREFIX$day.png").apply {
+            FileOutputStream(this).use { out ->
+                renderWeeklyReport(context, data).compress(
+                    android.graphics.Bitmap.CompressFormat.PNG,
+                    100,
+                    out
+                )
+            }
+        }
+    }
+
+    /**
      * One 30-day read feeds every timeframe.
      *
      * The alternative — a query per timeframe — would make the today view slower
@@ -160,6 +268,13 @@ class StatsViewModel @Inject constructor(
 
             val now = System.currentTimeMillis()
             val rangeStart = GetUsageHeatmapUseCase.startOfDaysAgo(timeframe.days)
+            val screenUnlocks = if (timeframe == Timeframe.WEEK) {
+                runCatching {
+                    usageStatsRepository.getScreenUnlockCount(rangeStart, now)
+                }.getOrNull()
+            } else {
+                null
+            }
             val completedSessions = runCatching {
                 focusSessionRepository.countCompletedBetween(rangeStart, now)
             }.getOrDefault(0)
@@ -208,6 +323,7 @@ class StatsViewModel @Inject constructor(
                 heatmap = heatmap,
                 achievements = achievements,
                 overrideSummary = overrideSummary,
+                screenUnlocks = screenUnlocks,
                 highlights = StatsHighlights(
                     focusCompleted = completedSessions,
                     focusCancelled = cancelledSessions,
@@ -242,4 +358,10 @@ class StatsViewModel @Inject constructor(
     private fun appIcon(packageName: String): Drawable? = runCatching {
         context.packageManager.getApplicationIcon(packageName)
     }.getOrNull()
+
+    companion object {
+        /** Shared directory exposed through FileProvider; see res/xml/file_paths.xml. */
+        const val EXPORT_DIR = "exports"
+        const val WEEKLY_REPORT_PREFIX = "sober-week-"
+    }
 }

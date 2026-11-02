@@ -55,6 +55,36 @@ class StatsHighlightsTest {
     }
 
     @Test
+    fun `best and worst days ignore days with no usage`() {
+        val (best, worst) = bestAndWorstDays(week)
+
+        assertEquals(ExtremeDay("2026-03-03", 30), best)
+        assertEquals(ExtremeDay("2026-03-04", 200), worst)
+    }
+
+    @Test
+    fun `best and worst days are absent when nothing was used`() {
+        assertEquals(null to null, bestAndWorstDays(emptyList()))
+        assertEquals(
+            null to null,
+            bestAndWorstDays(listOf(day("2026-03-02", 0), day("2026-03-03", 0)))
+        )
+    }
+
+    @Test
+    fun `equal days still produce two different answers`() {
+        val totals = listOf(
+            day("2026-03-02", 30),
+            day("2026-03-05", 30)
+        )
+
+        val (best, worst) = bestAndWorstDays(totals)
+
+        assertEquals("2026-03-02", best?.date)
+        assertEquals("2026-03-05", worst?.date)
+    }
+
+    @Test
     fun `week over week needs two full weeks`() {
         assertNull(weekOverWeekChange(week.take(7)))
         assertNull(weekOverWeekChange(week.take(13)))

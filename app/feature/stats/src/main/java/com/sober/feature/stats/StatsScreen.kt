@@ -1,5 +1,7 @@
 package com.sober.feature.stats
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneDisabled
 import androidx.compose.material.icons.rounded.SelfImprovement
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -57,8 +61,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.usecase.DailyUsageTotal
+import com.sober.core.domain.usecase.ExtremeDay
 import com.sober.core.domain.usecase.UsageHeatmap
+import com.sober.core.domain.usecase.bestAndWorstDays
 import com.sober.core.domain.usecase.weekOverWeekLabel
+import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberDivider
 import com.sober.core.ui.components.SoberFilterChips
 import com.sober.core.ui.components.SoberIconBadge
@@ -98,11 +106,21 @@ fun StatsScreen(
         mutableStateOf<Int?>(null)
     }
 
-    // The chart only exists for multi-day ranges, so the section numbers are
-    // derived rather than fixed: otherwise "Today" would start at 02.
+    // Section numbers follow the sections actually rendered: the chart is
+    // absent on "Today" and the weekly report only on 7 days, so fixed
+    // numbers would skip or repeat.
     val hasChart = uiState.dailyTotals.size > 1
-    fun sectionIndex(base: Int): String =
-        (if (hasChart) base else base - 1).toString().padStart(2, '0')
+    val hasWeeklyReport = uiState.selectedTimeframe == Timeframe.WEEK
+    val sectionKeys = buildList {
+        if (hasChart) add("day")
+        if (hasWeeklyReport) add("week")
+        add("apps")
+        add("patterns")
+        add("heatmap")
+        add("achievements")
+    }
+    fun sectionIndex(key: String): String =
+        (sectionKeys.indexOf(key) + 1).toString().padStart(2, '0')
 
     Column(
         modifier = Modifier
@@ -152,7 +170,7 @@ fun StatsScreen(
 
         if (hasChart) {
             Spacer(modifier = Modifier.height(24.dp))
-            SoberSectionHeader(title = "By day", index = "01")
+            SoberSectionHeader(title = "By day", index = sectionIndex("day"))
             Spacer(modifier = Modifier.height(6.dp))
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -186,9 +204,16 @@ fun StatsScreen(
             }
         }
 
+        if (hasWeeklyReport) {
+            Spacer(modifier = Modifier.height(24.dp))
+            SoberSectionHeader(title = "Weekly report", index = sectionIndex("week"))
+            Spacer(modifier = Modifier.height(6.dp))
+            WeeklyReportCard(uiState = uiState, viewModel = viewModel)
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Top apps", index = sectionIndex(2))
+        SoberSectionHeader(title = "Top apps", index = sectionIndex("apps"))
         Spacer(modifier = Modifier.height(2.dp))
 
         if (uiState.topApps.isEmpty() && !uiState.isLoading) {
@@ -269,7 +294,7 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Patterns", index = sectionIndex(3))
+        SoberSectionHeader(title = "Patterns", index = sectionIndex("patterns"))
         Spacer(modifier = Modifier.height(2.dp))
 
         HighlightRow(
@@ -303,7 +328,7 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "When you use your phone", index = sectionIndex(4))
+        SoberSectionHeader(title = "When you use your phone", index = sectionIndex("heatmap"))
         Spacer(modifier = Modifier.height(6.dp))
 
         Surface(
@@ -326,7 +351,7 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Achievements", index = sectionIndex(5))
+        SoberSectionHeader(title = "Achievements", index = sectionIndex("achievements"))
         Spacer(modifier = Modifier.height(6.dp))
 
         uiState.achievements.chunked(2).forEachIndexed { rowIndex, row ->
@@ -357,6 +382,131 @@ fun StatsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+}
+
+/**
+ * The 7-day view condensed into something worth sending to a friend.
+ *
+ * The bitmap is drawn off-screen by the ViewModel, so what is shared does not
+ * depend on what part of this scrollable screen happens to be visible.
+ */
+@Composable
+private fun WeeklyReportCard(
+    uiState: StatsUiState,
+    viewModel: StatsViewModel
+) {
+    val colors = SoberTheme.colors
+    val context = LocalContext.current
+    val (best, worst) = remember(uiState.dailyDates, uiState.dailyTotals) {
+        bestAndWorstDays(
+            uiState.dailyDates.zip(uiState.dailyTotals) { date, minutes ->
+                DailyUsageTotal(date, minutes)
+            }
+        )
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.cardBorder)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Text(
+                text = "THIS WEEK, ON ONE CARD",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.4.sp,
+                color = colors.textMuted
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                WeeklyMetric(
+                    label = "Quietest day",
+                    value = best.shortDescription(),
+                    modifier = Modifier.weight(1f)
+                )
+                WeeklyMetric(
+                    label = "Heaviest day",
+                    value = worst.shortDescription(),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                WeeklyMetric(
+                    label = "Phone unlocks",
+                    value = uiState.screenUnlocks?.toString() ?: "Not reported",
+                    modifier = Modifier.weight(1f)
+                )
+                WeeklyMetric(
+                    label = "Days under limit",
+                    value = if (uiState.highlights.hasAdherence) {
+                        "${uiState.highlights.daysUnderLimit} of ${uiState.highlights.daysMeasured}"
+                    } else {
+                        "No cap set"
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+            SoberButton(
+                text = "Share this week",
+                icon = Icons.Rounded.Share,
+                onClick = {
+                    viewModel.shareWeeklyReport { uri, error ->
+                        if (uri != null) {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/png"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(send, "Share your week"))
+                        } else {
+                            Toast.makeText(
+                                context,
+                                error ?: "Couldn't create the report.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Drawn on this device. It only leaves when you share it.",
+                fontSize = 11.sp,
+                color = colors.textMuted
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeeklyMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    val colors = SoberTheme.colors
+    Column(modifier = modifier) {
+        Text(
+            text = label.uppercase(Locale.US),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 1.1.sp,
+            color = colors.textMuted
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.textPrimary
+        )
+    }
+}
+
+private fun ExtremeDay?.shortDescription(): String {
+    if (this == null) return "No usage"
+    val day = runCatching { LocalDate.parse(date) }.getOrNull()
+    val label = day?.format(DateTimeFormatter.ofPattern("EEE", Locale.US)) ?: date
+    return "$label · ${formatMinutes(minutes)}"
 }
 
 /**

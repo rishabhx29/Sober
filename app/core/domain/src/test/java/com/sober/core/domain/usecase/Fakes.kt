@@ -103,6 +103,7 @@ class FakeUsageStatsRepository(
     override fun getForegroundPackage(): String? = foreground
     override fun getForegroundIntervals(fromMillis: Long, toMillis: Long): List<UsageInterval> =
         intervals.filter { it.endMillis > fromMillis && it.startMillis < toMillis }
+    override fun getScreenUnlockCount(fromMillis: Long, toMillis: Long): Int? = null
 }
 
 class FakeAppLimitRepository(

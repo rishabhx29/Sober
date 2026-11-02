@@ -37,4 +37,12 @@ interface UsageStatsRepository {
      * act on it.
      */
     fun getForegroundPackage(): String?
+
+    /**
+     * Times the screen was unlocked in [fromMillis, toMillis], or null when the
+     * platform cannot report it (below API 28). Unlocks are a coarse proxy for
+     * pickups: the device records the keyguard leaving, not the intent behind
+     * it.
+     */
+    fun getScreenUnlockCount(fromMillis: Long, toMillis: Long): Int?
 }

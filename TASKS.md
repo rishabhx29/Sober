@@ -1118,8 +1118,10 @@ promise: no feature here needs internet permission.
   `ApplicationInfo` category resolves installed apps through PackageManager;
   Settings exposes Social/Video/Games/News/Productivity budgets. Allow-only
   mode is an explicit allow-list and sits above limits, below sessions.*
-- [ ] F6 — Weekly report — *week-over-week comparison, best/worst day, and a
-  shareable card rendered to a bitmap.*
+- [x] F6 — Weekly report — *7-day card with quietest/heaviest day, phone
+  unlocks (API 28+, `KEYGUARD_HIDDEN`), days under the cap and focus sessions.
+  "Share this week" renders a 1080×1350 PNG on an off-screen canvas — not a
+  screen capture — and hands it to the chooser through FileProvider.*
 - [ ] F7 — Backup and restore — *JSON export/import through SAF; DataStore rules
   serialised, restored behind the PIN.*
 - [x] F8 — Bedtime mode — *overnight `BedtimeSettings` window with its own
@@ -1133,10 +1135,11 @@ promise: no feature here needs internet permission.
   add section node rules for TikTok, Facebook, X and Snapchat.*
 
 > **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
-> and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass.
-> No emulator or physical-device walk has been done for the new Settings
-> sections, the DND transition or the pause/opens overlays. These are compile-
-> and unit-verified only at this point.
+> and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass;
+> F6 compiles and `:core:domain` is 307/307. No emulator or physical-device walk
+> has been done for the new Settings sections, the DND transition, the
+> pause/opens overlays or the weekly card's share sheet. These are compile- and
+> unit-verified only at this point.
 
 ---
 
@@ -1339,6 +1342,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F2 | completed | Implementation Agent | Lock mode: stored `lockedUntil`, Settings row with 1/3/8-hour windows, PIN gate extended to cover an active lock, Apps/Home/overlay refusals, and domain-level refusal for session cancel and override request/grant. `ManageEmergencyOverrideUseCaseTest` gained two lock tests, `ManageFocusSessionUseCaseTest` one. `testDebugUnitTest` 304/304 in `:core:domain`; device walk pending |
 | 2026-11-03 | F5 | completed | Implementation Agent | Category budgets and allow-only mode. Settings gains Social/Video/Games/News/Productivity half-hour budgets and an allow-list picker that opens on enable when empty. Engine precedence already had both rules; this pass added the missing entry points and category app counts. Device walk pending |
 | 2026-11-03 | F8 | completed | Implementation Agent | Bedtime mode UI: enable switch, 24-hour start/end time picker, allow-list picker and Do Not Disturb access status. Added `bedtimePreviousFilter` so ending the window restores the user's own filter; `SoberCoreService` syncs DND every minute independently of the screen-on poll. Device walk pending |
+| 2026-11-03 | F6 | completed | Implementation Agent | Weekly report: `bestAndWorstDays` in domain (3 tests), `getScreenUnlockCount` from `KEYGUARD_HIDDEN` on API 28+, and a 7-day card with a PNG export. The image is drawn by `renderWeeklyReport` on a 1080×1350 canvas so the share does not depend on scroll position; export lands in `cacheDir/exports` behind the existing FileProvider. Compile + `:core:domain` 307/307. Device walk and share-sheet export pending |
 
 ---
 

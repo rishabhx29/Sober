@@ -858,6 +858,13 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: A UI that hides controls is not policy. Anything reachable from another screen, a stale request or a timer still runs, and a lock that any one path ignores is not a lock — it is a suggestion with extra steps.  
 **Solution/Pattern**: Put the refusal in the domain use case that mutates state (`ManageFocusSessionUseCase.cancelSession`, `ManageEmergencyOverrideUseCase.request/grant`), return a Boolean the caller can surface, and re-check at both request *and* grant time because a wait can span the lock boundary. Then apply the same rule in every surface (Settings body, Apps edits, Home pause, overlay affordance) so the copy and the enforcement agree.
 
+### 11.34 Draw the Share Card, Don't Capture the Screen
+
+**Date**: 2026-11-03  
+**Context**: F6 shares a weekly report. The obvious implementation — screenshot the Stats screen — would crop to the visible scroll viewport and bake in whichever light/dark theme was active.  
+**Learning**: A "share what you see" capture is only correct when the thing being shared is exactly what is on screen. A report is a document with its own fixed layout, so it must be rendered independently of the view hierarchy.  
+**Solution/Pattern**: Build a `WeeklyReportData` snapshot from the already-loaded UI state, then draw it with `android.graphics.Canvas` at a fixed 1080×1350. Put the PNG in `cacheDir/exports`, which the existing `FileProvider` already exposes, and grant `FLAG_GRANT_READ_URI_PERMISSION` on the `ACTION_SEND` intent. Render with local `Paint` copies (not shared painters) so a fitted-down value in one column cannot shrink the next one.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

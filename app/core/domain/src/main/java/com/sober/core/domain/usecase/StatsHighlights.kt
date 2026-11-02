@@ -46,6 +46,30 @@ fun mostProductiveWeekday(totals: List<DailyUsageTotal>): String? {
     return date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.US)
 }
 
+/** A day singled out in the weekly report. */
+data class ExtremeDay(val date: String, val minutes: Int)
+
+/**
+ * The quietest and heaviest days that saw any use.
+ *
+ * Days at zero are excluded for the same reason as [mostProductiveWeekday]: a
+ * phone that was off is not a "best day". Ties go to the earlier date for the
+ * best day and the later one for the worst, so the pair never points at the
+ * same day for both when every day has equal usage.
+ */
+fun bestAndWorstDays(totals: List<DailyUsageTotal>): Pair<ExtremeDay?, ExtremeDay?> {
+    val used = totals.filter { it.totalMinutes > 0 }
+    if (used.isEmpty()) return null to null
+
+    val sorted = used.sortedWith(
+        compareBy<DailyUsageTotal> { it.totalMinutes }.thenBy { it.date }
+    )
+    val best = sorted.first()
+    val worst = sorted.last()
+    return ExtremeDay(best.date, best.totalMinutes) to
+        ExtremeDay(worst.date, worst.totalMinutes)
+}
+
 /**
  * Percent change of the last 7 days against the 7 before them.
  *
