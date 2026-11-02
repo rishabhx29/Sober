@@ -154,10 +154,11 @@ fun OnboardingScreen(
                     disclosureTitle = "Before you turn on Accessibility",
                     disclosureBody = "Sober uses the Accessibility service to see which app is on " +
                         "screen and which section of it is open, so it can close what you asked " +
-                        "it to block.\n\n" +
-                        "It does not read what you type, does not read your messages, and does " +
-                        "not store screen content. Everything stays on this device — Sober has " +
-                        "no internet permission.\n\n" +
+                        "it to block. If you block a website, it also reads the browser's " +
+                        "address bar to check the site against your list.\n\n" +
+                        "It does not read your messages, page content or what you type in other " +
+                        "fields, and does not store screen content. Everything stays on this " +
+                        "device — Sober has no internet permission.\n\n" +
                         "You can switch Accessibility off at any time in Android Settings. " +
                         "Sober then falls back to blocking whole apps instead of sections.",
                     onGrantClick = { context.startActivity(PermissionUtils.getAccessibilityIntent()) },

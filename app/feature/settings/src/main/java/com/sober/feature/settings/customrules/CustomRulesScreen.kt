@@ -39,11 +39,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
+import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.ui.components.SoberCard
 import com.sober.core.ui.components.SoberDivider
 import com.sober.core.ui.components.SoberOutlinedButton
@@ -52,12 +54,13 @@ import com.sober.core.ui.components.SoberToggleSwitch
 import com.sober.core.ui.theme.SoberTheme
 
 /**
- * The user's own rules: apps they want shut, and words they want out of their
- * notifications.
+ * The user's own rules: apps they want shut, websites they want covered, and
+ * words they want out of their notifications.
  *
- * Both kinds live on one screen because they answer the same question ("what
- * did I ask Sober to hide?"), even though they are enforced in different
- * places — the block policy for apps, the notification listener for words.
+ * All three kinds live on one screen because they answer the same question
+ * ("what did I ask Sober to hide?"), even though they are enforced in different
+ * places — the block policy, the accessibility service and the notification
+ * listener respectively.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,12 +75,15 @@ fun CustomRulesScreen(
     val colors = SoberTheme.colors
     val appRows = rows.filter { it.rule.type == CustomRuleType.BLOCKED_APP }
     val keywordRows = rows.filter { it.rule.type == CustomRuleType.NOTIFICATION_KEYWORD }
+    val websiteRows = rows.filter { it.rule.type == CustomRuleType.BLOCKED_WEBSITE }
 
     // null = closed. For the picker an empty string means "add" and a rule id
-    // means "change this one"; for the keyword dialog, the id is null on add.
+    // means "change this one"; for the editors, the id is null on add.
     var pickerFor by remember { mutableStateOf<String?>(null) }
     var keywordEditorFor by remember { mutableStateOf<String?>(null) }
     var keywordEditingId by remember { mutableStateOf<String?>(null) }
+    var websiteEditorFor by remember { mutableStateOf<String?>(null) }
+    var websiteEditingId by remember { mutableStateOf<String?>(null) }
     var actionsFor by remember { mutableStateOf<CustomRule?>(null) }
     val sheetState = rememberModalBottomSheetState()
 
@@ -90,10 +96,10 @@ fun CustomRulesScreen(
             textContentColor = colors.textSecondary,
             title = {
                 Text(
-                    text = if (rule.type == CustomRuleType.BLOCKED_APP) {
-                        "Blocked app"
-                    } else {
-                        "Muted word"
+                    text = when (rule.type) {
+                        CustomRuleType.BLOCKED_APP -> "Blocked app"
+                        CustomRuleType.NOTIFICATION_KEYWORD -> "Muted word"
+                        CustomRuleType.BLOCKED_WEBSITE -> "Blocked website"
                     },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
@@ -101,10 +107,13 @@ fun CustomRulesScreen(
             },
             text = {
                 Text(
-                    text = if (rule.type == CustomRuleType.BLOCKED_APP) {
-                        "This app stays closed until you remove it here."
-                    } else {
-                        "Notifications containing \u201C${rule.value}\u201D are hidden as they arrive."
+                    text = when (rule.type) {
+                        CustomRuleType.BLOCKED_APP ->
+                            "This app stays closed until you remove it here."
+                        CustomRuleType.NOTIFICATION_KEYWORD ->
+                            "Notifications containing \u201C${rule.value}\u201D are hidden as they arrive."
+                        CustomRuleType.BLOCKED_WEBSITE ->
+                            "Pages on ${rule.value} and its subdomains are covered inside the browser."
                     },
                     fontSize = 14.sp
                 )
@@ -112,11 +121,16 @@ fun CustomRulesScreen(
             confirmButton = {
                 TextButton(onClick = {
                     actionsFor = null
-                    if (rule.type == CustomRuleType.BLOCKED_APP) {
-                        pickerFor = rule.id
-                    } else {
-                        keywordEditorFor = rule.value
-                        keywordEditingId = rule.id
+                    when (rule.type) {
+                        CustomRuleType.BLOCKED_APP -> pickerFor = rule.id
+                        CustomRuleType.NOTIFICATION_KEYWORD -> {
+                            keywordEditorFor = rule.value
+                            keywordEditingId = rule.id
+                        }
+                        CustomRuleType.BLOCKED_WEBSITE -> {
+                            websiteEditorFor = rule.value
+                            websiteEditingId = rule.id
+                        }
                     }
                 }) {
                     Text("Edit", color = colors.primary, fontWeight = FontWeight.Medium)
@@ -145,6 +159,22 @@ fun CustomRulesScreen(
                 if (id == null) viewModel.addKeyword(text) else viewModel.updateValue(id, text)
                 keywordEditorFor = null
                 keywordEditingId = null
+            }
+        )
+    }
+
+    if (websiteEditorFor != null) {
+        WebsiteDialog(
+            initial = websiteEditorFor.orEmpty(),
+            onDismiss = {
+                websiteEditorFor = null
+                websiteEditingId = null
+            },
+            onConfirm = { text ->
+                val id = websiteEditingId
+                if (id == null) viewModel.addWebsite(text) else viewModel.updateWebsite(id, text)
+                websiteEditorFor = null
+                websiteEditingId = null
             }
         )
     }
@@ -224,6 +254,40 @@ fun CustomRulesScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            SoberSectionLabel("Blocked websites")
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SoberCard {
+                if (websiteRows.isEmpty()) {
+                    Text(
+                        text = "No websites blocked. A site added here is covered in the browser, including its subdomains.",
+                        color = colors.textMuted,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    websiteRows.forEachIndexed { index, row ->
+                        RuleRow(
+                            title = row.title,
+                            subtitle = row.subtitle,
+                            checked = row.rule.enabled,
+                            onCheckedChange = { viewModel.setEnabled(row.rule.id, it) },
+                            onOpen = { actionsFor = row.rule }
+                        )
+                        if (index != websiteRows.lastIndex) SoberDivider()
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                SoberOutlinedButton(
+                    text = "Block a website",
+                    onClick = {
+                        websiteEditingId = null
+                        websiteEditorFor = ""
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             SoberSectionLabel("Muted words")
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -259,7 +323,8 @@ fun CustomRulesScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Muted words need Notification access; blocked apps need nothing extra. Calls are never hidden by a keyword.",
+                text = "Muted words need Notification access; blocked apps need nothing extra. " +
+                    "Blocked websites need Accessibility access. Calls are never hidden by a keyword.",
                 color = colors.textMuted,
                 fontSize = 11.sp
             )
@@ -447,6 +512,81 @@ private fun KeywordDialog(
                 Text(
                     text = "Save",
                     color = if (text.isNotBlank()) colors.primary else colors.textMuted,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = colors.textSecondary)
+            }
+        }
+    )
+}
+
+@Composable
+private fun WebsiteDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    val colors = SoberTheme.colors
+    var text by remember(initial) { mutableStateOf(initial) }
+    val normalized = WebsiteAddress.normalizeDomain(text)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        titleContentColor = colors.textPrimary,
+        textContentColor = colors.textSecondary,
+        title = {
+            Text(
+                text = if (initial.isBlank()) "Block a website" else "Edit website",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter a site like example.com. The domain and every subdomain are covered in the browser.",
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { Text("example.com", color = colors.textMuted) },
+                    singleLine = true,
+                    isError = text.isNotBlank() && normalized == null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.divider,
+                        focusedContainerColor = colors.background,
+                        unfocusedContainerColor = colors.background,
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary
+                    )
+                )
+                if (text.isNotBlank() && normalized == null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Enter a full domain, like example.com.",
+                        fontSize = 12.sp,
+                        color = colors.danger
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }, enabled = normalized != null) {
+                Text(
+                    text = "Save",
+                    color = if (normalized != null) colors.primary else colors.textMuted,
                     fontWeight = FontWeight.Medium
                 )
             }

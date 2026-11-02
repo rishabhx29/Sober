@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
+import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.CustomRuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -61,6 +62,11 @@ class CustomRulesViewModel @Inject constructor(
                         title = "\u201C${rule.value}\u201D",
                         subtitle = "Notifications containing this word are hidden"
                     )
+                    CustomRuleType.BLOCKED_WEBSITE -> CustomRuleRow(
+                        rule = rule,
+                        title = rule.value,
+                        subtitle = "Covered in Chrome and other browsers"
+                    )
                 }
             }
         }.stateIn(
@@ -110,6 +116,19 @@ class CustomRulesViewModel @Inject constructor(
         viewModelScope.launch {
             customRuleRepository.add(CustomRuleType.NOTIFICATION_KEYWORD, trimmed)
         }
+    }
+
+    /** Stores the normalised host, so two spellings of one site cannot coexist. */
+    fun addWebsite(raw: String) {
+        val domain = WebsiteAddress.normalizeDomain(raw) ?: return
+        viewModelScope.launch {
+            customRuleRepository.add(CustomRuleType.BLOCKED_WEBSITE, domain)
+        }
+    }
+
+    fun updateWebsite(id: String, raw: String) {
+        val domain = WebsiteAddress.normalizeDomain(raw) ?: return
+        viewModelScope.launch { customRuleRepository.updateValue(id, domain) }
     }
 
     /**
