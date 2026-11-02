@@ -28,12 +28,15 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +73,7 @@ import com.sober.core.ui.theme.SoberTheme
 import com.sober.core.ui.theme.TabularNumberStyle
 import com.sober.core.common.battery.BatteryOptimizationUtils
 import com.sober.core.common.permissions.PermissionUtils
+import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.StreakRule
@@ -103,6 +107,10 @@ fun SettingsScreen(
     val streakRule by viewModel.streakRule.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val gate by viewModel.gate.collectAsState()
+    val allowOnly by viewModel.allowOnly.collectAsState()
+    val bedtime by viewModel.bedtime.collectAsState()
+    val categoryLimitMinutes by viewModel.categoryLimitMinutes.collectAsState()
+    val categoryCounts by viewModel.categoryCounts.collectAsState()
     var unlocked by remember { mutableStateOf(false) }
 
     val lockState = gate
@@ -134,6 +142,9 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showPinDialog by remember { mutableStateOf(false) }
     var showCapApps by remember { mutableStateOf(false) }
+    var showAllowOnlyApps by remember { mutableStateOf(false) }
+    var showBedtimeApps by remember { mutableStateOf(false) }
+    var editingBedtimeTime by remember { mutableStateOf<BedtimeTimeTarget?>(null) }
     var showPrivacy by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf<String?>(null) }
@@ -146,6 +157,7 @@ fun SettingsScreen(
     var batteryExempt by remember {
         mutableStateOf(BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context))
     }
+    var dndAccess by remember { mutableStateOf(PermissionUtils.hasDndAccess(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -154,6 +166,7 @@ fun SettingsScreen(
                     PermissionUtils.hasDeviceAdminPermission(context, SOBER_ADMIN)
                 batteryExempt =
                     BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context)
+                dndAccess = PermissionUtils.hasDndAccess(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -286,7 +299,64 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Schedules", index = "02")
+        SoberSectionHeader(title = "Category budgets", index = "02")
+
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "One shared daily budget for every app Android puts in a category. " +
+                "It stacks on top of each app's own limit.",
+            color = colors.textSecondary,
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        CATEGORY_BUDGET_ROWS.forEachIndexed { index, (category, label) ->
+            val minutes = categoryLimitMinutes[category] ?: 0
+            val appCount = categoryCounts[category] ?: 0
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        color = colors.textPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = when {
+                            appCount == 0 -> "No installed apps in this category"
+                            appCount == 1 -> "1 app · budget shared"
+                            else -> "$appCount apps · budget shared"
+                        },
+                        color = colors.textSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+                Text(
+                    text = if (minutes == 0) "Off" else formatMinutes(minutes),
+                    color = if (minutes == 0) colors.textMuted else colors.textPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    style = TabularNumberStyle
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            SoberFilterChips(
+                options = CATEGORY_BUDGET_OPTIONS,
+                selected = minutes,
+                onSelect = { viewModel.setCategoryLimit(category, it) },
+                label = { option -> if (option == 0) "Off" else formatMinutes(option) }
+            )
+            if (index != CATEGORY_BUDGET_ROWS.lastIndex) {
+                SoberDivider(modifier = Modifier.padding(vertical = 10.dp))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SoberSectionHeader(title = "Schedules", index = "03")
 
         SoberListRow(
             title = "Time-based blocking",
@@ -297,7 +367,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Custom rules", index = "03")
+        SoberSectionHeader(title = "Custom rules", index = "04")
 
         SoberListRow(
             title = "Your own rules",
@@ -308,7 +378,151 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Notifications", index = "04")
+        // -- Stricter modes: allow-only and bedtime --
+
+        SoberSectionHeader(title = "Stricter modes", index = "05")
+
+        SoberListRow(
+            title = "Allow-only mode",
+            subtitle = when {
+                !allowOnly.enabled ->
+                    "Only the apps you choose can be opened. Everything else is held shut."
+                allowOnly.allowedPackages.isEmpty() ->
+                    "On, but no apps are allowed yet — everything except system screens is blocked."
+                allowOnly.allowedPackages.size == 1 ->
+                    "On. 1 app can open; everything else is held shut."
+                else ->
+                    "On. ${allowOnly.allowedPackages.size} apps can open; everything else is held shut."
+            },
+            trailing = {
+                SoberToggleSwitch(
+                    checked = allowOnly.enabled,
+                    onCheckedChange = { enabled ->
+                        viewModel.setAllowOnlyEnabled(enabled)
+                        // An allow-list that allows nothing is a trap unless the
+                        // user meant it, so the picker opens on the same tap.
+                        if (enabled && allowOnly.allowedPackages.isEmpty()) {
+                            showAllowOnlyApps = true
+                        }
+                    }
+                )
+            }
+        )
+        if (allowOnly.enabled) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Allowed apps",
+                    color = colors.textPrimary,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                SoberQuietButton(
+                    text = "Choose",
+                    onClick = { showAllowOnlyApps = true }
+                )
+            }
+            Text(
+                text = "Calls, alarms and the launcher keep working. Sober never blocks its own " +
+                    "settings, System UI or your keyboard.",
+                color = colors.textMuted,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
+        SoberDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SoberListRow(
+            title = "Bedtime mode",
+            subtitle = when {
+                !bedtime.enabled ->
+                    "A nightly window that keeps chosen apps open and everything else shut."
+                bedtime.allowedPackages.isEmpty() ->
+                    "Every night ${minuteOfDayText(bedtime.startMinuteOfDay)}–" +
+                        "${minuteOfDayText(bedtime.endMinuteOfDay)}. No apps allowed yet."
+                else ->
+                    "Every night ${minuteOfDayText(bedtime.startMinuteOfDay)}–" +
+                        "${minuteOfDayText(bedtime.endMinuteOfDay)}, " +
+                        "${bedtime.allowedPackages.size} apps allowed."
+            },
+            trailing = {
+                SoberToggleSwitch(
+                    checked = bedtime.enabled,
+                    onCheckedChange = { viewModel.setBedtimeEnabled(it) }
+                )
+            }
+        )
+        if (bedtime.enabled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SoberOutlinedButton(
+                    text = "Starts ${minuteOfDayText(bedtime.startMinuteOfDay)}",
+                    onClick = { editingBedtimeTime = BedtimeTimeTarget.START },
+                    modifier = Modifier.weight(1f)
+                )
+                SoberOutlinedButton(
+                    text = "Ends ${minuteOfDayText(bedtime.endMinuteOfDay)}",
+                    onClick = { editingBedtimeTime = BedtimeTimeTarget.END },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (bedtime.allowedPackages.isEmpty()) {
+                        "Allowed apps — none yet"
+                    } else {
+                        "${bedtime.allowedPackages.size} apps allowed"
+                    },
+                    color = colors.textPrimary,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                SoberQuietButton(
+                    text = "Choose",
+                    onClick = { showBedtimeApps = true }
+                )
+            }
+            if (dndAccess) {
+                Text(
+                    text = "Do Not Disturb turns on for the window and back off when it ends. " +
+                        "Softer interruptions still get through.",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            } else {
+                Text(
+                    text = "Apps are held shut, but the phone still rings and buzzes. " +
+                        "Grant Do Not Disturb access to silence it overnight.",
+                    color = colors.textMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                SoberQuietButton(
+                    text = "Grant Do Not Disturb access",
+                    onClick = {
+                        runCatching { context.startActivity(PermissionUtils.getDndAccessIntent()) }
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SoberSectionHeader(title = "Notifications", index = "06")
 
         Column(modifier = Modifier.padding(top = 6.dp)) {
             val rows = listOf(
@@ -353,7 +567,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Streaks", index = "05")
+        SoberSectionHeader(title = "Streaks", index = "07")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -393,7 +607,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Protection", index = "06")
+        SoberSectionHeader(title = "Protection", index = "08")
 
         SoberListRow(
             title = if (hasPin) "PIN is set" else "No PIN set",
@@ -493,7 +707,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Permission status", index = "07")
+        SoberSectionHeader(title = "Permission status", index = "09")
 
         val permissions = listOf(
             Triple("Usage access", PermissionUtils.hasUsageStatsPermission(context), true),
@@ -503,6 +717,7 @@ fun SettingsScreen(
                 PermissionUtils.hasPostNotificationsPermission(context),
                 true
             ),
+            Triple("Do Not Disturb access", dndAccess, false),
             Triple(
                 "Notification access",
                 PermissionUtils.hasNotificationListenerPermission(context),
@@ -526,7 +741,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Engine", index = "08")
+        SoberSectionHeader(title = "Engine", index = "10")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -579,7 +794,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Data", index = "09")
+        SoberSectionHeader(title = "Data", index = "11")
 
         SoberListRow(
             title = "Export usage data",
@@ -624,7 +839,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "Appearance", index = "10")
+        SoberSectionHeader(title = "Appearance", index = "12")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -662,7 +877,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        SoberSectionHeader(title = "About", index = "11")
+        SoberSectionHeader(title = "About", index = "13")
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -715,6 +930,67 @@ fun SettingsScreen(
             exempt = capExemptPackages,
             onToggle = viewModel::setAppExemptFromCap,
             onDismiss = { showCapApps = false }
+        )
+    }
+
+    if (showAllowOnlyApps) {
+        AllowedAppsDialog(
+            title = "Apps allowed in allow-only mode",
+            description = "Everything not checked here is held shut, whatever its limits say. " +
+                "Calls, alarms and the launcher keep working.",
+            apps = capApps,
+            selected = allowOnly.allowedPackages,
+            onToggle = { packageName, allowed ->
+                viewModel.setAllowOnlyPackages(
+                    if (allowed) {
+                        allowOnly.allowedPackages + packageName
+                    } else {
+                        allowOnly.allowedPackages - packageName
+                    }
+                )
+            },
+            onDismiss = { showAllowOnlyApps = false }
+        )
+    }
+
+    if (showBedtimeApps) {
+        AllowedAppsDialog(
+            title = "Apps allowed at bedtime",
+            description = "Everything not checked here is held shut during the window. " +
+                "Most people allow calls, maps and the alarm clock.",
+            apps = capApps,
+            selected = bedtime.allowedPackages,
+            onToggle = { packageName, allowed ->
+                viewModel.setBedtimeAllowedPackages(
+                    if (allowed) {
+                        bedtime.allowedPackages + packageName
+                    } else {
+                        bedtime.allowedPackages - packageName
+                    }
+                )
+            },
+            onDismiss = { showBedtimeApps = false }
+        )
+    }
+
+    editingBedtimeTime?.let { target ->
+        val current = bedtime
+        MinuteOfDayPickerDialog(
+            title = if (target == BedtimeTimeTarget.START) "Bedtime starts" else "Bedtime ends",
+            initialMinuteOfDay = if (target == BedtimeTimeTarget.START) {
+                current.startMinuteOfDay
+            } else {
+                current.endMinuteOfDay
+            },
+            onDismiss = { editingBedtimeTime = null },
+            onConfirm = { minuteOfDay ->
+                if (target == BedtimeTimeTarget.START) {
+                    viewModel.setBedtimeWindow(minuteOfDay, current.endMinuteOfDay)
+                } else {
+                    viewModel.setBedtimeWindow(current.startMinuteOfDay, minuteOfDay)
+                }
+                editingBedtimeTime = null
+            }
         )
     }
 
@@ -862,6 +1138,197 @@ private fun CapAppsDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = "Done", color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        }
+    )
+}
+
+/**
+ * An allow-list picker shared by allow-only mode and bedtime. Unlike the cap
+ * picker, nothing is selected by default: an allow-list is a promise about what
+ * may run, and pre-ticking apps the user did not choose would make the promise
+ * mean something else.
+ */
+@Composable
+private fun AllowedAppsDialog(
+    title: String,
+    description: String,
+    apps: List<BlockableApp>,
+    selected: Set<String>,
+    onToggle: (packageName: String, allowed: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(apps, query) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            apps
+        } else {
+            apps.filter {
+                it.label.contains(trimmed, ignoreCase = true) ||
+                    it.packageName.contains(trimmed, ignoreCase = true)
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = title,
+                color = colors.primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = description,
+                    color = colors.textSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${selected.size} of ${apps.size} apps allowed",
+                    color = colors.textPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                if (apps.isEmpty()) {
+                    Text(
+                        text = "No apps found.",
+                        color = colors.textSecondary,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        label = { Text("Search apps") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = colors.textMuted
+                            )
+                        },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = { query = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = "Clear search",
+                                        tint = colors.textMuted
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colors.primary,
+                            unfocusedBorderColor = colors.divider,
+                            focusedContainerColor = colors.surface,
+                            unfocusedContainerColor = colors.surface
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (filtered.isEmpty()) {
+                        Text(
+                            text = "No apps match \"${query.trim()}\".",
+                            color = colors.textSecondary,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
+                            items(filtered, key = { it.packageName }) { app ->
+                                val allowed = app.packageName in selected
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .toggleable(
+                                            value = allowed,
+                                            role = Role.Switch,
+                                            onValueChange = { onToggle(app.packageName, it) }
+                                        )
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text(
+                                        text = app.label,
+                                        color = colors.textPrimary,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    SoberToggleSwitch(
+                                        checked = allowed,
+                                        onCheckedChange = null
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Done", color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        }
+    )
+}
+
+/**
+ * A 24-hour wheel for the bedtime window. Material's dial is used rather than a
+ * list of preset windows so an unusual schedule (00:30–06:00) is still possible.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MinuteOfDayPickerDialog(
+    title: String,
+    initialMinuteOfDay: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (minuteOfDay: Int) -> Unit
+) {
+    val colors = SoberTheme.colors
+    val state = rememberTimePickerState(
+        initialHour = initialMinuteOfDay / 60,
+        initialMinute = initialMinuteOfDay % 60,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = title,
+                color = colors.primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                TimePicker(state = state)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
+                Text(text = "Set", color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel", color = colors.textSecondary)
             }
         }
     )
@@ -1126,6 +1593,34 @@ private fun SettingsLockScreen(
 
 /** Lock lengths offered under the Lock mode row. */
 private val LOCK_LENGTHS = listOf(1 to "1 hour", 3 to "3 hours", 8 to "8 hours")
+
+private enum class BedtimeTimeTarget { START, END }
+
+/**
+ * Category budgets are stepped in half-hours for the same reason the overall
+ * cap is: this is a hard block, and a free picker invites accidental values.
+ */
+private val CATEGORY_BUDGET_OPTIONS = listOf(0, 30, 60, 120, 180)
+
+private val CATEGORY_BUDGET_ROWS = listOf(
+    AppCategory.SOCIAL to "Social",
+    AppCategory.VIDEO to "Video",
+    AppCategory.GAMES to "Games",
+    AppCategory.NEWS to "News",
+    AppCategory.PRODUCTIVITY to "Productivity"
+)
+
+/** "10:00 PM" from minutes since midnight, wrapping a 24+ hour value. */
+private fun minuteOfDayText(minuteOfDay: Int): String {
+    val normalized = ((minuteOfDay % 1440) + 1440) % 1440
+    val hour24 = normalized / 60
+    val hour12 = when (val h = hour24 % 12) {
+        0 -> 12
+        else -> h
+    }
+    val suffix = if (hour24 < 12) "AM" else "PM"
+    return String.format("%d:%02d %s", hour12, normalized % 60, suffix)
+}
 
 /** "9:40 PM" — the wall-clock time a lock lifts. */
 private fun clockText(epochMillis: Long): String {

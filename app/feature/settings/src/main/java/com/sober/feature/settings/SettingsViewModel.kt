@@ -6,6 +6,11 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sober.core.data.local.datastore.SoberPreferences
+import com.sober.core.domain.model.AllowOnlyMode
+import com.sober.core.domain.model.AppCategory
+import com.sober.core.domain.model.BedtimeSettings
+import com.sober.core.domain.model.CategoryLimit
+import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PinRepository
@@ -27,6 +32,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -56,6 +63,7 @@ class SettingsViewModel @Inject constructor(
     private val streakPreferences: StreakPreferencesRepository,
     private val themePreferences: ThemePreferencesRepository,
     private val blockableAppsRepository: BlockableAppsRepository,
+    private val appCategoryRepository: AppCategoryRepository,
     private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val setPinUseCase: SetPinUseCase,
     private val verifyPinUseCase: VerifyPinUseCase,
@@ -69,10 +77,21 @@ class SettingsViewModel @Inject constructor(
     private val _capApps = MutableStateFlow<List<BlockableApp>>(emptyList())
     val capApps: StateFlow<List<BlockableApp>> = _capApps
 
+    /**
+     * How many installed apps fall in each budgetable category. Resolved once
+     * per screen like [capApps]; the counts only change when apps are installed.
+     */
+    private val _categoryCounts = MutableStateFlow<Map<AppCategory, Int>>(emptyMap())
+    val categoryCounts: StateFlow<Map<AppCategory, Int>> = _categoryCounts
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             _capApps.value = runCatching { blockableAppsRepository.blockableApps() }
                 .getOrDefault(emptyList())
+            _categoryCounts.value = AppCategory.entries.associateWith { category ->
+                runCatching { appCategoryRepository.getPackagesInCategory(category).size }
+                    .getOrDefault(0)
+            }
         }
     }
 
@@ -136,6 +155,91 @@ class SettingsViewModel @Inject constructor(
     /** Ends lock mode. Only reachable from the settings body, which needs the PIN first. */
     fun clearLock() {
         viewModelScope.launch { protectionSettingsRepository.setLockedUntil(null) }
+    }
+
+    // -- Stricter modes --
+
+    val allowOnly: StateFlow<AllowOnlyMode> = protectionSettingsRepository.allowOnly.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = AllowOnlyMode()
+    )
+
+    val bedtime: StateFlow<BedtimeSettings> = protectionSettingsRepository.bedtime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = BedtimeSettings()
+    )
+
+    /**
+     * Category budgets as a lookup. A stored budget of zero would mean "no time
+     * allowed", which the engine treats as no budget at all for categories, so
+     * zero is removed at the source instead of shown as an active rule.
+     */
+    val categoryLimitMinutes: StateFlow<Map<AppCategory, Int>> =
+        protectionSettingsRepository.categoryLimits
+            .map { limits ->
+                limits.filter { it.isActive && it.dailyLimitMinutes > 0 }
+                    .associate { it.category to it.dailyLimitMinutes }
+            }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyMap()
+            )
+
+    /** Passing zero removes the category's budget. */
+    fun setCategoryLimit(category: AppCategory, minutes: Int) {
+        viewModelScope.launch {
+            protectionSettingsRepository.setCategoryLimit(
+                category,
+                if (minutes <= 0) null else CategoryLimit(category, minutes)
+            )
+        }
+    }
+
+    fun setAllowOnlyEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val current = protectionSettingsRepository.allowOnly.first()
+            protectionSettingsRepository.setAllowOnly(current.copy(enabled = enabled))
+        }
+    }
+
+    fun setAllowOnlyPackages(packages: Set<String>) {
+        viewModelScope.launch {
+            val current = protectionSettingsRepository.allowOnly.first()
+            protectionSettingsRepository.setAllowOnly(
+                current.copy(allowedPackages = packages)
+            )
+        }
+    }
+
+    fun setBedtimeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val current = protectionSettingsRepository.bedtime.first()
+            protectionSettingsRepository.setBedtime(current.copy(enabled = enabled))
+        }
+    }
+
+    fun setBedtimeWindow(startMinuteOfDay: Int, endMinuteOfDay: Int) {
+        viewModelScope.launch {
+            val current = protectionSettingsRepository.bedtime.first()
+            protectionSettingsRepository.setBedtime(
+                current.copy(
+                    startMinuteOfDay = startMinuteOfDay,
+                    endMinuteOfDay = endMinuteOfDay
+                )
+            )
+        }
+    }
+
+    fun setBedtimeAllowedPackages(packages: Set<String>) {
+        viewModelScope.launch {
+            val current = protectionSettingsRepository.bedtime.first()
+            protectionSettingsRepository.setBedtime(
+                current.copy(allowedPackages = packages)
+            )
+        }
     }
 
     fun setDailyScreenTimeLimit(minutes: Int) {

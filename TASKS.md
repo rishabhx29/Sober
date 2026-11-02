@@ -1094,6 +1094,52 @@
 
 ---
 
+## Phase 8 — Competitive Backlog (v1.4, unreleased)
+
+Built from `docs/COMPETITIVE_ANALYSIS.md`. Every item keeps the no-network
+promise: no feature here needs internet permission.
+
+- [x] F1 — Pause before opening — *per-app `AppPauseRule` delays (5/10/30/60s)
+  in the app sheet; a `PauseOverlayController` covers the app while the delay
+  runs and offers "Open for N min" or "Not now". A pass is stored so the pause
+  belongs to an entry, not to every poll.*
+- [x] F2 — Lock mode — *`lockedUntil` in Settings with 1/3/8-hour windows; the
+  settings body stays PIN-gated, session cancel and override request/grant
+  refuse while locked, Apps refuses rule edits, Home refuses a pause, and the
+  block overlay hides the override affordance with the end time.*
+- [x] F3 — Opens per day — *`AppLimit.dailyOpenLimit`, an `app_open` history
+  table and `RecordAppOpenUseCase`; the engine evaluates before counting, so a
+  budget of N allows exactly N usable opens. A 0-minute limit is treated as
+  opens-only rather than "block immediately".*
+- [ ] F4 — Quick Settings tile and home widget — *Glance app widget plus a
+  `TileService` for pause/focus, reading the same repositories through Hilt
+  entry points.*
+- [x] F5 — Category limits and allow-only mode — *`CategoryLimit` per
+  `ApplicationInfo` category resolves installed apps through PackageManager;
+  Settings exposes Social/Video/Games/News/Productivity budgets. Allow-only
+  mode is an explicit allow-list and sits above limits, below sessions.*
+- [ ] F6 — Weekly report — *week-over-week comparison, best/worst day, and a
+  shareable card rendered to a bitmap.*
+- [ ] F7 — Backup and restore — *JSON export/import through SAF; DataStore rules
+  serialised, restored behind the PIN.*
+- [x] F8 — Bedtime mode — *overnight `BedtimeSettings` window with its own
+  allow-list, a time picker in Settings, and Do Not Disturb applied while the
+  window is open. The previous interruption filter is stored so the user's own
+  DND choice is restored, not forced to "all".*
+- [x] F9 — Pause everything — *time-boxed `pausedUntil` checked ahead of limit
+  rules; Home offers 15 min/1 hour/3 hours, shows the remaining time and a
+  Resume action, and refuses while lock mode is on.*
+- [ ] F10 — Wider section and browser coverage — *extend `BrowserCatalog` and
+  add section node rules for TikTok, Facebook, X and Snapchat.*
+
+> **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
+> and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass.
+> No emulator or physical-device walk has been done for the new Settings
+> sections, the DND transition or the pause/opens overlays. These are compile-
+> and unit-verified only at this point.
+
+---
+
 ## Task Log
 
 | Date       | Task ID | Action                | Agent              | Notes |
@@ -1287,6 +1333,12 @@
 | 2026-11-03 | P7.6-fixes | completed | QA Agent | Five defects found while walking the restyled screens and fixed: the focus countdown showed `--:--` because eagerly-needed state was shared `WhileSubscribed`; the limit sheet opened half-height and hid Save; a two-line preset description was clipped at 80dp; section indices started at 02/03 when sections above were hidden; nav-bar icon appearance followed only the system theme |
 | 2026-11-03 | P7.6-verify | completed | QA Agent | Signed release installed over v1.3 on `emulator-5554`. Light walk covered Home, Apps, Focus (setup, active, complete), Stats, Settings and sub-screens; dark walk covered Home and Stats. 6-minute custom session confirmed the numeric countdown and the `01/02` renumbering. `test` 401/401. Version left at 1.3 / versionCode 4, no release published |
 | 2026-11-03 | P7.6-docs | completed | Guide Agent | Recorded the `WhileSubscribed` + `.value` countdown trap, the emulator SystemUI status-bar artifact, the editorial component contract and conditional-layout defects in GUIDE.md 11.27–11.30 |
+| 2026-11-03 | F9 | completed | Implementation Agent | Home pause section: `pausedUntil` flow, 15 min/1 hour/3 hours, remaining-time copy with `TabularNumberStyle`, and Resume. The decision engine checks the window ahead of limit rules, so pausing leaves an active focus session's overlay showing but lifts limit blocks |
+| 2026-11-03 | F1 | completed | Implementation Agent | Pause before opening: `AppPauseRule` in the app sheet, `PauseOverlayController` with a countdown and a stored pass. Moved pause handling into `applyPolicy` after block evaluation so a blocked app is never paused or counted |
+| 2026-11-03 | F3 | completed | Implementation Agent | Opens per day: `app_open` table, `RecordAppOpenUseCase`, `APP_OPEN_LIMIT` overlay copy and an opens stepper in the app sheet. Fixed two defects: a 0-minute limit blocked instantly (now opens-only), and the service counted an attempt before deciding (budget N blocked the Nth open) |
+| 2026-11-03 | F2 | completed | Implementation Agent | Lock mode: stored `lockedUntil`, Settings row with 1/3/8-hour windows, PIN gate extended to cover an active lock, Apps/Home/overlay refusals, and domain-level refusal for session cancel and override request/grant. `ManageEmergencyOverrideUseCaseTest` gained two lock tests, `ManageFocusSessionUseCaseTest` one. `testDebugUnitTest` 304/304 in `:core:domain`; device walk pending |
+| 2026-11-03 | F5 | completed | Implementation Agent | Category budgets and allow-only mode. Settings gains Social/Video/Games/News/Productivity half-hour budgets and an allow-list picker that opens on enable when empty. Engine precedence already had both rules; this pass added the missing entry points and category app counts. Device walk pending |
+| 2026-11-03 | F8 | completed | Implementation Agent | Bedtime mode UI: enable switch, 24-hour start/end time picker, allow-list picker and Do Not Disturb access status. Added `bedtimePreviousFilter` so ending the window restores the user's own filter; `SoberCoreService` syncs DND every minute independently of the screen-on poll. Device walk pending |
 
 ---
 

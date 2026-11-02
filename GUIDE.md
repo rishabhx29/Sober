@@ -837,6 +837,27 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: Each value was correct when written and wrong once the content around it changed. `ModalBottomSheet` opens at half height by default, and the drum picker plus Save button are taller than that half. A `80.dp` preset card fitted one description line until the copy gained a second. A hard-coded `"03"` index was right in the setup form and wrong in the active and completed states, where the two sections above it are gone. Unit tests do not see any of it; the layout is only wrong on screen.  
 **Solution/Pattern**: Open a sheet that owns a confirm button with `skipPartiallyExpanded = true` or size it beyond its own content. Size text containers for the copy they actually hold (the preset card is `92.dp` with an explicit `lineHeight` and `maxLines = 2`). Treat section numbers as data derived from the state that decides visibility (see `sectionIndex` in Schedules and `setupVisible` in Focus), never as literals beside a conditional header.
 
+### 11.31 A Counter Must Be Incremented After the Decision, Not Before
+
+**Date**: 2026-11-03  
+**Context**: F3 added an opens-per-day budget. The first implementation recorded the open at the top of `applyPolicy`, then evaluated the block.  
+**Learning**: A budget of one blocked the first open of the day: the attempt incremented the count before the check read it. Worse, a blocked app or an abandoned pause attempt consumed budget, so the counter measured attempts rather than usable opens. A zero-minute limit had the mirror-image bug — an `AppLimit(0)` row represents an opens-only rule, but every reader compared `usedMinutes >= 0`, which is always true.  
+**Solution/Pattern**: Evaluate policy first, then record the transition only on the path that actually lets the app through. Decide what the counter counts ("times this open was allowed") and enforce that at the one place that knows it. When a field is reused to mean "unset" (0 minutes), guard every reader with `> 0`, not just the writer.
+
+### 11.32 Restore the State You Replaced, Not a Default
+
+**Date**: 2026-11-03  
+**Context**: Bedtime mode turns Do Not Disturb on for an overnight window through `NotificationManager.setInterruptionFilter`.  
+**Learning**: Restoring `INTERRUPTION_FILTER_ALL` when the window closes would silently cancel a Do Not Disturb the user had chosen themselves. The system offers no "undo" for a filter change, and a sentinel like `false` in a `bedtimeSilenced` flag says only *that* Sober changed something, not what was there before.  
+**Solution/Pattern**: Read `currentInterruptionFilter` before the first change, persist it, and restore exactly that value when the window ends; only fall back to `ALL` when the stored value is unrecognised (`UNKNOWN`/`-1`). Check `isNotificationPolicyAccessGranted` on every pass so a revoked grant skips the write instead of throwing, and leave the flag set so the restore retries once access returns.
+
+### 11.33 A Lock Is Only as Strong as the Paths Around It
+
+**Date**: 2026-11-03  
+**Context**: F2 added lock mode, then audit found three working escapes: the Settings PIN gate only covered focus sessions, `cancelSession` ended a session freely, and `grant` could mature an override requested before the lock.  
+**Learning**: A UI that hides controls is not policy. Anything reachable from another screen, a stale request or a timer still runs, and a lock that any one path ignores is not a lock — it is a suggestion with extra steps.  
+**Solution/Pattern**: Put the refusal in the domain use case that mutates state (`ManageFocusSessionUseCase.cancelSession`, `ManageEmergencyOverrideUseCase.request/grant`), return a Boolean the caller can surface, and re-check at both request *and* grant time because a wait can span the lock boundary. Then apply the same rule in every surface (Settings body, Apps edits, Home pause, overlay affordance) so the copy and the enforcement agree.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
