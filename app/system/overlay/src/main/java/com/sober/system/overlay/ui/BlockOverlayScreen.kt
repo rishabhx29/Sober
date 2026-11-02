@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.usecase.BlockDecision
 import com.sober.core.domain.usecase.BlockReason
 import com.sober.core.domain.usecase.ManageEmergencyOverrideUseCase
@@ -174,6 +175,7 @@ private fun BlockBody(
             decision.sessionLabel?.takeIf { it.isNotBlank() } ?: "Focus session"
         decision.reason == BlockReason.SCHEDULE ->
             decision.scheduleName?.takeIf { it.isNotBlank() } ?: "Scheduled break"
+        decision.reason == BlockReason.BEDTIME -> "Bedtime ends"
         else -> "Back at midnight"
     }
     val countdownText = when {
@@ -185,6 +187,9 @@ private fun BlockBody(
 
         decision.reason == BlockReason.SCHEDULE ->
             minutesUntilText(decision.scheduleEndsAt, now)
+
+        decision.reason == BlockReason.BEDTIME ->
+            minutesUntilText(decision.bedtimeEndsAt, now)
 
         else -> timeUntilMidnight(now)
     }
@@ -251,9 +256,10 @@ private fun BlockBody(
 
         // No ring for a rule with no clock behind it: this block ends when the
         // user changes their mind, not at a time, and "Back at midnight" would
-        // be false — it outlives midnight.
+        // be false — it outlives midnight. Allow-only has no clock at all.
         val hasCountdown = decision.reason != BlockReason.SECTION_RULE_UNAVAILABLE &&
-            decision.reason != BlockReason.CUSTOM_APP_RULE
+            decision.reason != BlockReason.CUSTOM_APP_RULE &&
+            decision.reason != BlockReason.ALLOW_ONLY
         if (hasCountdown) {
             CountdownRing(
                 label = countdownLabel,
@@ -927,6 +933,11 @@ private fun headlineFor(decision: BlockDecision, appLabel: String): String {
             "${decision.scheduleName?.takeIf { it.isNotBlank() } ?: "A scheduled break"} is on."
         BlockReason.SECTION_RULE_UNAVAILABLE -> "Section blocking is paused."
         BlockReason.CUSTOM_APP_RULE -> "$appLabel is closed."
+        BlockReason.ALLOW_ONLY -> "$appLabel isn't on your allowed list."
+        BlockReason.BEDTIME -> "It's bedtime."
+        BlockReason.APP_OPEN_LIMIT -> "You've opened $appLabel enough today."
+        BlockReason.CATEGORY_LIMIT ->
+            "That's your ${categoryLabel(decision)} time for today."
         else -> "You've had enough $appLabel for today."
     }
 }
@@ -954,7 +965,29 @@ private fun reasonFor(decision: BlockDecision): String = when (decision.reason) 
             "off. Until it is back on, the whole app stays blocked."
     BlockReason.CUSTOM_APP_RULE ->
         "You added it to your blocked apps in Sober. Remove it there to open it again."
+    BlockReason.APP_OPEN_LIMIT ->
+        "You've opened it ${decision.openCount} times today. Your limit is " +
+            "${decision.openLimit}. You can open it again tomorrow."
+    BlockReason.CATEGORY_LIMIT ->
+        "${decision.usedMinutes} min used of your ${decision.limitMinutes} min " +
+            "${categoryLabel(decision)} allowance."
+    BlockReason.ALLOW_ONLY ->
+        "Allow-only mode is on, so only the apps you picked can open right now."
+    BlockReason.BEDTIME ->
+        "Bedtime blocks distracting apps until morning."
 }
+
+/** Display name for the category behind a category-limit block. */
+private fun categoryLabel(decision: BlockDecision): String =
+    when (decision.category) {
+        AppCategory.SOCIAL -> "social"
+        AppCategory.VIDEO -> "video"
+        AppCategory.GAMES -> "games"
+        AppCategory.PRODUCTIVITY -> "productivity"
+        AppCategory.NEWS -> "news"
+        AppCategory.OTHER -> "app"
+        null -> "app"
+    }
 
 /** "6:30 PM" — the wall-clock time a schedule window lifts. */
 private fun timeOfDayText(epochMillis: Long): String {

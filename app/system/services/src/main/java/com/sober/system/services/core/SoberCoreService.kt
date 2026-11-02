@@ -14,6 +14,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.domain.repository.BlockableAppsRepository
+import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.usecase.BlockDecision
 import com.sober.core.domain.usecase.BlockReason
 import com.sober.core.domain.usecase.CheckBedtimeWarningUseCase
@@ -23,10 +24,12 @@ import com.sober.core.domain.usecase.EvaluateBlockDecisionUseCase
 import com.sober.core.domain.usecase.GetDailyScreenTimeUseCase
 import com.sober.core.domain.usecase.ManageEmergencyOverrideUseCase
 import com.sober.core.domain.usecase.ManageFocusSessionUseCase
+import com.sober.core.domain.usecase.RecordAppOpenUseCase
 import com.sober.core.domain.usecase.ResetDailyUsageUseCase
 import com.sober.core.domain.usecase.SyncUsageSessionsUseCase
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.system.overlay.ui.BlockOverlayController
+import com.sober.system.overlay.ui.PauseOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
@@ -95,7 +98,16 @@ class SoberCoreService : Service() {
     lateinit var manageEmergencyOverrideUseCase: ManageEmergencyOverrideUseCase
 
     @Inject
+    lateinit var recordAppOpenUseCase: RecordAppOpenUseCase
+
+    @Inject
     lateinit var overlayController: BlockOverlayController
+
+    @Inject
+    lateinit var pauseOverlayController: PauseOverlayController
+
+    @Inject
+    lateinit var pauseRulesRepository: PauseRulesRepository
 
     @Inject
     lateinit var foregroundSignal: ForegroundSignal
@@ -129,6 +141,27 @@ class SoberCoreService : Service() {
     /** Last text posted to the daily-cap notification, to skip identical updates. */
     @Volatile
     private var lastDailyCapText: String? = null
+
+    /**
+     * The last app counted as an "open". Both the poll and window hints call
+     * [applyPolicy], so without this an app open for a minute would be counted
+     * four times by the poll alone.
+     */
+    @Volatile
+    private var lastCountedPackage: String? = null
+
+    /** Last day the open history was pruned, so it runs once per day, not per poll. */
+    @Volatile
+    private var lastOpenPruneDay: String? = null
+
+    /**
+     * The app whose pause-before-opening was already handled for the current
+     * foreground run. A pause belongs to an open, not to every poll: without
+     * this, a pass expiring while the user is still inside the app would throw
+     * the pause screen back over it.
+     */
+    @Volatile
+    private var pauseCheckedPackage: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -247,6 +280,15 @@ class SoberCoreService : Service() {
         //     grant is not read back as if it were still current.
         manageEmergencyOverrideUseCase.clearExpired()
 
+        // 2e. Keep the open history bounded. Once a day is enough for a table
+        //     that only needs the current day.
+        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date())
+        if (day != lastOpenPruneDay) {
+            lastOpenPruneDay = day
+            runCatching { recordAppOpenUseCase.prune() }
+        }
+
         // 3. Foreground app from event transitions (not lastTimeUsed).
         val foreground = usageStatsRepository.getForegroundPackage()
 
@@ -276,10 +318,56 @@ class SoberCoreService : Service() {
                 !blockableAppsRepository.isBlockable(it)
         }
 
-        val decision = target?.let { evaluateBlockDecisionUseCase(it) }
+        if (target == null) {
+            lastCountedPackage = null
+            pauseCheckedPackage = null
+            if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+            if (currentlyBlocked != null) {
+                currentlyBlocked = null
+                overlayController.hide()
+            }
+            return
+        }
+
+        // Counting happens on the transition, not on every poll. Going to the
+        // launcher clears the marker, so returning to the same app is a new
+        // open; a keyboard or dialog never reaches here, so it cannot inflate
+        // the count either.
+        if (target != lastCountedPackage) {
+            lastCountedPackage = target
+            runCatching { recordAppOpenUseCase(target) }
+        }
+
+        val decision = evaluateBlockDecisionUseCase(target)
         if (decision != null) {
+            // A block outranks a pause: the app is not usable either way, and
+            // the block screen is the truthful explanation.
+            if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+            pauseCheckedPackage = target
             showBlock(decision)
-        } else if (currentlyBlocked != null) {
+            return
+        }
+
+        // Pause before opening applies once per foreground run.
+        if (target != pauseCheckedPackage) {
+            pauseCheckedPackage = target
+            // A previous app's pause window must not survive the switch.
+            if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+
+            val rule = runCatching { pauseRulesRepository.ruleFor(target) }.getOrNull()
+            val pass = runCatching { pauseRulesRepository.passUntil(target) }.getOrNull()
+            val now = System.currentTimeMillis()
+            if (rule != null && rule.delaySeconds > 0 && (pass == null || pass <= now)) {
+                if (currentlyBlocked != null) {
+                    currentlyBlocked = null
+                    overlayController.hide()
+                }
+                pauseOverlayController.show(target, rule.delaySeconds)
+                return
+            }
+        }
+
+        if (currentlyBlocked != null) {
             // Limit lifted (override, app removed, session ended, or user
             // switched to an allowed app) — clear the overlay.
             currentlyBlocked = null
@@ -420,6 +508,7 @@ class SoberCoreService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         overlayController.hide()
+        pauseOverlayController.hide()
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.cancel(DAILY_CAP_NOTIFICATION_ID)
         scope.cancel()
