@@ -101,7 +101,7 @@ fun SoberStatusRow(
             // One stop in TalkBack: "Usage access, Granted" instead of reading
             // the label, the dot (no semantics) and the value separately.
             .semantics(mergeDescendants = true) {}
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
