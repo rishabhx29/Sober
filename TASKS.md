@@ -867,6 +867,10 @@
   installed over v1.2; Home, Apps, app-limit sheet, Focus, Stats including
   achievements, Settings and the cap picker were screenshotted in dark mode,
   and `uiautomator dump` confirms the merged descriptions.*
+- [x] Publish v1.3 with a signed APK and refreshed README screenshots —
+  *[v1.3](https://github.com/rishabhx29/Sober/releases/tag/v1.3) carries
+  `Sober-1.3.apk` (3,956,540 bytes); the downloaded asset's SHA-256 matches
+  `4df30fda…d364cd` and `apksigner` reports the unchanged signer.*
 
 > **5.9 verification (2026-11-02).** Signed release built with the release key
 > and installed with `adb install -r` over v1.2 on the `SoberQA` AVD
@@ -1154,6 +1158,7 @@
 | 2026-11-02 | P5.9-polish | completed | Implementation Agent | Motion and surface polish: 900ms eased usage ring, breathing session medallion, spring completion badge, 0.96 press scale, 200ms nav cross-fade, tabular digits, 18dp cards, tinted icon tiles and equal-height achievement cards. Verified visually on the emulator; review found the uneven achievement row and fixed it with `IntrinsicSize.Max` |
 | 2026-11-02 | P5.9-cap-search | completed | QA Agent | Cap picker: search by name/package, live covered count, clear action and empty-match copy. `uiautomator dump` shows each app row as one `checkable`/`clickable` node with the app name, so the switch is a single TalkBack stop |
 | 2026-11-02 | P5.9-verify | completed | QA Agent | Signed release rebuilt and installed over v1.2 on `emulator-5554`; walked Home, Apps, limit sheet, Focus, Stats, Settings and cap picker in dark mode. `testDebugUnitTest` 374/374. TalkBack was not enabled — semantics were read from the hierarchy dump; physical-phone recheck pending |
+| 2026-11-02 | P5.9-release | completed | QA Agent | Published signed v1.3 (versionCode 4) at https://github.com/rishabhx29/Sober/releases/tag/v1.3 with `Sober-1.3.apk` (3,956,540 bytes). The downloaded asset hashes to `4df30fda…d364cd` and `apksigner` reports the unchanged cert `f9fc8e71…c36c64`. README badge, test count and five screenshots now match the build |
 
 ---
 
