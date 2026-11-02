@@ -1,12 +1,14 @@
 package com.sober.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -18,6 +20,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,43 +68,54 @@ fun SoberApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
                 val showBottomBar = currentRoute in tabs.map { it.route }
 
                 if (showBottomBar) {
-                    NavigationBar(
-                        containerColor = SoberTheme.colors.surface,
-                        tonalElevation = 0.dp
-                    ) {
-                        tabs.forEach { tab ->
-                            val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
-                            NavigationBarItem(
-                                icon = {
-                                    Icon(
-                                        imageVector = tab.icon,
-                                        contentDescription = tab.title
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = tab.title,
-                                        fontSize = 11.sp
-                                    )
-                                },
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
+                    Column {
+                        HorizontalDivider(color = SoberTheme.colors.divider)
+                        NavigationBar(
+                            containerColor = SoberTheme.colors.surface,
+                            tonalElevation = 0.dp
+                        ) {
+                            tabs.forEach { tab ->
+                                val selected = currentDestination?.hierarchy?.any { it.route == tab.route } == true
+                                NavigationBarItem(
+                                    icon = {
+                                        // The label already names the tab; a
+                                        // contentDescription here would make
+                                        // TalkBack say "Home, Home".
+                                        Icon(
+                                            imageVector = tab.icon,
+                                            contentDescription = null
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = tab.title,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (selected) {
+                                                FontWeight.SemiBold
+                                            } else {
+                                                FontWeight.Medium
+                                            }
+                                        )
+                                    },
+                                    selected = selected,
+                                    onClick = {
+                                        navController.navigate(tab.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
                                         }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = SoberTheme.colors.primary,
-                                    selectedTextColor = SoberTheme.colors.primary,
-                                    unselectedIconColor = SoberTheme.colors.textMuted,
-                                    unselectedTextColor = SoberTheme.colors.textMuted,
-                                    indicatorColor = SoberTheme.colors.background
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = SoberTheme.colors.primary,
+                                        selectedTextColor = SoberTheme.colors.primary,
+                                        unselectedIconColor = SoberTheme.colors.textMuted,
+                                        unselectedTextColor = SoberTheme.colors.textMuted,
+                                        indicatorColor = SoberTheme.colors.primaryMuted
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }

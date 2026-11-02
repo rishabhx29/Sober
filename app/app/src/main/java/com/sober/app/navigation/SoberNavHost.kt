@@ -1,8 +1,8 @@
 package com.sober.app.navigation
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,7 +16,6 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.sober.app.SoberStartViewModel
-import com.sober.core.ui.theme.SoberTheme
 import com.sober.feature.apps.AppsScreen
 import com.sober.feature.focus.FocusScreen
 import com.sober.feature.home.HomeScreen
@@ -72,7 +71,13 @@ fun SoberNavHost(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        modifier = modifier
+        modifier = modifier,
+        // A plain crossfade: tabs are siblings, so a directional slide would
+        // claim an order the bottom bar does not have.
+        enterTransition = { fadeIn(animationSpec = tween(durationMillis = 200)) },
+        exitTransition = { fadeOut(animationSpec = tween(durationMillis = 160)) },
+        popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 200)) },
+        popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 160)) }
     ) {
         composable(SoberDestinations.ONBOARDING) {
             OnboardingScreen(
