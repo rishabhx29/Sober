@@ -8,8 +8,12 @@ import androidx.lifecycle.viewModelScope
 import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.model.AppLimit
 import com.sober.core.domain.model.AppUsage
+import com.sober.core.domain.model.CustomRule
+import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
+import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.AppLimitRepository
+import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
@@ -27,12 +31,18 @@ data class InstalledApp(
     val packageName: String,
     val icon: android.graphics.drawable.Drawable?,
     val usageMinutes: Int = 0,
+    /** True only when the app actually held the foreground today. */
+    val usedToday: Boolean = false,
     val limitMinutes: Int? = null,
     val isLimited: Boolean = false
 )
 
 enum class AppFilter {
-    ALL, LIMITED, BLOCKED
+    /** Apps the user opened today, which is what makes this screen a tracker. */
+    USED,
+    LIMITED,
+    BLOCKED,
+    ALL
 }
 
 @HiltViewModel
@@ -42,7 +52,8 @@ class AppsViewModel @Inject constructor(
     private val usageStatsRepository: UsageStatsRepository,
     private val getAppUsageHistoryUseCase: GetAppUsageHistoryUseCase,
     private val detectionRuleRepository: DetectionRuleRepository,
-    private val sectionRulePreferencesRepository: SectionRulePreferencesRepository
+    private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
+    private val customRuleRepository: CustomRuleRepository
 ) : ViewModel() {
 
     private val _apps = MutableStateFlow<List<InstalledApp>>(emptyList())
@@ -87,6 +98,32 @@ class AppsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Websites the user asked Sober to cover inside a browser.
+     *
+     * Stored as custom rules rather than a second store: they are the same
+     * promise as "block this app", just enforced on the address bar instead of
+     * the package, and one list means one place where dedupe and removal live.
+     */
+    val websiteRules: StateFlow<List<CustomRule>> = customRuleRepository.rules()
+        .map { rules -> rules.filter { it.type == CustomRuleType.BLOCKED_WEBSITE } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun addWebsite(raw: String) {
+        val domain = WebsiteAddress.normalizeDomain(raw) ?: return
+        viewModelScope.launch {
+            customRuleRepository.add(CustomRuleType.BLOCKED_WEBSITE, domain)
+        }
+    }
+
+    fun setWebsiteEnabled(id: String, enabled: Boolean) {
+        viewModelScope.launch { customRuleRepository.setEnabled(id, enabled) }
+    }
+
+    fun removeWebsite(id: String) {
+        viewModelScope.launch { customRuleRepository.remove(id) }
+    }
+
     /** Last 7 days of usage for the app whose detail sheet is open, oldest first. */
     private val _appHistory = MutableStateFlow<List<Int>>(emptyList())
     val appHistory: StateFlow<List<Int>> = _appHistory
@@ -94,11 +131,16 @@ class AppsViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
 
-    private val _selectedFilter = MutableStateFlow(AppFilter.ALL)
+    private val _selectedFilter = MutableStateFlow(AppFilter.USED)
     val selectedFilter: StateFlow<AppFilter> = _selectedFilter
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
+
+    /** Shown in the header, so it counts every used app, not only visible rows. */
+    val usedTodayCount: StateFlow<Int> = _apps
+        .map { apps -> apps.count { it.usedToday } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val filteredApps: StateFlow<List<InstalledApp>> = combine(
         _apps, _searchQuery, _selectedFilter
@@ -106,13 +148,21 @@ class AppsViewModel @Inject constructor(
         apps.filter { app ->
             val matchesQuery = query.isBlank() || app.name.contains(query, ignoreCase = true)
             val matchesFilter = when (filter) {
-                AppFilter.ALL -> true
+                AppFilter.USED -> app.usedToday
                 AppFilter.LIMITED -> app.isLimited
                 AppFilter.BLOCKED -> app.isLimited && app.usageMinutes >= (app.limitMinutes ?: Int.MAX_VALUE)
+                AppFilter.ALL -> true
             }
             matchesQuery && matchesFilter
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.sortedWith(
+            // Used apps come first and longest-first everywhere: the list is a
+            // usage tracker before it is a settings index. Ties fall back to the
+            // name so the order does not shuffle between refreshes.
+            compareByDescending<InstalledApp> { it.usedToday }
+                .thenByDescending { it.usageMinutes }
+                .thenBy { it.name.lowercase() }
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
@@ -139,15 +189,23 @@ class AppsViewModel @Inject constructor(
 
                 val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
                 val appList = installedApps.filter { appInfo ->
-                    pm.getLaunchIntentForPackage(appInfo.packageName) != null
+                    // Sober cannot block itself, so a row for it would offer a
+                    // switch that does nothing — and it is always "used today".
+                    appInfo.packageName != context.packageName &&
+                        pm.getLaunchIntentForPackage(appInfo.packageName) != null
                 }.map { appInfo ->
                     val usage = usageMap[appInfo.packageName]
+                    val usageMillis = usage?.totalTimeInForeground ?: 0L
                     val limit = limitMap[appInfo.packageName]
                     InstalledApp(
                         name = pm.getApplicationLabel(appInfo).toString(),
                         packageName = appInfo.packageName,
                         icon = try { pm.getApplicationIcon(appInfo) } catch (_: Exception) { null },
-                        usageMinutes = ((usage?.totalTimeInForeground ?: 0) / 60000).toInt(),
+                        // Photos and other system apps appear in queryUsageStats
+                        // with zero foreground time. Listing them in the used
+                        // view would claim a visit that never happened.
+                        usageMinutes = (usageMillis / 60000).toInt(),
+                        usedToday = usageMillis > 0,
                         limitMinutes = limit?.dailyLimitMinutes,
                         isLimited = limit != null && limit.isActive
                     )

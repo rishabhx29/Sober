@@ -34,14 +34,16 @@ class AppRowTest {
         name: String = "Instagram",
         usageMinutes: Int = 30,
         limitMinutes: Int? = 60,
-        isLimited: Boolean = true
+        isLimited: Boolean = true,
+        usedToday: Boolean = usageMinutes > 0
     ) = InstalledApp(
         name = name,
         packageName = "com.example.${name.lowercase()}",
         icon = null,
         usageMinutes = usageMinutes,
         limitMinutes = limitMinutes,
-        isLimited = isLimited
+        isLimited = isLimited,
+        usedToday = usedToday
     )
 
     @Test
@@ -179,5 +181,36 @@ class AppRowTest {
         }
 
         compose.onNodeWithText("12m today").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an app used under a minute still says it was used`() {
+        compose.setContent {
+            SoberTheme {
+                AppRow(
+                    app = app(usageMinutes = 0, limitMinutes = null, isLimited = false, usedToday = true),
+                    onClick = {},
+                    onLimitToggle = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Used today, under a minute").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an app that was not used today shows no usage line`() {
+        compose.setContent {
+            SoberTheme {
+                AppRow(
+                    app = app(usageMinutes = 0, limitMinutes = null, isLimited = false, usedToday = false),
+                    onClick = {},
+                    onLimitToggle = {}
+                )
+            }
+        }
+
+        compose.onNodeWithText("Used today, under a minute").assertDoesNotExist()
+        compose.onNodeWithText("0m today").assertDoesNotExist()
     }
 }

@@ -9,7 +9,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Search
@@ -25,6 +27,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,11 +38,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.common.permissions.PermissionUtils
+import com.sober.core.domain.model.BrowserCatalog
+import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.DetectionRule
 import com.sober.core.domain.model.DetectionType
+import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberDrumPicker
 import com.sober.core.ui.components.SoberMiniBarChart
+import com.sober.core.ui.components.SoberOutlinedButton
 import com.sober.core.ui.components.SoberProgressBar
 import com.sober.core.ui.components.SoberSectionLabel
 import com.sober.core.ui.components.SoberSegmentedControl
@@ -58,12 +67,16 @@ fun AppsScreen(
     val sectionRules by viewModel.sectionRules.collectAsState()
     val enabledSectionRules by viewModel.enabledSectionRules.collectAsState()
     val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsState()
+    val websiteRules by viewModel.websiteRules.collectAsState()
+    val usedTodayCount by viewModel.usedTodayCount.collectAsState()
 
     // Bottom sheet state
     var selectedApp by remember { mutableStateOf<InstalledApp?>(null) }
     var sheetLimitHours by remember { mutableIntStateOf(1) }
     var sheetLimitMinutes by remember { mutableIntStateOf(0) }
     val sheetState = rememberModalBottomSheetState()
+    var showWebsiteDialog by remember { mutableStateOf(false) }
+    var websiteDraft by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.loadApps(context.packageManager)
@@ -123,7 +136,11 @@ fun AppsScreen(
                             color = SoberTheme.colors.divider
                         ) {
                             Text(
-                                text = "${app.usageMinutes} min today",
+                                text = when {
+                                    app.usageMinutes > 0 -> "${app.usageMinutes} min today"
+                                    app.usedToday -> "Under a minute today"
+                                    else -> "Not used today"
+                                },
                                 fontSize = 12.sp,
                                 color = SoberTheme.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -245,6 +262,86 @@ fun AppsScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                 }
 
+                // Browsers have no section rules, so this is the one place a
+                // website can be added from the app it applies to.
+                if (BrowserCatalog.isBrowser(app.packageName)) {
+                    SoberSectionLabel("Block websites")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "The site and its subdomains are covered while the address bar shows them. " +
+                            "Matches the address bar, so a redirect can appear for a moment before the cover.",
+                        fontSize = 11.sp,
+                        color = SoberTheme.colors.textMuted
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (!isAccessibilityEnabled) {
+                        Text(
+                            text = "Website blocking needs Accessibility access. Without it, websites are not covered.",
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textSecondary
+                        )
+                        TextButton(
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(PermissionUtils.getAccessibilityIntent())
+                                }
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(
+                                "Open Accessibility settings",
+                                fontSize = 12.sp,
+                                color = SoberTheme.colors.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    if (websiteRules.isEmpty()) {
+                        Text(
+                            text = "No websites blocked.",
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textMuted,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        websiteRules.forEach { rule ->
+                            WebsiteRuleRow(
+                                rule = rule,
+                                onToggle = { enabled ->
+                                    viewModel.setWebsiteEnabled(rule.id, enabled)
+                                },
+                                onRemove = { viewModel.removeWebsite(rule.id) }
+                            )
+                        }
+                    }
+
+                    TextButton(
+                        onClick = {
+                            websiteDraft = ""
+                            showWebsiteDialog = true
+                        },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = null,
+                            tint = SoberTheme.colors.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "Add website",
+                            fontSize = 13.sp,
+                            color = SoberTheme.colors.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+
                 SoberButton(
                     text = "Save Limit",
                     onClick = {
@@ -273,6 +370,19 @@ fun AppsScreen(
                 }
             }
         }
+    }
+
+    if (showWebsiteDialog) {
+        WebsiteDialog(
+            draft = websiteDraft,
+            onDraftChange = { websiteDraft = it },
+            onDismiss = { showWebsiteDialog = false },
+            onConfirm = {
+                viewModel.addWebsite(websiteDraft)
+                showWebsiteDialog = false
+                websiteDraft = ""
+            }
+        )
     }
 
     Column(
@@ -330,14 +440,15 @@ fun AppsScreen(
 
         // -- Filter Chips --
         SoberSegmentedControl(
-            options = listOf(AppFilter.ALL, AppFilter.LIMITED, AppFilter.BLOCKED),
+            options = listOf(AppFilter.USED, AppFilter.LIMITED, AppFilter.BLOCKED, AppFilter.ALL),
             selected = selectedFilter,
             onSelect = { viewModel.updateFilter(it) },
             label = { filter ->
                 when (filter) {
-                    AppFilter.ALL -> "All"
+                    AppFilter.USED -> "Used"
                     AppFilter.LIMITED -> "Limited"
                     AppFilter.BLOCKED -> "Blocked"
+                    AppFilter.ALL -> "All"
                 }
             }
         )
@@ -345,7 +456,25 @@ fun AppsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // -- Section Label --
-        SoberSectionLabel("Installed apps")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SoberSectionLabel(
+                when (selectedFilter) {
+                    AppFilter.USED -> "Used today"
+                    AppFilter.LIMITED -> "Limited apps"
+                    AppFilter.BLOCKED -> "At their limit"
+                    AppFilter.ALL -> "All installed apps"
+                }
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "$usedTodayCount used today",
+                fontSize = 11.sp,
+                color = SoberTheme.colors.textMuted
+            )
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -354,6 +483,13 @@ fun AppsScreen(
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = SoberTheme.colors.primary)
             }
+        } else if (apps.isEmpty()) {
+            EmptyAppsState(
+                filter = selectedFilter,
+                query = searchQuery,
+                onClearSearch = { viewModel.updateSearchQuery("") },
+                onShowAll = { viewModel.updateFilter(AppFilter.ALL) }
+            )
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 items(apps, key = { it.packageName }) { app ->
@@ -439,9 +575,13 @@ internal fun AppRow(
                     color = colors.primary,
                     fontWeight = FontWeight.Medium
                 )
-                if (app.usageMinutes > 0) {
+                if (app.usedToday) {
                     Text(
-                        text = "${app.usageMinutes}m today",
+                        text = if (app.usageMinutes > 0) {
+                            "${app.usageMinutes}m today"
+                        } else {
+                            "Used today, under a minute"
+                        },
                         fontSize = 12.sp,
                         color = colors.textSecondary
                     )
@@ -490,6 +630,174 @@ internal fun AppRow(
 
         HorizontalDivider(color = colors.divider)
     }
+}
+
+/**
+ * The list is empty for four different reasons, and "nothing here" would only
+ * be true for one of them. Each copy names the next action instead.
+ */
+@Composable
+private fun EmptyAppsState(
+    filter: AppFilter,
+    query: String,
+    onClearSearch: () -> Unit,
+    onShowAll: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = when {
+                query.isNotBlank() -> "No app matches \u201C$query\u201D."
+                filter == AppFilter.USED -> "No apps used yet today."
+                filter == AppFilter.LIMITED -> "No app limits yet."
+                filter == AppFilter.BLOCKED -> "No app is at its limit right now."
+                else -> "No launchable apps found."
+            },
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = colors.textPrimary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = when {
+                query.isNotBlank() -> "Try a shorter name, or clear the search."
+                filter == AppFilter.USED -> "Apps appear here once you open them. Switch to All to set a limit before you do."
+                filter == AppFilter.LIMITED -> "Open an app in All and save a daily limit."
+                else -> "There is nothing to limit on this device."
+            },
+            fontSize = 13.sp,
+            color = colors.textMuted,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        if (query.isNotBlank()) {
+            SoberOutlinedButton(text = "Clear search", onClick = onClearSearch)
+        } else if (filter == AppFilter.USED || filter == AppFilter.LIMITED) {
+            SoberOutlinedButton(text = "Show all apps", onClick = onShowAll)
+        }
+    }
+}
+
+@Composable
+private fun WebsiteRuleRow(
+    rule: CustomRule,
+    onToggle: (Boolean) -> Unit,
+    onRemove: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .toggleable(
+                    value = rule.enabled,
+                    role = Role.Switch,
+                    onValueChange = onToggle
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = rule.value,
+                fontSize = 14.sp,
+                color = if (rule.enabled) colors.textPrimary else colors.textMuted,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            SoberToggleSwitch(checked = rule.enabled, onCheckedChange = null)
+        }
+        IconButton(onClick = onRemove) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "Remove ${rule.value}",
+                tint = colors.textMuted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WebsiteDialog(
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    val normalized = WebsiteAddress.normalizeDomain(draft)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        titleContentColor = colors.textPrimary,
+        textContentColor = colors.textSecondary,
+        title = {
+            Text(
+                text = "Block a website",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter a site like example.com. The domain and every subdomain are covered in the browser.",
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = onDraftChange,
+                    placeholder = { Text("example.com", color = colors.textMuted) },
+                    singleLine = true,
+                    isError = draft.isNotBlank() && normalized == null,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.divider,
+                        focusedContainerColor = colors.background,
+                        unfocusedContainerColor = colors.background,
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary
+                    )
+                )
+                if (draft.isNotBlank() && normalized == null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Enter a full domain, like example.com.",
+                        fontSize = 12.sp,
+                        color = colors.danger
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = normalized != null) {
+                Text(
+                    text = "Block",
+                    color = if (normalized != null) colors.primary else colors.textMuted,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = colors.textSecondary)
+            }
+        }
+    )
 }
 
 @Composable
