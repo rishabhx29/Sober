@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.8%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
+  <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.9%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
-  <img src="https://img.shields.io/badge/version-1.1-B3432F?style=flat-square" alt="Version 1.1">
-  <img src="https://img.shields.io/badge/tests-361%20passing-4C7A5C?style=flat-square" alt="361 unit tests passing">
+  <img src="https://img.shields.io/badge/version-1.2-B3432F?style=flat-square" alt="Version 1.2">
+  <img src="https://img.shields.io/badge/tests-367%20passing-4C7A5C?style=flat-square" alt="367 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -31,7 +31,7 @@ permission at all.
 | Capability | What it does |
 |---|---|
 | **Per-app daily limits** | Set a limit for any installed app. A minute-by-minute drum picker, a seven-day bar chart of your usage, and a one-tap switch to pause a limit without deleting it. |
-| **Overall daily cap** | One budget for the whole phone, on top of individual limits. When it runs out, Sober blocks every app you have not explicitly allowed. |
+| **Overall daily cap** | One budget for the whole phone, on top of individual limits. When it runs out, Sober blocks the apps you have not left out. A **Choose apps** picker in Settings decides what the cap covers, and Home, Settings, System UI and the keyboard are never blocked. |
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
 | **Section blocking** | Use Android's Accessibility API to close just the distracting section of an app: Instagram Reels and Explore, YouTube Shorts, a selected tab. Blocking a section never blocks the whole app. |
@@ -78,13 +78,13 @@ Sober is not on Google Play. Apps that block other apps rely on Accessibility an
 usage access, and Google Play restricts that category, so the app is distributed
 as a signed APK on GitHub Releases.
 
-**Requirements:** Android 8.0 (API 26) or newer. The APK is about **3.8 MB** and
+**Requirements:** Android 8.0 (API 26) or newer. The APK is about **3.9 MB** and
 is signed with a release key that has not changed since 1.0, so updates install
 over the previous version.
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
-   and download `Sober-1.1.apk`.
+   and download `Sober-1.2.apk`.
 2. Open your **Downloads** notification, or the **Files** app, and tap the APK.
 3. Android will say the source is not allowed to install unknown apps. Tap
    **Settings**, enable **Allow from this source**, then go back and tap
@@ -140,7 +140,7 @@ the phone is idle.
 ### Install over ADB (optional)
 
 ```bash
-adb install -r Sober-1.1.apk
+adb install -r Sober-1.2.apk
 ```
 
 ADB skips the unknown-source prompt, but Play Protect can still show its
@@ -148,16 +148,16 @@ warning.
 
 ### Verify the download
 
-Release 1.1's APK has these properties:
+Release 1.2's APK has these properties:
 
 ```text
-SHA-256 (file):  d99f433609a60caf9b453b9c85ed42fc35e4d81e0d9a045ebc8aa0dec659b553
+SHA-256 (file):  b5888a7e9a541f6fcd051ee9cd3b13b7c6bb631d13a7e96538043faf603b169c
 SHA-256 (cert):  f9fc8e710485179fbad428689d72d949dea925129ff3ea5ddbef9fac63836c64
 Signer:          CN=Sober, O=Sober, C=IN
 ```
 
 ```bash
-sha256sum Sober-1.1.apk     # macOS: shasum -a 256
+sha256sum Sober-1.2.apk     # macOS: shasum -a 256
 ```
 
 ---
@@ -202,6 +202,14 @@ last known app and applies only new events, so watching a two-hour video cannot
 make the engine "forget" what is on screen. Sober and the launcher are excluded
 from totals: the app's own foreground service and home-screen time are not screen
 time you chose, and counting them once made Sober block its own settings.
+
+The engine also refuses to cover the device's own chrome. System UI, the current
+keyboard, Settings, permission controllers and the launcher are never block
+targets, and only packages with a launcher icon can be blocked at all. Without
+that guard, the daily cap used to draw the block screen over Gboard and System
+UI. The cap's **Choose apps** picker then layers a user choice on top: an app left
+out still counts toward the budget but is never blocked by the cap, while its own
+limit, schedules and focus sessions still apply.
 
 ---
 
@@ -274,7 +282,7 @@ spacing are defined.
 
 ## Testing
 
-The repository currently has **361 JVM tests across 44 test classes**, including
+The repository currently has **367 JVM tests across 44 test classes**, including
 Robolectric tests for Compose behaviour and the design system.
 
 ```bash

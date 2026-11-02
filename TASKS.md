@@ -636,6 +636,24 @@
 - [x] Permissions status — per-permission Granted/Required/Optional rows (text plus colour, so the state is readable without colour)
 - [x] Export usage data — CSV share sheet — last 30 days of per-app minutes, written to `cacheDir/exports` and shared through a `FileProvider`; deterministic date/usage ordering and RFC 4180 quoting
 - [x] About · Privacy Policy — plain text links — a `SoberTextLink` (navy `primary`, underlined, 48dp target) replaces the outlined button; the policy still opens in an in-app dialog because there is no internet permission to fetch a hosted page with
+- [x] Never block device chrome — System UI, the active keyboard, Settings, permission controllers and the launcher are excluded in the policy engine, and only packages with a launcher icon can be blocked, so a cap block can no longer cover Gboard or System UI
+- [x] Apps covered by the cap — a **Choose apps** picker inside the Daily screen-time card lists every blockable app; unchecked apps still count toward the budget but the cap never blocks them, while their own limits, schedules and focus sessions still apply
+
+> **5.4a chrome guard + cap picker (2026-11-02).** The user reported that once the
+> overall cap fired it covered System UI, Gboard and OEM installers. Two defects
+> compounded: `EvaluateBlockDecisionUseCase` treated any foreground package as a
+> block target, and `SoberCoreService.applyPolicy` excluded only Home and Sober
+> itself. Blockability now lives in one place, `BlockableAppsRepository`
+> (`:core:data` implementation resolving HOME activities, IME services, Settings
+> actions, permission controllers and System UI from the package manager), and the
+> policy engine returns no decision for anything it rejects. The service also keeps
+> the current overlay when a *transient* chrome window (System UI, keyboard,
+> permission dialog) comes forward, instead of hiding it. The cap's per-app
+> exemption set is a DataStore string set; `Choose apps` writes it.
+> Verified on the realme RMX5030 (Android 16, v1.2): Settings opens with no
+> overlay; Chrome unchecked in the picker then opens under a 397/120-minute cap;
+> Photos stays blocked at the same time; re-checking Chrome restores "All of
+> them". `test` 367/367, signed `assembleRelease` green.
 
 ### 5.5 Dark Mode
 
@@ -1094,6 +1112,9 @@
 | 2026-11-02 | P1.9e/P4.3b | completed | QA Agent | Two copy defects seen on device: Focus said "1 apps blocked" and Stats told the user to "Set an overall cap" directly under a real "1 of 1" adherence count. The label now singularises, and the hint reads "Days measured" once a cap exists. Verified in the emulator screenshots used by the README |
 | 2026-11-02 | QA-emulator | completed | QA Agent | `SoberQA` (pixel_6, android-36 x86_64) installed v1.1 over v1.0 with the same release key. Verified onboarding state survives, a 1-minute calendar limit produces the block screen with usage, limit, midnight countdown and quote, focus/stats/settings render in dark mode, and the app no longer counts itself or the launcher. Battery, Doze, OEM killers and real Instagram/YouTube resource ids remain hardware-blocked |
 | 2026-11-02 | P5.7b/P5.8-docs | completed | Task Tracker Agent | Published README with banner, icon, badges, seven real screenshots, install and warning-bypass guide, permission table, architecture, build/signing and privacy summary. Added MIT `LICENSE`; v1.1 release notes carry the same install instructions, SHA-256 and cert fingerprint |
+| 2026-11-02 | P5.4-chrome | completed | QA Agent | User report: the overall cap covered System UI and Gboard. Root cause was two independent gaps — no block-target classifier in `EvaluateBlockDecisionUseCase`, and `SoberCoreService` excluding only Home and Sober. Added `BlockableAppsRepository` (launcher-only targets; System UI, IMEs, Settings, permission controllers, launcher excluded), a transient-chrome guard that keeps an existing overlay through keyboard/System UI windows, and `<queries>` for the IME interface and Settings actions. Verified on the realme phone (v1.2): `am start -a android.settings.SETTINGS` shows no overlay; Chrome and Photos still blocked by the cap. `test` 367/367 |
+| 2026-11-02 | P5.4a-cap-picker | completed | QA Agent | Settings → Daily screen time → **Apps covered** with a **Choose apps** dialog over every blockable app, copy stating that left-out apps still count as screen time, and a note that Home, Settings, System UI and the keyboard are never blocked. Exemptions persist in DataStore as a string set and are read by the policy engine at decision time. Device-verified: unchecking Chrome made it open under a 397/120-minute cap while Photos stayed blocked; re-checking restored "All of them". Accessibility binding was re-enabled after the reinstall and `Bound services` shows `Sober` |
+| 2026-11-02 | P5.7c | completed | QA Agent | Rebuilt and installed signed v1.2 (versionCode 3) over v1.1 with the same release key; `dumpsys package` reports `versionName=1.2`. Signed APK 3,940,156 bytes, SHA-256 `b5888a7e…b169c`, cert unchanged (`f9fc8e71…c36c64`). The OEM installer (`com.oplus.stdsp`) blocked the first ADB install; the UI install path was used instead and the incident is recorded in GUIDE.md |
 
 ---
 

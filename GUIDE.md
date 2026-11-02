@@ -753,6 +753,20 @@ adb shell dumpsys usagestats                # foreground history
 
 The AVD's clock and usage database reset to the host's notion of "today" on a cold boot, so generate usage in the current session (`am start` an app, wait a minute) before capturing a screenshot. Read a screenshot at 900×2000 while the device is 1080×2400 and multiply tap coordinates by 1.2. If `adb devices` goes empty mid-run, the emulator process died; restart it rather than re-issuing adb commands.
 
+### 11.19 The Device's Own Chrome Is Not an App You Can Block
+
+**Date**: 2026-11-02  
+**Context**: On the realme phone, once the overall cap fired it started covering System UI and Gboard, and during an install it covered the OEM installer, leaving no way to tap Install.  
+**Learning**: An app-level blocker sees whatever package is in front, and keyboards, System UI panels and OEM system activities are packages too. A cap that says "block the foreground app" therefore blocks the tools needed to fix the problem — including the uninstall/install dialogs. Two more facts matter: (1) overlay windows are added by `WindowManager`, so a covered system dialog is invisible in `uiautomator dump` (use `dumpsys window windows` to see the `com.sober.app` window or take a screenshot); (2) "has a launcher icon" is a good blockability test because it excludes transient system UI and OEM installer activities without hard-coding vendor packages.  
+**Solution/Pattern**: Put blockability in one place (`BlockableAppsRepository`) and consult it first in the policy engine. Exclude own package, HOME activities, all IME services (`android.view.InputMethod`), the resolved Settings activity plus `com.android.settings`, permission controllers and System UI. Only packages with `getLaunchIntentForPackage != null` may be blocked. In the foreground service, treat System UI, IMEs and permission dialogs as *transient chrome*: if one comes forward, keep the current overlay instead of hiding it. Package visibility on API 30+ needs `<queries>` entries for `android.view.InputMethod`, `android.settings.SETTINGS` and `android.settings.APPLICATION_SETTINGS`, otherwise the lookups return empty and everything looks blockable. User choice belongs separately: the cap's exemption set is a preference, not a classifier, so an exempt app still obeys its own limits and focus sessions.
+
+### 11.20 The OEM Installer Is a Foreground App Too
+
+**Date**: 2026-11-02  
+**Context**: `adb install -r` of v1.2 on the realme RMX5030 failed with `INSTALL_FAILED_VERIFICATION_FAILURE`, and the retry surfaced `com.oplus.stdsp/.extappdetail.model.scan.ui.InstallGuideActivity` — which v1.1's cap then covered with the block screen.  
+**Learning**: realme/ColorOS routes sideloads through its own "StdSP Core" scanner. It is a normal foreground activity, and `am force-stop`/`am stop-service` do not reliably keep the enforcement service down, so the confirm button can be permanently hidden behind the overlay. Changing verifier settings (`package_verifier_enable`, `verifier_verify_adb_installs`) is one option but alters device security state.  
+**Solution/Pattern**: Disable the blocker briefly with `pm disable-user --user 0 com.sober.app`, complete the install through the UI (`uiautomator dump` locates the Install button; its bounds are in raw pixels), verify with `dumpsys package com.sober.app | grep versionName`, then `pm enable com.sober.app` and relaunch. With v1.2's blockability guard this is no longer necessary, because the OEM installer has no launcher activity — but the sequence is the fallback on older builds. Reinstalling also clears the Accessibility binding (`enabled_accessibility_services` becomes `null`); restore it with `settings put secure enabled_accessibility_services com.sober.app/com.sober.system.services.core.SoberAccessibilityService` and confirm `dumpsys accessibility` lists it under `Bound services`.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
@@ -774,6 +788,7 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 | Accessibility service not running | Check if it's listed in enabled accessibility services |
 | Sideloaded APK blocked by Play Protect | "More details" → "Install anyway"; if absent, pause Play Protect scanning, install, re-enable. On Android 13+, grant "Allow restricted settings" in the app's info page before enabling Accessibility |
 | Sober blocks its own settings | The cap totalled Sober's foreground service as usage; confirm `excludedPackages` includes the app and launcher in every total, including stored history |
+| Cap blocks the keyboard, System UI or Settings | Before v1.2 the cap had no block-target classifier. Confirm `BlockableAppsRepository.isBlockable` is consulted first in `EvaluateBlockDecisionUseCase`, and that the manifest declares the `android.view.InputMethod` / Settings `<queries>`. Users can also leave an app out of the cap in Settings → Daily screen time → Apps covered → **Choose apps** |
 
 ### 12.3 Device-Specific Issues
 
@@ -782,6 +797,8 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 | Xiaomi | Aggressive battery optimization kills services | Add to "Autostart" list + battery whitelist |
 | Samsung | Recent apps cleaner kills foreground service | Enable "Don't optimize" for Sober |
 | OnePlus | Deep sleep kills background work | Disable "Adaptive Battery" for Sober |
+| realme / OPPO | `adb install` fails with `INSTALL_FAILED_VERIFICATION_FAILURE`; the StdSP installer is covered by the block overlay | Install through the UI after briefly running `pm disable-user --user 0 com.sober.app`, then `pm enable`. On v1.2+ the installer has no launcher activity, so the cap cannot cover it |
+| realme / OPPO | Accessibility binding resets after reinstall | `settings put secure enabled_accessibility_services com.sober.app/com.sober.system.services.core.SoberAccessibilityService`, then verify via `dumpsys accessibility` |
 
 ---
 
