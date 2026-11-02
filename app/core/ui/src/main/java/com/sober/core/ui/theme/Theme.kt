@@ -33,7 +33,11 @@ data class SoberColors(
     val divider: Color = SoberDivider,
     val danger: Color = SoberDanger,
     val primaryMuted: Color = SoberPrimaryMuted,
-    val dangerMuted: Color = SoberDangerLight
+    val dangerMuted: Color = SoberDangerLight,
+    // The signal red doubles as the editorial accent: it marks section
+    // numbers and rules without meaning "you broke a limit".
+    val accent: Color = SoberDanger,
+    val accentMuted: Color = SoberDangerLight
 )
 
 val LightSoberColors = SoberColors()
@@ -50,7 +54,9 @@ val DarkSoberColors = SoberColors(
     divider = SoberDarkDivider,
     danger = SoberDarkDanger,
     primaryMuted = SoberDarkPrimaryMuted,
-    dangerMuted = SoberDarkDangerMuted
+    dangerMuted = SoberDarkDangerMuted,
+    accent = SoberDarkDanger,
+    accentMuted = SoberDarkDangerMuted
 )
 
 val LocalSoberColors = staticCompositionLocalOf { LightSoberColors }
@@ -103,8 +109,12 @@ fun SoberTheme(
     if (window != null && !view.isInEditMode) {
         SideEffect {
             window.statusBarColor = colors.background.toArgb()
-            // Dark bars need light icons; light bars need dark icons.
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            // Dark bars need light icons; light bars need dark icons. Both bars
+            // are set here because the app can pick a theme that disagrees with
+            // the system, and enableEdgeToEdge only knows the system one.
+            val bars = WindowCompat.getInsetsController(window, view)
+            bars.isAppearanceLightStatusBars = !darkTheme
+            bars.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 
