@@ -980,6 +980,56 @@
 
 ---
 
+## Phase 7 — Tracker Accuracy, Website Blocking & Discovery (v1.4, unreleased)
+
+- [x] Only list apps the user actually used today — *the Apps tab defaults to a
+  `USED` filter built from `totalTimeInForeground > 0`; an app installed but
+  never opened (Photos on the QA emulator) no longer appears, a used-but-under-a-
+  minute app reads "Used today, under a minute", and Sober itself is excluded
+  because it can never be a block target and is always on screen while the list
+  is read.*
+- [x] Compute today's totals from usage events, not day buckets —
+  *`UsageStatsRepositoryImpl.getUsageStatsForToday` now folds `queryEvents`
+  (resume/pause/screen-off) clipped to `[startOfToday, now)` instead of calling
+  `queryUsageStats(INTERVAL_DAILY, …)`. That API expands the range to the
+  nearest whole calendar bucket, which made Sober report 482 minutes used by
+  06:38 and could inflate any limit check. `aggregateUsageByPackage` is pure and
+  covered by `UsageAggregationTest` (10 tests).*
+- [x] Put Settings in the bottom navigation — *fifth tab beside Home, Apps,
+  Focus and Stats; the Home header gear is gone; Settings renders without a back
+  arrow when opened as a root destination and keeps its PIN/session gate.*
+- [x] Let the user block individual websites inside browsers — *new
+  `CustomRuleType.BLOCKED_WEBSITE` stored in the existing custom-rule set;
+  `WebsiteAddress` normalises user input and address-bar text; the accessibility
+  service reads the browser's address-bar node (`BrowserCatalog` ships Chrome,
+  Chrome Beta/Dev/Canary, Brave, Edge, Firefox and Samsung Internet ids) and
+  covers the page with the section overlay when the host or a subdomain matches.
+  Managed from the browser's app sheet and from Settings → Custom rules. No VPN
+  and no `INTERNET` permission: only the address bar is read, never page content.*
+- [x] Verify the three changes on the emulator and record the limits — *see the
+  Phase 7 verification note below.*
+
+> **Phase 7 verification (2026-11-02).** Signed release (same release key,
+> versionCode unchanged at 4) built and installed over v1.3 on
+> `emulator-5554`. Apps → Used lists only Chrome (135m) after five minutes of
+> browsing; Photos is absent and Sober no longer appears with an impossible
+> total. Settings opens from the new fifth tab with no back arrow and the PIN
+> gate intact. `example.com` added through Chrome's app sheet; opening
+> `https://example.com` draws the "example.com is blocked" overlay over the live
+> page, `https://wikipedia.org` loads uncovered, the rule appears in
+> Settings → Custom rules and removing it from the sheet clears the list.
+> `test` **401/401** (27 new: 14 `DetectBlockedWebsiteUseCaseTest`, 10
+> `UsageAggregationTest`, 2 `AppRowTest`, 1 `CustomRuleCodecTest`).
+>
+> Not verified: Facebook, LinkedIn and in-app WebViews expose no stable address
+> bar, so they are not in `BrowserCatalog`; custom tabs are attributed to the
+> host app, not the browser; an address bar hidden during scroll delays detection
+> until it reappears. Redirect chains can show the landing page for one frame
+> before the overlay. A hardware boot of the release build was not repeated.
+> **No GitHub release was published for this pass, per instruction.**
+
+---
+
 ## Task Log
 
 | Date       | Task ID | Action                | Agent              | Notes |
@@ -1159,6 +1209,11 @@
 | 2026-11-02 | P5.9-cap-search | completed | QA Agent | Cap picker: search by name/package, live covered count, clear action and empty-match copy. `uiautomator dump` shows each app row as one `checkable`/`clickable` node with the app name, so the switch is a single TalkBack stop |
 | 2026-11-02 | P5.9-verify | completed | QA Agent | Signed release rebuilt and installed over v1.2 on `emulator-5554`; walked Home, Apps, limit sheet, Focus, Stats, Settings and cap picker in dark mode. `testDebugUnitTest` 374/374. TalkBack was not enabled — semantics were read from the hierarchy dump; physical-phone recheck pending |
 | 2026-11-02 | P5.9-release | completed | QA Agent | Published signed v1.3 (versionCode 4) at https://github.com/rishabhx29/Sober/releases/tag/v1.3 with `Sober-1.3.apk` (3,956,540 bytes). The downloaded asset hashes to `4df30fda…d364cd` and `apksigner` reports the unchanged cert `f9fc8e71…c36c64`. README badge, test count and five screenshots now match the build |
+| 2026-11-02 | P7.1 | started | Implementation Agent | User report: Photos appeared in the tracker without being used. Confirmed on the QA emulator that `queryUsageStats(INTERVAL_DAILY, startOfToday, now)` had also credited Sober with 482 minutes by 06:38 |
+| 2026-11-02 | P7.1 | completed | QA Agent | Apps defaults to a `USED` filter driven by real foreground millis, adds "Used today, under a minute", and drops Sober from the list (not blockable, always open while reading it). Totals now come from `queryEvents` clipped to the day — the bucket-expanding `queryUsageStats` call is gone from the totals path. `UsageAggregationTest` pins open sessions, multiple sessions, stale pauses, screen-off, clipping and last-resume. Verified on `emulator-5554`: Used shows only Chrome; Photos absent; Sober total gone. `test` 401/401 |
+| 2026-11-02 | P7.2 | completed | QA Agent | Settings is the fifth bottom-nav tab; the Home header gear was removed. Opened as a root destination, `SettingsScreen` takes a null `onBack` and hides both arrows while keeping the PIN/active-session gate. Device-verified: tab selected, no back arrow, cap and rules intact |
+| 2026-11-02 | P7.3 | completed | QA Agent | Website blocking shipped without a VPN: `BLOCKED_WEBSITE` custom rules, `WebsiteAddress` host normalisation, `DetectBlockedWebsiteUseCase` (14 tests) and a `BrowserCatalog` of address-bar ids read by `SoberAccessibilityService`. UI in the browser's app sheet plus Settings → Custom rules. Device-verified: example.com covered, wikipedia.org unaffected, rule listed and removable. Google Play's Accessibility policy still needs the website use case added to the disclosure before a store release |
+| 2026-11-02 | P7.4 | completed | QA Agent | Signed release (versionCode 4, same key) installed over v1.3 and walked on `emulator-5554`. `test` 401/401. No GitHub release or version bump — explicitly held until the user asks |
 
 ---
 

@@ -53,12 +53,14 @@ never stored, logged or sent. Turn it off in Android Settings at any time.
 
 **Accessibility (optional, off by default).** Reads which app is in the
 foreground and the structure of the current screen, so Sober can close a specific
-section — Reels, Shorts, a home feed — instead of blocking the whole app. It does
-**not** read what you type, does not read text fields, does not capture
-screenshots and does not perform actions on your behalf outside of showing the
-block screen. Visible on-screen text is compared in memory against the section
-names and keywords you enabled; it is not stored. Everything degrades to
-whole-app blocking when this permission is off.
+section — Reels, Shorts, a home feed — instead of blocking the whole app. For
+website blocking it reads the browser's address bar to compare the site you are
+on with the list you configured; that text is matched in memory and never stored
+or sent. It does **not** read page content, does not read what you type in other
+fields, does not capture screenshots and does not perform actions on your behalf
+outside of showing the block screen. Visible on-screen text is compared in memory
+against the section names and keywords you enabled; it is not stored. Everything
+degrades to whole-app blocking when this permission is off.
 
 **Device admin (optional).** Only makes it harder to uninstall Sober by accident
 while blocking is on. It is never used to lock, wipe or remotely control the

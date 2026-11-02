@@ -35,7 +35,8 @@ permission at all.
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
 | **Section blocking** | Use Android's Accessibility API to close just the distracting section of an app: Instagram Reels and Explore, YouTube Shorts, a selected tab. Blocking a section never blocks the whole app. |
-| **Custom rules** | Keep a named app closed, or mute notifications that contain a word you choose, at any hour. |
+| **Website blocking** | Keep a domain closed inside the browser. Sober reads the address bar (Chrome verified; Brave, Edge, Firefox and Samsung Internet best-effort), so a blocked site and all its subdomains are covered without a VPN and without the app ever sending traffic anywhere. |
+| **Custom rules** | Keep a named app or website closed, or mute notifications that contain a word you choose, at any hour. |
 | **Schedules** | Block chosen apps during set hours on set days. Useful for sleep, work, and school. |
 | **Statistics** | Today, 7 days, or 30 days: total screen time, top apps, streaks, focus sessions, and a heatmap of when you actually use the phone. |
 | **Adherence, not streaks only** | A day counts only when your usage was observed and stayed under the cap. An unobserved day is never celebrated. |
@@ -172,7 +173,7 @@ the privacy promise it does.
 | Usage access (`PACKAGE_USAGE_STATS`) | Reading how long each app was in the foreground. Granted in system Settings; Android does not let an app grant it to itself. | Yes |
 | Display over other apps (`SYSTEM_ALERT_WINDOW`) | Drawing the block screen over the app that ran out of time. | Yes |
 | Notifications (`POST_NOTIFICATIONS`) | Limit warnings, session complete, streak at risk. | Recommended |
-| Accessibility service | Reading the visible screen to block only a section (Reels, Shorts) or mute matching notifications. | Optional |
+| Accessibility service | Reading the visible screen to block only a section (Reels, Shorts), to cover a blocked website by reading the browser's address bar, or to mute matching notifications. | Optional |
 | Notification listener | Suppressing notifications from the apps a focus session silences. | Optional |
 | Device admin | Makes the system ask before Sober is uninstalled. | Optional |
 | Receive boot completed | Restarting enforcement after a reboot. | Automatic |
@@ -265,7 +266,7 @@ services.
 | `:core:ui` | The Manuscript design system: colour, type, components |
 | `:core:common` | Permission helpers, formatting, small utilities |
 | `:feature:home` | Today's screen time, cap ring, app list, active session card |
-| `:feature:apps` | App list, search, limit picker, seven-day chart |
+| `:feature:apps` | Used-today app list, search, limits, website rules, seven-day chart |
 | `:feature:focus` | Session setup, quick modes, history and regret timer |
 | `:feature:stats` | Totals, top apps, patterns, usage heatmap |
 | `:feature:settings` | Cap, schedules, custom rules, notifications, onboarding |
