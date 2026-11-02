@@ -269,7 +269,14 @@ fun StatsScreen(
                     } else {
                         "—"
                     },
-                    hint = "Set an overall cap to measure this"
+                    // Only an invitation while there is nothing to measure;
+                    // once a cap exists the row is showing a real count, and
+                    // telling the user to set one contradicts the number.
+                    hint = if (uiState.highlights.hasAdherence) {
+                        "Days measured"
+                    } else {
+                        "Set an overall cap to measure this"
+                    }
                 )
             }
         }

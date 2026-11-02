@@ -321,7 +321,11 @@ fun FocusScreen(
                         border = BorderStroke(1.dp, SoberTheme.colors.primary)
                     ) {
                         Text(
-                            text = if (selectedApps.isEmpty()) "Select apps to block" else "${selectedApps.size} apps blocked",
+                            text = when (selectedApps.size) {
+                                0 -> "Select apps to block"
+                                1 -> "1 app blocked"
+                                else -> "${selectedApps.size} apps blocked"
+                            },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
