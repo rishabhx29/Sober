@@ -452,6 +452,7 @@ class FakeProtectionSettingsRepository : ProtectionSettingsRepository {
     override val bedtimeSilenced = MutableStateFlow(false)
     override val bedtimePreviousFilter = MutableStateFlow(-1)
     override val categoryLimits = MutableStateFlow<List<CategoryLimit>>(emptyList())
+    override val yourReason = MutableStateFlow("")
 
     override suspend fun setPausedUntil(until: Long?) {
         pausedUntil.value = until
@@ -481,6 +482,10 @@ class FakeProtectionSettingsRepository : ProtectionSettingsRepository {
         categoryLimits.value =
             categoryLimits.value.filterNot { it.category == category } +
                 listOfNotNull(limit)
+    }
+
+    override suspend fun setYourReason(reason: String) {
+        yourReason.value = reason
     }
 }
 

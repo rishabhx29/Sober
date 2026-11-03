@@ -60,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.sober.core.domain.model.YourReason
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberCard
 import com.sober.core.ui.components.SoberDivider
@@ -115,6 +116,7 @@ fun SettingsScreen(
     val bedtime by viewModel.bedtime.collectAsState()
     val categoryLimitMinutes by viewModel.categoryLimitMinutes.collectAsState()
     val categoryCounts by viewModel.categoryCounts.collectAsState()
+    val yourReason by viewModel.yourReason.collectAsState()
     var unlocked by remember { mutableStateOf(false) }
 
     val lockState = gate
@@ -145,6 +147,7 @@ fun SettingsScreen(
     val colors = SoberTheme.colors
     val context = LocalContext.current
     var showPinDialog by remember { mutableStateOf(false) }
+    var showYourReasonDialog by remember { mutableStateOf(false) }
     var showCapApps by remember { mutableStateOf(false) }
     var showAllowOnlyApps by remember { mutableStateOf(false) }
     var showBedtimeApps by remember { mutableStateOf(false) }
@@ -671,6 +674,19 @@ fun SettingsScreen(
         )
         SoberDivider()
         SoberListRow(
+            title = "Your reason",
+            subtitle = yourReason.ifBlank {
+                "One line you will see when a block appears. It replaces the daily quote."
+            },
+            trailing = {
+                SoberQuietButton(
+                    text = if (yourReason.isBlank()) "Add" else "Edit",
+                    onClick = { showYourReasonDialog = true }
+                )
+            }
+        )
+        SoberDivider()
+        SoberListRow(
             title = "Lock mode",
             subtitle = when {
                 lockState.lockActive ->
@@ -1015,6 +1031,14 @@ fun SettingsScreen(
             onSubmit = { currentPin, newPin, onResult ->
                 viewModel.savePin(currentPin, newPin, onResult)
             }
+        )
+    }
+
+    if (showYourReasonDialog) {
+        YourReasonDialog(
+            initial = yourReason,
+            onSave = viewModel::setYourReason,
+            onDismiss = { showYourReasonDialog = false }
         )
     }
 
@@ -1433,6 +1457,87 @@ private fun MinuteOfDayPickerDialog(
         confirmButton = {
             TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) {
                 Text(text = "Set", color = colors.primary, fontWeight = FontWeight.Medium)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel", color = colors.textSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * One line the user writes for the block screen. The field caps input at the
+ * stored limit so the counter and the value can never disagree; the repository
+ * normalises again before writing.
+ */
+@Composable
+private fun YourReasonDialog(
+    initial: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    var text by remember { mutableStateOf(initial) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = "Your reason",
+                color = colors.primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Shown when a block appears, in place of the daily quote. " +
+                        "Keep it short and specific — it is read at a glance.",
+                    color = colors.textSecondary,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { input ->
+                        if (input.length <= YourReason.MAX_LENGTH) text = input
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "e.g. Be present with my kids",
+                            fontSize = 14.sp,
+                            color = colors.textMuted
+                        )
+                    },
+                    maxLines = 3,
+                    supportingText = {
+                        Text(
+                            text = "${text.length}/${YourReason.MAX_LENGTH}",
+                            color = colors.textMuted,
+                            fontSize = 11.sp
+                        )
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary,
+                        focusedBorderColor = colors.primary,
+                        unfocusedBorderColor = colors.divider,
+                        cursorColor = colors.primary,
+                        focusedContainerColor = colors.surface,
+                        unfocusedContainerColor = colors.surface
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text); onDismiss() }) {
+                Text(text = "Save", color = colors.primary, fontWeight = FontWeight.Medium)
             }
         },
         dismissButton = {

@@ -1151,6 +1151,18 @@ promise: no feature here needs internet permission.
   Custom Tabs cannot be read. Facebook section rules were **not** added: its tab
   ids could not be verified, and a guessed rule would show a toggle that never
   fires.*
+- [x] F11 — Reflection before override grant — *the five-minute wait no longer
+  unlocks on a timer. When it elapses, `ReflectionPanel` asks "What will you do
+  instead?" with three time-of-day alternatives (morning/afternoon/evening/night,
+  pure `reflectionSuggestions`) and the user's own reason. Choosing an
+  alternative cancels the request and keeps the block; "Open {app} anyway" is
+  the only path that calls `grantOverride`, so the grant is still re-checked
+  against stored state.*
+- [x] F12 — Saved reason — *`YourReason` normalises to one line (trim, collapse
+  whitespace, 120-char cap) at the storage boundary; Settings → Protection has
+  an Add/Edit dialog with a live counter, and `BlockOverlayScreen` renders the
+  reason under a "YOUR REASON" eyebrow in place of the daily quote. The overlay
+  collects the value up front, so the first frame is already personal.*
 - [ ] F10a — User-assisted section picker — *let the user record a section rule
   by inspecting the live node tree (selected tab or screen id) and name it. The
   backlog calls for this so apps outside the shipped catalogue (Facebook, local
@@ -1170,6 +1182,9 @@ promise: no feature here needs internet permission.
 > pickers.
 > F10 is compile- and unit-tested only: none of the newly listed address bar
 > ids were checked against an installed browser.
+> F11/F12 are unit-tested (`YourReasonTest` 4/4, `ReflectionSuggestionsTest`
+> 2/2, `BlockOverlayScreenTest` 5/5) and compile; the Settings dialog and the
+> reflected override were not yet walked on a device.
 
 ---
 
@@ -1377,6 +1392,8 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F4 | completed | Implementation Agent | Quick Settings tile and home widget. `SoberTileService` toggles a 15-minute pause, resumes it, and refuses while locked by opening the app; `SoberStatusWidgetProvider` plus a non-exported action receiver render a RemoteViews card with pause-or-resume, and body taps open Sober. The engine observes pause/lock/session flows and broadcasts a refresh only on change, so updates are immediate without polling the widget. Emulator walk: tile added/paused/resumed; widget added, pause and resume both applied and re-rendered, body opened `MainActivity`. Release build signs and installs over v1.3. Locked-tile and focus-session widget copy not exercised |
 | 2026-11-03 | F10 | completed | Implementation Agent | Wider browser coverage. `BrowserCatalog` now lists 18 packages across four families: Chromium forks on `url_bar`, Firefox/Beta/Nightly on the Android Components toolbar id, Opera/Opera Mini on `url_field`, DuckDuckGo on `omnibarTextInput`, plus Samsung Internet. `BrowserCatalogTest` (4 tests) pins the package-namespaced id rule, uniqueness and the mainstream set. Limit copy added to the website section and the README. Facebook rules were deliberately not added because its tab ids could not be verified; the picker that would let users author such rules is tracked as F10a. Ids are not yet checked against installed browsers |
 | 2026-11-03 | F10a | added | Task Tracker Agent | User-assisted section picker, split out of F10: record a rule from the live node tree so apps outside the shipped catalogue can be covered without guessing resource ids |
+| 2026-11-03 | F12 | completed | Implementation Agent | Saved reason. `YourReason.normalize` (trim, collapse whitespace, 120-char cap) runs in the DataStore setter so stored and rendered values agree; Settings → Protection gains an Add/Edit dialog with a live counter; the overlay collects the value on construction and renders it under a "YOUR REASON" eyebrow in place of the quote. `YourReasonTest` 4/4, `BlockOverlayScreenTest` gained a reason case. Device walk pending |
+| 2026-11-03 | F11 | completed | Implementation Agent | Reflection before unlock. The override wait now ends in a panel asking "What will you do instead?", listing three time-of-day alternatives and the user's reason. Choosing an alternative cancels the request; only "Open {app} anyway" grants. `reflectionSuggestions` is a pure function (boundaries tested 2/2), and the panel's presence is asserted in `BlockOverlayScreenTest`. The grant path still re-checks stored state. Device walk pending |
 
 ---
 

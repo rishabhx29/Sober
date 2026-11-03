@@ -30,11 +30,21 @@ class BlockOverlayScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun show(decision: BlockDecision, appLabel: String = "Instagram") {
+    private fun show(
+        decision: BlockDecision,
+        appLabel: String = "Instagram",
+        override: OverrideUi = OverrideUi(hasPin = false),
+        yourReason: String = ""
+    ) {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             SoberTheme {
-                BlockOverlayScreen(decision = decision, appLabel = appLabel)
+                BlockOverlayScreen(
+                    decision = decision,
+                    appLabel = appLabel,
+                    override = override,
+                    yourReason = yourReason
+                )
             }
         }
     }
@@ -85,5 +95,50 @@ class BlockOverlayScreenTest {
         )
 
         compose.onNodeWithText("Section blocking is paused.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the written reason replaces the daily quote`() {
+        show(
+            decision = BlockDecision(
+                packageName = "com.instagram.android",
+                reason = BlockReason.APP_DAILY_LIMIT,
+                usedMinutes = 30,
+                limitMinutes = 30
+            ),
+            yourReason = "Be present with my kids"
+        )
+
+        compose.onNodeWithText("YOUR REASON").assertIsDisplayed()
+        compose.onNodeWithText("“Be present with my kids”").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an elapsed wait asks what happens instead of unlocking`() {
+        val now = System.currentTimeMillis()
+
+        show(
+            decision = BlockDecision(
+                packageName = "com.instagram.android",
+                reason = BlockReason.APP_DAILY_LIMIT,
+                usedMinutes = 30,
+                limitMinutes = 30
+            ),
+            override = OverrideUi(
+                hasPin = true,
+                requestedAt = now - 6 * 60 * 1000,
+                readyAt = now - 60 * 1000
+            )
+        )
+
+        // The reflection is a state change triggered by the wait effect, so one
+        // frame has to be produced before it is on screen.
+        compose.mainClock.advanceTimeBy(32)
+
+        compose.onNodeWithText("What will you do instead?").assertIsDisplayed()
+        // The alternatives push the explicit "open anyway" action below the
+        // fold on a short screen, which is where it belongs; scroll animation
+        // is not driven by the frozen test clock, so assert presence.
+        compose.onNodeWithText("Open Instagram anyway").assertExists()
     }
 }

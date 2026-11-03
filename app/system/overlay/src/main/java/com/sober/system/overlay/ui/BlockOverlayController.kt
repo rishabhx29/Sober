@@ -109,6 +109,9 @@ class BlockOverlayController @Inject constructor(
     @Volatile
     private var lockedUntil: Long? = null
 
+    @Volatile
+    private var yourReason: String = ""
+
     /** True while a window is attached, so the service can re-show after a hide. */
     val isShowing: Boolean get() = overlayView != null
 
@@ -140,6 +143,14 @@ class BlockOverlayController @Inject constructor(
         scope.launch {
             protectionSettingsRepository.lockedUntil.collect {
                 lockedUntil = it
+                renderIfShowing()
+            }
+        }
+        // The first frame should already carry the written reason; waiting for
+        // a change event would show the generic quote for a moment.
+        scope.launch {
+            protectionSettingsRepository.yourReason.collect {
+                yourReason = it
                 renderIfShowing()
             }
         }
@@ -294,6 +305,7 @@ class BlockOverlayController @Inject constructor(
                         appLabel = appLabel,
                         appIcon = appIcon,
                         override = override,
+                        yourReason = yourReason,
                         onVerifyPin = { pin, onResult ->
                             scope.launch { onResult(verifyPinUseCase(pin)) }
                         },

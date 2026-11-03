@@ -296,6 +296,19 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** The line the user wrote for the block screen; empty until they add one. */
+    val yourReason: StateFlow<String> = protectionSettingsRepository.yourReason.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ""
+    )
+
+    fun setYourReason(reason: String) {
+        viewModelScope.launch {
+            protectionSettingsRepository.setYourReason(reason)
+        }
+    }
+
     /**
      * Sets a PIN, or replaces the current one when [currentPin] is supplied.
      * The current PIN is re-verified here rather than in the composable so the

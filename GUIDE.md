@@ -890,6 +890,24 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Keep the catalogue a single data list of `packageName` to `addressBarId`, one entry per browser (Beta/Nightly included because they ship under different packages but the same toolbar). Pin it with tests: every id must start with `"${packageName}:id/"`, no package twice, and the mainstream set must stay present so an edit cannot silently drop one. When an id cannot be verified, leave the browser out and record the reason in `TASKS.md`; the user-assisted picker (F10a) is the honest way to cover the rest, because the user can point at the real node instead of a developer guessing.
 
+### 11.38 A Timer Is Not a Decision
+
+**Date**: 2026-11-03  
+**Context**: F11. The emergency override already had a five-minute wait, but when the countdown reached zero it granted the override automatically. The wait was doing all the work and the user never had to choose again.
+
+**Learning**: Friction that ends in an automatic action is only a delay; it trains the user to wait rather than to decide. The moment the countdown finishes is the one moment the user is guaranteed to be paying attention, so it should hold a question, not an unlock. Naming concrete alternatives matters more than generic advice, and they have to be things that do not need the blocked app.
+
+**Solution/Pattern**: Keep the grant path untouched and re-checked (`grantOverride` still re-reads stored state before acting); change only what the UI does when the wait ends. `BlockOverlayScreen` keeps a `reflectionReady` flag keyed on `override.requestedAt`, so a new or cancelled request starts at the countdown again. Alternatives come from a pure `reflectionSuggestions(hourOfDay)` function — deterministic per window so the panel never shifts under the user's finger, and testable at the hour boundaries. Make the alternative rows act (they cancel the request), and leave "Open {app} anyway" as one explicit, uncelebrated tap. In Compose tests with a frozen clock, assert `assertExists()` rather than `performScrollTo()`, which waits on scroll animation the frozen clock never advances.
+
+### 11.39 Normalise at the Storage Boundary
+
+**Date**: 2026-11-03  
+**Context**: F12 stores a one-line reason in DataStore and renders it on the overlay. Trimming and length limits can be applied in the dialog, in the ViewModel, in the repository or in the UI; each choice fails differently.
+
+**Learning**: If the setter stores exactly what it is given, every reader has to defend itself, and the readers will disagree: one trims, another does not, a third counts characters differently. A blank-but-not-empty string (`"   "`) then reads as "set" in the settings row and as nothing on the overlay. Normalising once, where the value enters storage, gives every reader the same value for free.
+
+**Solution/Pattern**: Put the rule in a small pure function (`YourReason.normalize`) and call it in the DataStore setter, before writing. Store nothing when the result is empty so "unset" has one representation. Keep the field's `onValueChange` cap as a separate, cosmetic guard so the counter and the text never disagree; it is not the rule, it is the UI mirroring it. Test the function directly — the interesting cases are whitespace runs, the boundary length, and a capped string that would otherwise end in a space.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

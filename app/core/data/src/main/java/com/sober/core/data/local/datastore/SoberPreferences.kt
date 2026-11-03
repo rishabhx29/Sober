@@ -13,6 +13,7 @@ import com.sober.core.domain.model.BedtimeSettings
 import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.NotificationSilenceScope
 import com.sober.core.domain.model.StreakRecord
+import com.sober.core.domain.model.YourReason
 import com.sober.core.domain.repository.AlertKind
 import com.sober.core.domain.repository.StreakRule
 import com.sober.core.domain.repository.ThemeMode
@@ -123,6 +124,11 @@ class SoberPreferences @Inject constructor(
         // Lock mode: epoch millis until which protection settings cannot be
         // changed and blocks cannot be overridden.
         val KEY_LOCKED_UNTIL = androidx.datastore.preferences.core.longPreferencesKey("locked_until")
+
+        // The user's own line, shown on the block screen in place of the daily
+        // quote. Absent means the quote stays.
+        val KEY_YOUR_REASON =
+            androidx.datastore.preferences.core.stringPreferencesKey("your_reason")
 
         // Pause before opening: "package|delaySeconds" per app, and
         // "package|epochMillis" for the passes earned by sitting one out.
@@ -514,6 +520,19 @@ class SoberPreferences @Inject constructor(
         dataStore.edit { preferences ->
             if (until == null) preferences.remove(KEY_LOCKED_UNTIL)
             else preferences[KEY_LOCKED_UNTIL] = until
+        }
+    }
+
+    // ---- Your reason --------------------------------------------------
+
+    val yourReason: Flow<String> = dataStore.data.map { it[KEY_YOUR_REASON].orEmpty() }
+
+    /** Normalised here so the stored value is always what the overlay renders. */
+    suspend fun setYourReason(reason: String) {
+        val normalized = YourReason.normalize(reason)
+        dataStore.edit { preferences ->
+            if (normalized.isEmpty()) preferences.remove(KEY_YOUR_REASON)
+            else preferences[KEY_YOUR_REASON] = normalized
         }
     }
 

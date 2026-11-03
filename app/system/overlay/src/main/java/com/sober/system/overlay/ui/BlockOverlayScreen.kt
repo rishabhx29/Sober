@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -98,6 +100,7 @@ fun BlockOverlayScreen(
     appLabel: String,
     appIcon: Drawable? = null,
     override: OverrideUi = OverrideUi(hasPin = false),
+    yourReason: String = "",
     onVerifyPin: (String, (Boolean) -> Unit) -> Unit = { _, _ -> },
     onRequestOverride: () -> Unit = {},
     onCancelRequest: () -> Unit = {},
@@ -119,6 +122,12 @@ fun BlockOverlayScreen(
 
     var overrideOpen by remember { mutableStateOf(false) }
 
+    // The wait ends at a decision, not at the unlock: the reflection keeps its
+    // own state so the countdown panel is replaced by a question rather than
+    // lifting the block on a timer. Keyed by the request so a new request (or a
+    // cancelled one) starts at the countdown.
+    var reflectionReady by remember(override.requestedAt) { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -129,16 +138,26 @@ fun BlockOverlayScreen(
             appLabel = appLabel,
             appIcon = appIcon,
             now = now,
-            isSessionBlock = isSessionBlock
+            isSessionBlock = isSessionBlock,
+            yourReason = yourReason
         )
 
         if (override.requestedAt != null) {
-            OverrideWaitPanel(
-                readyAt = override.readyAt,
-                now = now,
-                onCancel = onCancelRequest,
-                onReady = onWaitElapsed
-            )
+            if (reflectionReady) {
+                ReflectionPanel(
+                    appLabel = appLabel,
+                    yourReason = yourReason,
+                    onDoSomethingElse = onCancelRequest,
+                    onOpenAnyway = onWaitElapsed
+                )
+            } else {
+                OverrideWaitPanel(
+                    readyAt = override.readyAt,
+                    now = now,
+                    onCancel = onCancelRequest,
+                    onReady = { reflectionReady = true }
+                )
+            }
         } else if (overrideOpen) {
             OverrideFlowPanel(
                 hasPin = override.hasPin,
@@ -175,7 +194,8 @@ private fun BlockBody(
     appLabel: String,
     appIcon: Drawable?,
     now: Long,
-    isSessionBlock: Boolean
+    isSessionBlock: Boolean,
+    yourReason: String
 ) {
     val colors = SoberTheme.colors
 
@@ -275,14 +295,45 @@ private fun BlockBody(
                 timeText = countdownText,
                 progress = ringProgress
             )
+        }
 
-            if (!isSessionBlock) {
-                Spacer(modifier = Modifier.height(32.dp))
-                DailyQuote(quoteOfTheDay(now))
-            }
+        // A written reason outranks the generic quote wherever a block can
+        // carry one: the user's own words are the point of writing them down.
+        // Session blocks stay quiet unless there is one, since their countdown
+        // is already the message.
+        if (yourReason.isNotBlank()) {
+            Spacer(modifier = Modifier.height(32.dp))
+            YourReasonLine(yourReason)
+        } else if (hasCountdown && !isSessionBlock) {
+            Spacer(modifier = Modifier.height(32.dp))
+            DailyQuote(quoteOfTheDay(now))
         }
 
         Spacer(modifier = Modifier.height(88.dp))
+    }
+}
+
+/** The user's own line, set in quotes so it reads as something they said. */
+@Composable
+private fun YourReasonLine(reason: String) {
+    val colors = SoberTheme.colors
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = "YOUR REASON",
+            color = colors.accent,
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            fontFamily = JetBrainsMono,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "“$reason”",
+            color = colors.textSecondary,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -519,8 +570,132 @@ private fun OverrideWaitPanel(
     }
 }
 
-/** Shared frame for the override panels: opaque, scrollable, dismissible. */
+/**
+ * The decision the wait exists to create.
+ *
+ * The wait used to end in an automatic grant. Asking once more — with the
+ * user's own reason in front of them and a few concrete alternatives — turns a
+ * timer into a choice. Both branches are honest: leaving the block in place is
+ * the default, and opening anyway is one explicit tap.
+ */
 @Composable
+private fun ReflectionPanel(
+    appLabel: String,
+    yourReason: String,
+    onDoSomethingElse: () -> Unit,
+    onOpenAnyway: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    val suggestions = remember {
+        reflectionSuggestions(Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
+    }
+
+    OverridePanelScaffold(title = "Before you open it", onDismiss = onDoSomethingElse) {
+        PanelHint(
+            title = "What will you do instead?",
+            body = "You waited five minutes, so this is a decision rather than a reflex. " +
+                "Pick something else, or open $appLabel knowingly."
+        )
+
+        if (yourReason.isNotBlank()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "“$yourReason”",
+                color = colors.textSecondary,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontStyle = FontStyle.Italic
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        suggestions.forEach { suggestion ->
+            SuggestionRow(text = suggestion, onClick = onDoSomethingElse)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Open $appLabel anyway",
+            color = colors.textSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .clickable { onOpenAnyway() }
+                .padding(vertical = 14.dp)
+        )
+    }
+}
+
+/**
+ * One alternative. Choosing it means "I'll do that instead", so it closes the
+ * override request rather than opening the app.
+ */
+@Composable
+private fun SuggestionRow(text: String, onClick: () -> Unit) {
+    val colors = SoberTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.surface)
+            .clickable(role = Role.Button) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = text,
+            color = colors.textPrimary,
+            fontSize = 14.sp,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Do this",
+            color = colors.primary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/**
+ * Alternatives for the hour the reflection appears in — concrete actions that
+ * do not need the blocked app, rather than generic advice. Kept deterministic
+ * so the same panel never changes under the user's finger.
+ */
+internal fun reflectionSuggestions(hourOfDay: Int): List<String> = when (hourOfDay) {
+    in 5..11 -> listOf(
+        "Step outside for five minutes",
+        "Eat breakfast without a screen",
+        "Write down the one thing that matters today"
+    )
+
+    in 12..17 -> listOf(
+        "Walk around the block",
+        "Drink a glass of water",
+        "Start the thing you keep postponing"
+    )
+
+    in 18..22 -> listOf(
+        "Message someone you like",
+        "Tidy one surface",
+        "Read a few pages"
+    )
+
+    else -> listOf(
+        "Stretch and put the phone down",
+        "Write tomorrow's first task",
+        "Go to bed early"
+    )
+}
+
+/** Shared frame for the override panels: opaque, scrollable, dismissible. */@Composable
 private fun OverridePanelScaffold(
     title: String,
     onDismiss: () -> Unit,

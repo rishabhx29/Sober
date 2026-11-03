@@ -22,6 +22,7 @@ class ProtectionSettingsRepositoryImpl @Inject constructor(
     override val bedtimeSilenced: Flow<Boolean> = soberPreferences.bedtimeSilenced
     override val bedtimePreviousFilter: Flow<Int> = soberPreferences.bedtimePreviousFilter
     override val categoryLimits: Flow<List<CategoryLimit>> = soberPreferences.categoryLimits
+    override val yourReason: Flow<String> = soberPreferences.yourReason
 
     override suspend fun setPausedUntil(until: Long?) =
         soberPreferences.setPausedUntil(until)
@@ -43,4 +44,7 @@ class ProtectionSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?) =
         soberPreferences.setCategoryLimit(category, limit)
+
+    override suspend fun setYourReason(reason: String) =
+        soberPreferences.setYourReason(reason)
 }

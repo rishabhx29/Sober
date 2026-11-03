@@ -38,6 +38,9 @@ interface ProtectionSettingsRepository {
 
     val categoryLimits: Flow<List<CategoryLimit>>
 
+    /** The line shown on the block screen; empty when the user has not written one. */
+    val yourReason: Flow<String>
+
     suspend fun setPausedUntil(until: Long?)
 
     suspend fun setLockedUntil(until: Long?)
@@ -52,4 +55,7 @@ interface ProtectionSettingsRepository {
 
     /** Writes [limit], or removes [category]'s budget when [limit] is null. */
     suspend fun setCategoryLimit(category: AppCategory, limit: CategoryLimit?)
+
+    /** Stores the reason, normalised; an empty [reason] clears it. */
+    suspend fun setYourReason(reason: String)
 }
