@@ -1,0 +1,63 @@
+/*
+ * Manuscript, as the app ships it. Every value here is copied from
+ * app/core/ui/src/main/java/com/sober/core/ui/theme/{Color,Type}.kt —
+ * do not invent new colours or type sizes for the film.
+ */
+
+@font-face {
+  font-family: "Inter";
+  src: url("assets/fonts/inter.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("assets/fonts/jetbrains-mono.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+:root {
+  /* Dark palette (the screenshots are captured in dark mode). */
+  --ground: #12121a;
+  --surface: #1b1b26;
+  --hairline: #2a2a38;
+  --cream: #e8e0d5;
+  --text: #f2ede4;
+  --text-secondary: #b3aba2;
+  --text-muted: #9a938b;
+  --signal: #e0685a;
+
+  /* Light palette, for any board that needs a cream ground. */
+  --cream-ground: #f7f4ef;
+  --ink: #1a1a2e;
+  --ink-secondary: #6b6560;
+  --ink-muted: #726c67;
+  --ink-hairline: #e8e0d5;
+  --signal-light: #c0392b;
+
+  --font-display: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  background: var(--ground);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Equal-width digits for every minute count and countdown. */
+.tnum {
+  font-feature-settings: "tnum";
+}

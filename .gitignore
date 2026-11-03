@@ -16,6 +16,11 @@
 # Machine-specific Android SDK configuration
 **/local.properties
 
+# Promo film tooling and generated renders
+promo/node_modules/
+promo/.hyperframes/
+promo/renders/
+
 # Signing credentials and keystores
 **/keystore.properties
 **/key.properties
