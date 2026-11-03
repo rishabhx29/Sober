@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
@@ -141,6 +143,10 @@ fun AppsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // The sheet now carries limit, opens, pause, chart, sections,
+                    // websites and save; on a phone that is taller than the
+                    // sheet, so the content has to scroll.
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp)
                     .padding(bottom = 32.dp)
             ) {

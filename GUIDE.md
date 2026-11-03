@@ -969,7 +969,16 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Learning**: The capture is therefore split across two processes and a period where Sober is not visible. Three things follow. First, the request must be persisted *before* the target app opens, or the service can miss the first screen while the user is still looking at Sober. Second, ending the recording cannot be "the user returned", because returning can also mean a rotation or a trip to system Settings; it has to be "a result for the requested package exists". Third, the result outlives the request, since the user may not review it for hours — so the UI has three states (recording, review, start) rather than a single "in progress" flag. Candidate generation is deliberately narrow: a selected tab is a strong signal, the foreground activity is a weak one that may mean the whole app, and a bare resource id is never offered because nav containers match every screen.
 
-**Solution/Pattern**: Model the interaction as arm → leave → return, with the request and result as separate DataStore values. Scope a tab rule to the activity the capture saw, since the same resource id can exist on several screens; an activity candidate is the match itself and needs no scope. Save the rule and switch its id on in one edit, so a crash cannot leave an enabled id with no rule. When restoring from a backup, mint new ids: an id names a row in one device's store, and keeping it would collide with whatever the destination device already has.
+**Solution/Pattern**: Model the interaction as arm → leave → return, with the request and result as separate DataStore values. Scope a tab rule to the activity the capture saw, since the same resource id can exist on several screens; an activity candidate is the match itself and needs no scope. Save the rule and switch its id on in one edit, so a crash cannot leave an enabled id without a rule. When restoring from a backup, mint new ids: an id names a row in one device's store, and keeping it would collide with whatever the destination device already has.
+
+### 11.47 A Growing Sheet Owes Its Content a Scroll
+
+**Date**: 2026-11-03  
+**Context**: After 1.4 the app detail sheet gained the opens budget, pause picker, 7-day chart, section rules, the section recorder and website rules. On a phone the user could no longer reach the lower half of the sheet: it did not move.
+
+**Learning**: `ModalBottomSheet` does not scroll its content for you. It expands the sheet to the height its content asks for, up to the window, and stops. A plain `Column` therefore renders exactly one screenful and silently clips the rest — the composables below the fold are still composed, so nothing crashes and nothing logs, but drag gestures have nowhere to go. The sheet had been correct for as long as its content fit; adding sections is what broke it, which is why the failure looked like a regression in the new feature rather than a layout omission.
+
+**Solution/Pattern**: Put `Modifier.verticalScroll(rememberScrollState())` on the content column of any bottom sheet whose row count is not fixed, and keep the scroll state inside the sheet's composition so each open starts at the top. Bounded scrollable children (the drum pickers are fixed-height `LazyColumn`s) nest safely inside it; an unbounded one would throw instead. When verifying, swipe in the sheet and look for a control that was not in the accessibility dump before the swipe — "Save rules" appearing is the proof the content moved.
 
 ## 12. Troubleshooting
 
