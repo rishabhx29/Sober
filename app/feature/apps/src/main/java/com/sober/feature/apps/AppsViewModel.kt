@@ -9,17 +9,23 @@ import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.model.AppLimit
 import com.sober.core.domain.model.AppPauseRule
 import com.sober.core.domain.model.AppUsage
+import com.sober.core.domain.model.CapturedCandidate
+import com.sober.core.domain.model.CapturedSection
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
+import com.sober.core.domain.model.DetectionType
+import com.sober.core.domain.model.SectionCaptureRequest
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.CustomRuleRepository
+import com.sober.core.domain.repository.CustomSectionRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.repository.ProtectionSettingsRepository
+import com.sober.core.domain.repository.SectionCaptureRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.core.domain.usecase.GetAppUsageHistoryUseCase
@@ -62,6 +68,8 @@ class AppsViewModel @Inject constructor(
     private val getAppUsageHistoryUseCase: GetAppUsageHistoryUseCase,
     private val detectionRuleRepository: DetectionRuleRepository,
     private val sectionRulePreferencesRepository: SectionRulePreferencesRepository,
+    private val customSectionRuleRepository: CustomSectionRuleRepository,
+    private val sectionCaptureRepository: SectionCaptureRepository,
     private val customRuleRepository: CustomRuleRepository,
     private val pauseRulesRepository: PauseRulesRepository,
     private val appOpenRepository: AppOpenRepository,
@@ -74,6 +82,11 @@ class AppsViewModel @Inject constructor(
     /** Catalog sections, keyed by package, for the detail sheet. */
     private val _sectionRules = MutableStateFlow<List<DetectionRule>>(emptyList())
     val sectionRules: StateFlow<List<DetectionRule>> = _sectionRules
+
+    // Kept apart so either source can update without dropping the other: the
+    // shipped catalog loads once, the user's rules arrive whenever they save.
+    private var shippedSectionRules: List<DetectionRule> = emptyList()
+    private var customSectionRules: List<DetectionRule> = emptyList()
 
     private val _enabledSectionRules = MutableStateFlow<Set<String>>(emptySet())
     val enabledSectionRules: StateFlow<Set<String>> = _enabledSectionRules
@@ -92,10 +105,17 @@ class AppsViewModel @Inject constructor(
         } ?: false
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
+            customSectionRuleRepository.rules().collect { rules ->
+                customSectionRules = rules
+                _sectionRules.value = shippedSectionRules + customSectionRules
+            }
+        }
+        viewModelScope.launch {
             val catalog = runCatching { detectionRuleRepository.load() }
                 .getOrDefault(DetectionRuleCatalog.EMPTY)
-            _sectionRules.value = catalog.rules
+            shippedSectionRules = catalog.rules
+            _sectionRules.value = shippedSectionRules + customSectionRules
         }
         viewModelScope.launch {
             sectionRulePreferencesRepository.enabledRuleIds().collect {
@@ -130,6 +150,88 @@ class AppsViewModel @Inject constructor(
         viewModelScope.launch {
             if (isLocked()) return@launch
             sectionRulePreferencesRepository.setEnabled(ruleId, enabled)
+        }
+    }
+
+    /** Non-null while a recording is armed; the service fills in the result. */
+    val captureRequest: StateFlow<SectionCaptureRequest?> = sectionCaptureRepository.request()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The last screen the armed recording saw, kept for review. */
+    val capturedSection: StateFlow<CapturedSection?> = sectionCaptureRepository.capturedSection()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /**
+     * Arms a recording for [packageName]. The screen offers to open the app as
+     * a second, explicit step so the request is written before the service can
+     * see the target app's first screen.
+     */
+    fun startSectionCapture(packageName: String) {
+        viewModelScope.launch {
+            if (isLocked()) return@launch
+            sectionCaptureRepository.start(packageName, System.currentTimeMillis())
+        }
+    }
+
+    /**
+     * Called on resume. Only a recording that actually saw the target app ends
+     * here: a rotation, or a trip to system Settings, must not stop a recording
+     * that has not reached its screen yet.
+     */
+    fun finishSectionCapture() {
+        val request = captureRequest.value ?: return
+        if (capturedSection.value?.packageName != request.packageName) return
+        viewModelScope.launch { sectionCaptureRepository.finish() }
+    }
+
+    fun cancelSectionCapture() {
+        viewModelScope.launch { sectionCaptureRepository.clear() }
+    }
+
+    /**
+     * Turns a reviewed candidate into a rule.
+     *
+     * The activity the capture saw scopes a tab rule: the same resource id can
+     * exist on another screen, and blocking the wrong screen is worse than not
+     * blocking. An activity candidate is the match itself, so it is not scoped.
+     */
+    fun saveCapturedSection(
+        appName: String,
+        packageName: String,
+        candidate: CapturedCandidate,
+        sectionName: String
+    ) {
+        val name = sectionName.trim().take(MAX_SECTION_NAME_LENGTH)
+        if (name.isEmpty() || candidate.value.isBlank()) return
+        viewModelScope.launch {
+            if (isLocked()) return@launch
+            val capture = capturedSection.value?.takeIf { it.packageName == packageName }
+            customSectionRuleRepository.add(
+                DetectionRule(
+                    id = "",
+                    packageName = packageName,
+                    appName = appName,
+                    sectionId = "",
+                    sectionName = name,
+                    detectionType = candidate.type,
+                    detectionValue = candidate.value,
+                    overlayTitle = "$name is blocked",
+                    overlaySubtitle = "You recorded this section in Sober. " +
+                        "The rest of $appName still works.",
+                    activityValue = when (candidate.type) {
+                        DetectionType.ACTIVITY -> null
+                        else -> capture?.activityName
+                    }
+                )
+            )
+            sectionCaptureRepository.clear()
+        }
+    }
+
+    fun removeCustomSectionRule(ruleId: String) {
+        viewModelScope.launch {
+            if (isLocked()) return@launch
+            customSectionRuleRepository.remove(ruleId)
         }
     }
 
@@ -374,5 +476,10 @@ class AppsViewModel @Inject constructor(
                 } else app
             }
         }
+    }
+
+    private companion object {
+        /** Long enough for a real section name, short enough for the overlay. */
+        const val MAX_SECTION_NAME_LENGTH = 40
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -41,9 +42,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.common.permissions.PermissionUtils
 import com.sober.core.domain.model.BrowserCatalog
+import com.sober.core.domain.model.CapturedCandidate
+import com.sober.core.domain.model.CapturedSection
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.DetectionRule
 import com.sober.core.domain.model.DetectionType
+import com.sober.core.domain.model.SectionCaptureRequest
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.ui.components.SoberButton
 import com.sober.core.ui.components.SoberDrumPicker
@@ -84,6 +88,8 @@ fun AppsScreen(
     val enabledSectionRules by viewModel.enabledSectionRules.collectAsState()
     val isAccessibilityEnabled by viewModel.isAccessibilityEnabled.collectAsState()
     val websiteRules by viewModel.websiteRules.collectAsState()
+    val captureRequest by viewModel.captureRequest.collectAsState()
+    val capturedSection by viewModel.capturedSection.collectAsState()
     val lockedUntil by viewModel.lockedUntil.collectAsState()
     val rulesLocked = lockedUntil != null
 
@@ -114,6 +120,8 @@ fun AppsScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshAccessibilityStatus()
                 viewModel.loadApps(context.packageManager)
+                // Returning from the app the user walked into ends a recording.
+                viewModel.finishSectionCapture()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -339,11 +347,13 @@ fun AppsScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                 }
 
-                // Only apps in the rules catalog get section toggles; every
-                // other app has nothing to detect, so an empty list would be
-                // a heading with no rows under it.
-                val appSections = sectionRules.filter { it.packageName == app.packageName }
-                if (appSections.isNotEmpty()) {
+                // Browsers use website rules instead: a browser's "section" is
+                // a page, and the address bar is the reliable way to name it.
+                if (!BrowserCatalog.isBrowser(app.packageName)) {
+                    val appSections = sectionRules.filter { it.packageName == app.packageName }
+                    val appCaptureRequest = captureRequest?.takeIf { it.packageName == app.packageName }
+                    val appCapture = capturedSection?.takeIf { it.packageName == app.packageName }
+
                     SoberSectionLabel("Block sections")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -376,13 +386,52 @@ fun AppsScreen(
                         }
                     }
 
-                    appSections.forEach { rule ->
-                        SectionToggleRow(
-                            rule = rule,
-                            checked = rule.id in enabledSectionRules,
-                            onCheckedChange = { viewModel.setSectionRuleEnabled(rule.id, it) }
+                    if (appSections.isEmpty()) {
+                        Text(
+                            text = "No sections blocked.",
+                            fontSize = 12.sp,
+                            color = SoberTheme.colors.textMuted,
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
+                    } else {
+                        appSections.forEach { rule ->
+                            SectionToggleRow(
+                                rule = rule,
+                                checked = rule.id in enabledSectionRules,
+                                onCheckedChange = { viewModel.setSectionRuleEnabled(rule.id, it) },
+                                onRemove = if (rule.isCustom && !rulesLocked) {
+                                    { viewModel.removeCustomSectionRule(rule.id) }
+                                } else {
+                                    null
+                                }
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    SectionCapturePanel(
+                        appName = app.name,
+                        accessible = isAccessibilityEnabled,
+                        locked = rulesLocked,
+                        request = appCaptureRequest,
+                        capture = appCapture,
+                        onStart = { viewModel.startSectionCapture(app.packageName) },
+                        onOpenApp = {
+                            val intent = context.packageManager
+                                .getLaunchIntentForPackage(app.packageName)
+                            if (intent != null) runCatching { context.startActivity(intent) }
+                        },
+                        onCancel = { viewModel.cancelSectionCapture() },
+                        onSave = { candidate, name ->
+                            viewModel.saveCapturedSection(
+                                appName = app.name,
+                                packageName = app.packageName,
+                                candidate = candidate,
+                                sectionName = name
+                            )
+                        }
+                    )
 
                     Spacer(modifier = Modifier.height(20.dp))
                 }
@@ -988,38 +1037,301 @@ private fun WebsiteDialog(
 private fun SectionToggleRow(
     rule: DetectionRule,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    onRemove: (() -> Unit)? = null
 ) {
+    val colors = SoberTheme.colors
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = onCheckedChange
-            )
-            .padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = rule.sectionName,
-                fontSize = 14.sp,
-                color = SoberTheme.colors.primary,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = sectionHint(rule),
-                fontSize = 11.sp,
-                color = SoberTheme.colors.textMuted
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .toggleable(
+                    value = checked,
+                    role = Role.Switch,
+                    onValueChange = onCheckedChange
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = rule.sectionName,
+                    fontSize = 14.sp,
+                    color = colors.primary,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = sectionHint(rule),
+                    fontSize = 11.sp,
+                    color = colors.textMuted
+                )
+            }
+            SoberToggleSwitch(
+                checked = checked,
+                onCheckedChange = null
             )
         }
-        SoberToggleSwitch(
-            checked = checked,
-            onCheckedChange = null
+        if (onRemove != null) {
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Remove ${rule.sectionName} rule",
+                    tint = colors.textMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The three states of a recording, in one place so the sheet shows exactly one
+ * of them: a result to review, a recording in progress, or a way to start.
+ *
+ * Review comes first because a finished recording keeps its result after the
+ * request is cleared — the user may open Sober again much later and still want
+ * to finish what they started.
+ */
+@Composable
+private fun SectionCapturePanel(
+    appName: String,
+    accessible: Boolean,
+    locked: Boolean,
+    request: SectionCaptureRequest?,
+    capture: CapturedSection?,
+    onStart: () -> Unit,
+    onOpenApp: () -> Unit,
+    onCancel: () -> Unit,
+    onSave: (CapturedCandidate, String) -> Unit
+) {
+    val colors = SoberTheme.colors
+    when {
+        capture != null -> {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = colors.background,
+                border = BorderStroke(1.dp, colors.cardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    if (capture.candidates.isEmpty()) {
+                        Text(
+                            text = "Nothing to record",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sober did not find a highlighted tab in $appName. Open the screen you want covered, " +
+                                "one with a tab selected in its navigation bar, then record again.",
+                            fontSize = 12.sp,
+                            color = colors.textMuted
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SoberOutlinedButton(
+                                text = "Cancel",
+                                onClick = onCancel,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SoberOutlinedButton(
+                                text = "Try again",
+                                onClick = onStart,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        SectionCaptureReview(
+                            capture = capture,
+                            onCancel = onCancel,
+                            onSave = onSave
+                        )
+                    }
+                }
+            }
+        }
+
+        request != null -> {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = colors.background,
+                border = BorderStroke(1.dp, colors.cardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text(
+                        text = "Recording $appName",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Open $appName, go to the section you want covered, then come back here. " +
+                            "Sober remembers the tab that was highlighted.",
+                        fontSize = 12.sp,
+                        color = colors.textMuted
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SoberOutlinedButton(
+                            text = "Cancel",
+                            onClick = onCancel,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SoberButton(
+                            text = "Open app",
+                            onClick = onOpenApp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        accessible && !locked -> {
+            Column {
+                Text(
+                    text = "Sober can learn a section from the live screen: open the section, then come back and pick it.",
+                    fontSize = 11.sp,
+                    color = colors.textMuted
+                )
+                TextButton(onClick = onStart, contentPadding = PaddingValues(0.dp)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = colors.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Record a section",
+                        fontSize = 13.sp,
+                        color = colors.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCaptureReview(
+    capture: CapturedSection,
+    onCancel: () -> Unit,
+    onSave: (CapturedCandidate, String) -> Unit
+) {
+    val colors = SoberTheme.colors
+    var selectedIndex by remember(capture) { mutableIntStateOf(0) }
+    var name by remember(capture) {
+        mutableStateOf(capture.candidates.firstOrNull()?.label.orEmpty())
+    }
+    val selected = capture.candidates.getOrNull(selectedIndex)
+
+    Text(
+        text = "Choose the section to block",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = colors.textPrimary
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "Pick the one you want covered. The name is what the block screen says.",
+        fontSize = 12.sp,
+        color = colors.textMuted
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+
+    capture.candidates.forEachIndexed { index, candidate ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(
+                    selected = index == selectedIndex,
+                    role = Role.RadioButton,
+                    onClick = {
+                        // Only follow the selection when the name is still the
+                        // previous candidate's label, so a typed name survives.
+                        val previous = capture.candidates.getOrNull(selectedIndex)?.label.orEmpty()
+                        selectedIndex = index
+                        if (name.isBlank() || name == previous) name = candidate.label
+                    }
+                )
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = index == selectedIndex,
+                onClick = null
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = candidate.label,
+                    fontSize = 14.sp,
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = capturedCandidateHint(candidate),
+                    fontSize = 11.sp,
+                    color = colors.textMuted
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    OutlinedTextField(
+        value = name,
+        onValueChange = { name = it.take(40) },
+        label = { Text("Name", fontSize = 12.sp) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = colors.primary,
+            unfocusedBorderColor = colors.divider,
+            focusedContainerColor = colors.surface,
+            unfocusedContainerColor = colors.surface,
+            focusedTextColor = colors.textPrimary,
+            unfocusedTextColor = colors.textPrimary
+        )
+    )
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SoberOutlinedButton(
+            text = "Discard",
+            onClick = onCancel,
+            modifier = Modifier.weight(1f)
+        )
+        SoberButton(
+            text = "Save section",
+            onClick = { selected?.let { onSave(it, name) } },
+            modifier = Modifier.weight(1f),
+            enabled = selected != null && name.isNotBlank()
         )
     }
 }
+
+/**
+ * The candidate type itself is not something the user chose, so the hint says
+ * what it covers. A tab is narrow; an activity is whatever screen it names, and
+ * recording the main screen would quietly cover the whole app.
+ */
+private fun capturedCandidateHint(candidate: CapturedCandidate): String =
+    if (candidate.type == DetectionType.ACTIVITY) {
+        "The whole screen. Everything on it is covered, which may be the whole app."
+    } else {
+        "When this tab is selected"
+    }
 
 /**
  * The detection types are an implementation detail the user did not choose, so
