@@ -28,15 +28,41 @@ class ForegroundSignal @Inject constructor() {
 
     val packages: SharedFlow<String> = _packages
 
+    /**
+     * "The system task switcher opened." Not a package, because Recents is
+     * chrome rather than an app: the engine must read it as the user leaving
+     * the current app, not as another foreground app to hold a block over.
+     */
+    private val _taskSwitcher = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val taskSwitcher: SharedFlow<Unit> = _taskSwitcher
+
     private var lastReported: String? = null
+    private var taskSwitcherReported = false
 
     /**
      * Repeated state changes for the same package (a dialog opening, a tab
      * change) are the common case and would each cost a policy evaluation.
      */
     fun report(packageName: String) {
+        taskSwitcherReported = false
         if (packageName == lastReported) return
         lastReported = packageName
         _packages.tryEmit(packageName)
+    }
+
+    /**
+     * A switcher leaves the app, so the next [report] must not be swallowed as
+     * a repeat: returning to the same blocked app has to be re-evaluated.
+     */
+    fun reportTaskSwitcher() {
+        lastReported = null
+        if (taskSwitcherReported) return
+        taskSwitcherReported = true
+        _taskSwitcher.tryEmit(Unit)
     }
 }

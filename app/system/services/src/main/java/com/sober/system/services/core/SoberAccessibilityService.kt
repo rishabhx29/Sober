@@ -23,6 +23,7 @@ import com.sober.core.domain.usecase.DetectBlockedWebsiteUseCase
 import com.sober.core.domain.usecase.SuggestSectionCandidatesUseCase
 import com.sober.system.overlay.ui.SectionBlockOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
+import com.sober.system.services.foreground.isSystemTaskSwitcher
 import com.sober.system.services.sections.SectionCaptureReader
 import com.sober.system.services.sections.SectionSnapshotReader
 import dagger.hilt.android.AndroidEntryPoint
@@ -189,12 +190,21 @@ class SoberAccessibilityService : AccessibilityService() {
         if (packageName == this.packageName) return
 
         if (type == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            lastActivityName = target.className?.toString()
+            val activityName = target.className?.toString()
+            lastActivityName = activityName
 
             // Tell the enforcement engine immediately, so an app-level block
             // is applied on the screen the user just opened rather than on the
             // next poll. The engine decides what to do with the package.
-            foregroundSignal.report(packageName)
+            //
+            // The task switcher is the exception: it is System UI chrome, and
+            // reporting it as a package would hold the current block over the
+            // switcher instead of clearing it as the user leaving the app.
+            if (isSystemTaskSwitcher(packageName, activityName)) {
+                foregroundSignal.reportTaskSwitcher()
+            } else {
+                foregroundSignal.report(packageName)
+            }
 
             // The guard is a screen-level decision, so it is evaluated on
             // transitions only: content events would re-run the block query

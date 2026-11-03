@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.sober.core.common.runtime.ServiceLiveness
 import com.sober.core.data.local.datastore.SoberPreferences
@@ -242,6 +243,7 @@ class SoberCoreService : Service() {
 
         // Enforcement cycle.
         scope.launch {
+            var lastFullCycleAt = 0L
             while (true) {
                 try {
                     // With the screen off nothing can be in the foreground, so
@@ -250,9 +252,28 @@ class SoberCoreService : Service() {
                     // Checking cheaply instead keeps the wait after unlocking
                     // short without doing any work overnight.
                     if (powerManager.isInteractive) {
-                        runEnforcementCycle()
+                        val now = SystemClock.elapsedRealtime()
+                        if (currentlyBlocked != null && now - lastFullCycleAt < POLL_INTERVAL_MS) {
+                            // A block is on screen. The rollup and warnings
+                            // cannot change anything in the meantime, but the
+                            // foreground can leave at any moment: Home, Recents
+                            // or Back must clear the cover even when there are
+                            // no Accessibility hints to report the switch.
+                            policyMutex.withLock {
+                                applyPolicy(usageStatsRepository.getForegroundPackage())
+                            }
+                        } else {
+                            lastFullCycleAt = now
+                            runEnforcementCycle()
+                        }
                     }
-                    delay(if (powerManager.isInteractive) POLL_INTERVAL_MS else SCREEN_OFF_RECHECK_MS)
+                    delay(
+                        when {
+                            !powerManager.isInteractive -> SCREEN_OFF_RECHECK_MS
+                            currentlyBlocked != null -> BLOCKED_RECHECK_MS
+                            else -> POLL_INTERVAL_MS
+                        }
+                    )
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -273,6 +294,22 @@ class SoberCoreService : Service() {
             foregroundSignal.packages.collect { packageName ->
                 try {
                     policyMutex.withLock { applyPolicy(packageName) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    currentlyBlocked = null
+                    overlayController.hide()
+                }
+            }
+        }
+
+        // The system task switcher means the user left the app. It is chrome,
+        // not a package to hold a block over, so the cover clears and comes
+        // back if the blocked app is resumed from the switcher.
+        scope.launch {
+            foregroundSignal.taskSwitcher.collect {
+                try {
+                    policyMutex.withLock { applyPolicy(null) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -682,6 +719,14 @@ class SoberCoreService : Service() {
          * unlocking short while doing no UsageStats or database work overnight.
          */
         private const val SCREEN_OFF_RECHECK_MS = 5_000L
+
+        /**
+         * While a block screen is up, only the foreground app is worth
+         * re-reading. A quick poll bounds how long the cover can outlive the
+         * user pressing Home, Recents or Back on devices where there is no
+         * Accessibility hint to report the switch.
+         */
+        private const val BLOCKED_RECHECK_MS = 2_000L
 
         /** How often the bedtime window is checked for DND changes. */
         private const val BEDTIME_SYNC_INTERVAL_MS = 60_000L
