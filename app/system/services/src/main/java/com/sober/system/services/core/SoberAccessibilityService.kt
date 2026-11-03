@@ -91,6 +91,7 @@ class SoberAccessibilityService : AccessibilityService() {
     private var enabledRuleIds: Set<String> = emptySet()
     private var monitoredPackages: Set<String> = emptySet()
     private var lastActivityName: String? = null
+    private var lastForegroundHintAtMillis = 0L
     private var lastEvaluatedAtMillis = 0L
     private var lastWebsiteEvaluatedAtMillis = 0L
     private var currentRuleId: String? = null
@@ -219,6 +220,25 @@ class SoberAccessibilityService : AccessibilityService() {
                 return
             }
             accessibilitySettingsGuard.hide()
+        }
+
+        // Returning from the launcher-hosted overview can put an app back on
+        // screen without a window-state change, and usage events on such a
+        // device report no resume either — so a cover that cleared for the
+        // launcher would never come back. A content event from the *active*
+        // window is the signal left; the active-window check is what keeps a
+        // background app from promoting itself. The engine dedupes repeats, and
+        // the throttle keeps a scrolling feed from paying for a binder call on
+        // every frame.
+        if (type == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            val now = SystemClock.uptimeMillis()
+            if (now - lastForegroundHintAtMillis >= FOREGROUND_HINT_THROTTLE_MS) {
+                val rootPackage = rootInActiveWindow?.packageName?.toString()
+                if (rootPackage == packageName) {
+                    lastForegroundHintAtMillis = now
+                    foregroundSignal.report(packageName)
+                }
+            }
         }
 
         // A recording is passive: it reads the screen the user walked to and
@@ -419,6 +439,13 @@ class SoberAccessibilityService : AccessibilityService() {
          * enough to catch a tab switch and cheap enough for a scrolling app.
          */
         const val CONTENT_THROTTLE_MS = 250L
+
+        /**
+         * One content-driven foreground hint a second is enough to recover a
+         * missed transition, and rare enough that an active feed scrolling at
+         * 60 fps costs one binder call per second rather than sixty.
+         */
+        const val FOREGROUND_HINT_THROTTLE_MS = 1_000L
 
         /**
          * A recording older than this is not the screen the user meant any
