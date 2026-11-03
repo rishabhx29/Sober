@@ -1033,6 +1033,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 | realme / OPPO | Accessibility binding resets after reinstall | `settings put secure enabled_accessibility_services com.sober.app/com.sober.system.services.core.SoberAccessibilityService`, then verify via `dumpsys accessibility` |
 | Emulator | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` when installing a debug APK | The AVD already holds the release-signed package. Install a release build signed with the same key (same `versionCode` works with `adb install -r`), or uninstall first — which deletes the app's setup state |
 
+### 12.4 Release Publishing
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `gh release create v1.5 "path/app-release.apk#Sober-1.5.apk"` publishes the asset as `app-release.apk` | Some `gh` versions ignore the `#display-name` suffix | Rename the uploaded asset through the API: `gh api -X PATCH repos/OWNER/REPO/releases/assets/<id> -f name=Sober-1.5.apk`. Then download the asset back and compare `sha256sum` with the local build — that proves the uploaded bytes, not just the name |
+| The checksum in the README does not match the asset | The APK was rebuilt after the checksum was written, or a stale local file was uploaded | Rebuild with the bumped `versionCode`, re-verify `apksigner`/`aapt2`, write the new file hash into the README, and upload that exact file. Never upload a second build under an existing version name |
+| Obtainium users see no update | `versionCode` was not increased, or the release is a draft / pre-release | `versionCode` must rise by one per published version, the release must be public, and the signing key must stay the same |
+
+
 ---
 
 > **End of Guide v1.0** — This document grows with the project. New sections will be added by the Guide Agent as development progresses.
