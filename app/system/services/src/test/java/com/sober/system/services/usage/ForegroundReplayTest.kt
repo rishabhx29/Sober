@@ -73,4 +73,77 @@ class ForegroundReplayTest {
     fun `a resume without a package name is not treated as an app`() {
         assertNull(replayForeground(listOf(resumed("")), "com.youtube", ignored))
     }
+
+    @Test
+    fun `closing a launcher-hosted overview restores the app underneath`() {
+        val events = listOf(resumed("com.launcher"), paused("com.launcher"))
+
+        assertEquals(
+            "com.youtube",
+            replayForeground(events, "com.youtube", ignored, launcherPackages = setOf("com.launcher"))
+        )
+    }
+
+    @Test
+    fun `the app the launcher replaced survives a later replay`() {
+        val first = replayForegroundState(
+            listOf(resumed("com.launcher")),
+            initialForeground = "com.youtube",
+            initialLastApp = null,
+            ignoredPackages = ignored,
+            launcherPackages = setOf("com.launcher")
+        )
+        assertNull(first.foreground)
+        assertEquals("com.youtube", first.lastApp)
+
+        val second = replayForegroundState(
+            listOf(paused("com.launcher")),
+            initialForeground = first.foreground,
+            initialLastApp = first.lastApp,
+            ignoredPackages = ignored,
+            launcherPackages = setOf("com.launcher")
+        )
+        assertEquals("com.youtube", second.foreground)
+    }
+
+    @Test
+    fun `a launcher pause without a known previous app stays empty`() {
+        val events = listOf(resumed("com.launcher"), paused("com.launcher"))
+
+        assertNull(replayForeground(events, null, ignored, launcherPackages = setOf("com.launcher")))
+    }
+
+    @Test
+    fun `a pause of sober itself does not restore the app underneath`() {
+        val events = listOf(resumed("com.sober.app"), paused("com.sober.app"))
+
+        assertNull(
+            replayForeground(events, "com.youtube", ignored, launcherPackages = setOf("com.launcher"))
+        )
+    }
+
+    @Test
+    fun `a real resume after the launcher wins over the previous app`() {
+        val events = listOf(
+            resumed("com.launcher"),
+            resumed("com.chrome"),
+            paused("com.launcher")
+        )
+
+        assertEquals("com.chrome", replayForeground(events, "com.youtube", ignored))
+    }
+
+    @Test
+    fun `screen off forgets the app the launcher replaced`() {
+        val state = replayForegroundState(
+            listOf(screenOff),
+            initialForeground = null,
+            initialLastApp = "com.youtube",
+            ignoredPackages = ignored,
+            launcherPackages = setOf("com.launcher")
+        )
+
+        assertNull(state.foreground)
+        assertNull(state.lastApp)
+    }
 }

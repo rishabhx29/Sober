@@ -59,6 +59,15 @@ class UsageStatsRepositoryImpl @Inject constructor(
     }
 
     /**
+     * The one ignored package whose pause means "the app underneath came
+     * back". Sober's own pause must not be read that way: opening Sober and
+     * then pressing Home would resurrect the app the user just left.
+     */
+    private val launcherPackages: Set<String> by lazy {
+        setOfNotNull(homePackage)
+    }
+
+    /**
      * The answer from the previous poll.
      *
      * Usage events only describe *changes*. A user watching a long video emits
@@ -70,6 +79,14 @@ class UsageStatsRepositoryImpl @Inject constructor(
      * state correct without widening the query every cycle.
      */
     private var cachedForeground: String? = null
+
+    /**
+     * The last real app on screen, kept while the launcher is. On devices whose
+     * overview belongs to the launcher, closing it resumes the app underneath
+     * without a resume event — only the launcher's own pause — so this is the
+     * only way the poll can learn the app came back.
+     */
+    private var cachedLastApp: String? = null
     private var cacheInitialized = false
 
     override fun getUsageStatsForToday(): List<AppUsage> {
@@ -109,7 +126,15 @@ class UsageStatsRepositoryImpl @Inject constructor(
         if (!cacheInitialized) {
             val history = readEvents(endTime - INITIAL_LOOKBACK_MS, endTime) ?: return null
             cacheInitialized = true
-            cachedForeground = replayForeground(history, initial = null, excludedPackages)
+            val replay = replayForegroundState(
+                history,
+                initialForeground = null,
+                initialLastApp = null,
+                ignoredPackages = excludedPackages,
+                launcherPackages = launcherPackages
+            )
+            cachedForeground = replay.foreground
+            cachedLastApp = replay.lastApp
             return cachedForeground
         }
 
@@ -118,7 +143,15 @@ class UsageStatsRepositoryImpl @Inject constructor(
         // is. Replaying an empty window would only repeat the cached answer.
         if (recent.isEmpty()) return cachedForeground
 
-        cachedForeground = replayForeground(recent, cachedForeground, excludedPackages)
+        val replay = replayForegroundState(
+            recent,
+            initialForeground = cachedForeground,
+            initialLastApp = cachedLastApp,
+            ignoredPackages = excludedPackages,
+            launcherPackages = launcherPackages
+        )
+        cachedForeground = replay.foreground
+        cachedLastApp = replay.lastApp
         return cachedForeground
     }
 
@@ -299,34 +332,82 @@ internal data class ForegroundEvent(
 )
 
 /**
+ * The answer of a replay: what is on screen and, separately, the last real app
+ * it saw. The second value outlives a launcher visit, which is what lets a
+ * later replay recognise the app coming back.
+ */
+internal data class ForegroundReplay(
+    val foreground: String?,
+    val lastApp: String?
+)
+
+/**
  * Folds [events], in timestamp order, into the package on screen.
  *
- * [initial] is the answer from the previous call. Events only report changes,
- * so starting from the last known screen is what keeps an eventless stretch of
- * use resolving to the app that is open. [ignoredPackages] (Sober itself and
- * the launcher) map to "nothing to block".
+ * [initialForeground] and [initialLastApp] carry the previous call's answer.
+ * Events only report changes, so starting from the last known screen is what
+ * keeps an eventless stretch of use resolving to the app that is open.
+ * [ignoredPackages] (Sober itself and the launcher) map to "nothing to block".
+ *
+ * A [launcherPackages] pause with nothing resuming is read as the app underneath
+ * coming back. Launcher-hosted overviews resume the app without a resume event,
+ * so without this rule the poll reports "nothing on screen" from then on and a
+ * block that had already cleared for the launcher cannot return.
  */
-internal fun replayForeground(
+internal fun replayForegroundState(
     events: List<ForegroundEvent>,
-    initial: String?,
-    ignoredPackages: Set<String>
-): String? {
-    var foreground = initial
+    initialForeground: String?,
+    initialLastApp: String?,
+    ignoredPackages: Set<String>,
+    launcherPackages: Set<String>
+): ForegroundReplay {
+    var foreground = initialForeground
+    var lastApp = initialLastApp ?: initialForeground?.takeUnless { it in ignoredPackages }
+
     events.forEach { event ->
         when (event.kind) {
             ForegroundEventKind.RESUMED ->
-                foreground = event.packageName.takeUnless {
-                    it.isEmpty() || it in ignoredPackages
+                when {
+                    event.packageName.isEmpty() -> foreground = null
+                    event.packageName in ignoredPackages -> foreground = null
+                    else -> {
+                        foreground = event.packageName
+                        lastApp = event.packageName
+                    }
                 }
             // Only clear if the pausing app is the one we think is on screen; a
             // stale background event from another app must not wipe it.
             ForegroundEventKind.PAUSED ->
-                if (event.packageName == foreground) foreground = null
-            ForegroundEventKind.SCREEN_OFF -> foreground = null
+                when {
+                    event.packageName == foreground -> foreground = null
+                    event.packageName in launcherPackages && foreground == null ->
+                        foreground = lastApp
+                    else -> {}
+                }
+            // The lock screen is a real "nothing on screen", unlike the
+            // launcher: the app underneath must not be restored on return.
+            ForegroundEventKind.SCREEN_OFF -> {
+                foreground = null
+                lastApp = null
+            }
         }
     }
-    return foreground
+    return ForegroundReplay(foreground = foreground, lastApp = lastApp)
 }
+
+/** [replayForegroundState] without the carried state, for a standalone replay. */
+internal fun replayForeground(
+    events: List<ForegroundEvent>,
+    initial: String?,
+    ignoredPackages: Set<String>,
+    launcherPackages: Set<String> = ignoredPackages
+): String? = replayForegroundState(
+    events = events,
+    initialForeground = initial,
+    initialLastApp = null,
+    ignoredPackages = ignoredPackages,
+    launcherPackages = launcherPackages
+).foreground
 
 internal data class PackageUsage(val millis: Long, val lastResumedAt: Long)
 
