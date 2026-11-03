@@ -103,6 +103,7 @@ fun SettingsScreen(
     onBack: (() -> Unit)?,
     onOpenSchedules: () -> Unit,
     onOpenCustomRules: () -> Unit,
+    onOpenHealthCheck: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val dailyLimitMinutes by viewModel.dailyScreenTimeLimitMinutes.collectAsState()
@@ -800,6 +801,18 @@ fun SettingsScreen(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // This list answers "is the switch on". The health check answers the
+        // harder question — whether the service is actually running — so it
+        // gets its own entry rather than a fourth status column here.
+        SoberListRow(
+            title = "Health check",
+            subtitle = "Permissions, the section service, battery exemption and a block preview.",
+            showChevron = true,
+            onClick = onOpenHealthCheck
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 

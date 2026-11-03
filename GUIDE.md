@@ -917,6 +917,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Model the challenge as its own value (`ActiveChallenge`, `ChallengeProgress`) with an explicit `startedOn`, and compute target dates once in `challengeTargetDates`. Day one is the day *after* opt-in: a promise made at 9pm must not be judged by what already happened that morning, and a Saturday opt-in for "quiet weekend" should wait for the next Saturday rather than half-count the current one. Only days strictly before today can pass or fail, so the card never claims a day that is still running. Record the failure date, not just a boolean, so the UI can say when the run ended. Share the rule, not the mechanism: `CalculateStreakUseCase.cleanDates` exposes the same per-day limit decision the streak uses, while the social challenges use their own "no social usage" check and treat an unobserved day as quiet — documented in code because it is a deliberate asymmetry. Completion is explicit (`finish` re-derives the result from storage before recording) so reading the screen never has side effects and a stale card cannot hand out a badge early.
 
+### 11.41 A Switch Is Not a Service
+
+**Date**: 2026-11-03  
+**Context**: F16's health check. The Settings permission list read `Settings.Secure` and reported Accessibility as "Granted". Users still reported that section blocking had stopped, and the switch really was on: Android can keep the switch on while the service is not bound, after a force-stop or a background kill.
+
+**Learning**: A settings flag records intent, not liveness. Persisting a heartbeat to disk makes it worse: a timestamp written before the crash survives the crash, so the screen would confidently report a dead service as recently alive. The only honest evidence is state that dies with the process — an in-memory flag written by the service itself. The same reasoning applies to the enforcement engine, which is a foreground service in the same process and can be stopped without any switch changing.
+
+**Solution/Pattern**: `ServiceLiveness` holds volatile flags set on `onServiceConnected`/`onCreate` and cleared on `onUnbind`/`onDestroy`, plus the time of the last delivered accessibility event using `SystemClock.elapsedRealtime` (it keeps counting in deep sleep and cannot be moved by changing the wall clock). The health screen reads enabled (Settings), connected (flag) and event age (flag) as three separate facts, so "on but not connected" is its own sentence rather than a green row. Re-read on `ON_RESUME`, because every fix happens on a system screen; tick the relative age every 15 seconds while the screen is open so "last event 2 h ago" does not silently age into a lie. A preview of the block screen reuses the real composable with inert callbacks and an always-visible Close, so it tests layout and copy without pretending to be enforcement.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

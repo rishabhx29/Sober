@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import com.sober.core.common.runtime.ServiceLiveness
 import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PauseRulesRepository
@@ -172,6 +173,7 @@ class SoberCoreService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        ServiceLiveness.engineStarted()
         createNotificationChannel()
         createDailyCapChannel()
         // Started here, not in onStartCommand: each start() call delivers another
@@ -589,6 +591,7 @@ class SoberCoreService : Service() {
     }
 
     override fun onDestroy() {
+        ServiceLiveness.engineStopped()
         super.onDestroy()
         overlayController.hide()
         pauseOverlayController.hide()

@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.sober.core.common.accessibility.AccessibilitySettingsDetector
+import com.sober.core.common.runtime.ServiceLiveness
 import com.sober.core.domain.model.BrowserCatalog
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
@@ -81,6 +82,7 @@ class SoberAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        ServiceLiveness.accessibilityConnected()
 
         // viewIdResourceName is null without FLAG_REPORT_VIEW_IDS, which would
         // make every RESOURCE_ID / SELECTED_TAB rule silently never match.
@@ -125,6 +127,9 @@ class SoberAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val target = event ?: return
+        // Any event proves the system is still delivering to us. Recorded
+        // before the filters below so a quiet screen still looks alive.
+        ServiceLiveness.accessibilityEventSeen()
         val type = target.eventType
         if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
@@ -198,6 +203,7 @@ class SoberAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         clearBlock()
         accessibilitySettingsGuard.hide()
+        ServiceLiveness.accessibilityDisconnected()
         scope.cancel()
         super.onDestroy()
     }
@@ -205,6 +211,7 @@ class SoberAccessibilityService : AccessibilityService() {
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         clearBlock()
         accessibilitySettingsGuard.hide()
+        ServiceLiveness.accessibilityDisconnected()
         return super.onUnbind(intent)
     }
 

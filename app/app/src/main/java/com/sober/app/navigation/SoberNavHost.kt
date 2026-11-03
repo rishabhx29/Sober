@@ -16,11 +16,13 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.sober.app.SoberStartViewModel
+import com.sober.app.ui.BlockPreviewScreen
 import com.sober.feature.apps.AppsScreen
 import com.sober.feature.focus.FocusScreen
 import com.sober.feature.home.HomeScreen
 import com.sober.feature.settings.SettingsScreen
 import com.sober.feature.settings.customrules.CustomRulesScreen
+import com.sober.feature.settings.health.HealthCheckScreen
 import com.sober.feature.settings.onboarding.OnboardingScreen
 import com.sober.feature.settings.schedules.SchedulesScreen
 import com.sober.feature.stats.StatsScreen
@@ -35,6 +37,8 @@ object SoberDestinations {
     const val SETTINGS = "settings"
     const val SCHEDULES = "schedules"
     const val CUSTOM_RULES = "custom_rules"
+    const val HEALTH_CHECK = "health_check"
+    const val BLOCK_PREVIEW = "block_preview"
 }
 
 /**
@@ -118,8 +122,19 @@ fun SoberNavHost(
                 // the sub-screens below keep theirs.
                 onBack = null,
                 onOpenSchedules = { navController.navigate(SoberDestinations.SCHEDULES) },
-                onOpenCustomRules = { navController.navigate(SoberDestinations.CUSTOM_RULES) }
+                onOpenCustomRules = { navController.navigate(SoberDestinations.CUSTOM_RULES) },
+                onOpenHealthCheck = { navController.navigate(SoberDestinations.HEALTH_CHECK) }
             )
+        }
+        composable(SoberDestinations.HEALTH_CHECK) {
+            HealthCheckScreen(
+                onBack = { navController.popBackStack() },
+                onStartEngine = { SoberCoreService.start(context) },
+                onPreviewBlock = { navController.navigate(SoberDestinations.BLOCK_PREVIEW) }
+            )
+        }
+        composable(SoberDestinations.BLOCK_PREVIEW) {
+            BlockPreviewScreen(onClose = { navController.popBackStack() })
         }
         composable(SoberDestinations.SCHEDULES) {
             SchedulesScreen(onBack = { navController.popBackStack() })
