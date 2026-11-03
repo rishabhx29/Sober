@@ -962,6 +962,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Publish metadata where the builders look for it — `fastlane/metadata/android/en-US/` with title, summary, full description, screenshots, a changelog keyed by `versionCode`, and a 512 px icon — so both F-Droid and IzzyOnDroid read the same source. Keep a ready-to-submit recipe in `docs/fdroiddata/` pinned to the released tag, and document that the F-Droid entry is *not* live instead of implying it is. Point Obtainium at the existing GitHub repository and explain it needs no extra artifacts. Verify the recipe's fragile part — the relative `output:` path — by building `:app:assembleRelease` without signing env vars and confirming `app-release-unsigned.apk` appears where the recipe says. Describe reproducibility as a direction with current facts: source-only build, no secrets required, no `INTERNET` permission, and an explicit statement that bit-for-bit equality is not claimed.
 
+### 11.46 Recording Is a Privileged Read, So It Needs a Protocol
+
+**Date**: 2026-11-03  
+**Context**: F10a lets the user author a section rule for an app the shipped catalog does not cover. The obvious design — a picker inside Sober — cannot work: the node tree belonging to another app is only readable while that app is in the foreground, and only by the Accessibility service.
+
+**Learning**: The capture is therefore split across two processes and a period where Sober is not visible. Three things follow. First, the request must be persisted *before* the target app opens, or the service can miss the first screen while the user is still looking at Sober. Second, ending the recording cannot be "the user returned", because returning can also mean a rotation or a trip to system Settings; it has to be "a result for the requested package exists". Third, the result outlives the request, since the user may not review it for hours — so the UI has three states (recording, review, start) rather than a single "in progress" flag. Candidate generation is deliberately narrow: a selected tab is a strong signal, the foreground activity is a weak one that may mean the whole app, and a bare resource id is never offered because nav containers match every screen.
+
+**Solution/Pattern**: Model the interaction as arm → leave → return, with the request and result as separate DataStore values. Scope a tab rule to the activity the capture saw, since the same resource id can exist on several screens; an activity candidate is the match itself and needs no scope. Save the rule and switch its id on in one edit, so a crash cannot leave an enabled id with no rule. When restoring from a backup, mint new ids: an id names a row in one device's store, and keeping it would collide with whatever the destination device already has.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

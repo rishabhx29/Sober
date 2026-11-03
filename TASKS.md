@@ -1232,12 +1232,14 @@ promise: no feature here needs internet permission.
   reviewers and an honest reproducibility statement (source build, no secrets,
   no `INTERNET`, no bit-for-bit claim). The listing is not live and was not
   submitted.*
-- [ ] F10a — User-assisted section picker — *let the user record a section rule
-  by inspecting the live node tree (selected tab or screen id) and name it. The
-  backlog calls for this so apps outside the shipped catalogue (Facebook, local
-  apps) can be covered without guessing ids. Needs a capture surface, a
-  persisted user-rule store and a review UI; the catalog parser stays the
-  trusted baseline.*
+- [x] F10a — User-assisted section picker — *record a section rule from the
+  live node tree instead of guessing ids. The app sheet offers "Record a
+  section": arming writes a package-scoped request, the Accessibility service
+  reports the tabs that were highlighted plus the foreground activity, and the
+  return to Sober turns the result into a review card. The chosen candidate is
+  saved as a custom `DetectionRule` in one DataStore edit (rule + enabled id),
+  merged live by the service and exported in backup format 2. Catalog rules
+  stay the trusted baseline; a recorded rule can be removed from the sheet.*
 
 > **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
 > and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass;
@@ -1278,6 +1280,14 @@ promise: no feature here needs internet permission.
 > `full_description.txt` is 2,706 of 4,000 chars and the summary 54 of 80. The
 > F-Droid listing was not submitted (that needs a fdroiddata merge request) and
 > Obtainium was not exercised against the repository.
+> F10a is compile- and unit-tested — `SuggestSectionCandidatesUseCaseTest` 6/6,
+> `SectionRuleCodecTest` 8/8, `SectionCaptureCodecTest` 6/6 and
+> `BackupCodecTest` 6/6 (including a version 1 file) — and the full suite is
+> 515/515 with `:app:assembleDebug` green. The capture walk itself was not run
+> on a device: arming a recording, opening a real app, the service writing the
+> selected tabs, the review card and removal are all unverified end to end. No
+> installed app was checked for whether it marks its tabs `isSelected`, which is
+> the signal the picker depends on.
 
 ---
 
@@ -1485,6 +1495,11 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F4 | completed | Implementation Agent | Quick Settings tile and home widget. `SoberTileService` toggles a 15-minute pause, resumes it, and refuses while locked by opening the app; `SoberStatusWidgetProvider` plus a non-exported action receiver render a RemoteViews card with pause-or-resume, and body taps open Sober. The engine observes pause/lock/session flows and broadcasts a refresh only on change, so updates are immediate without polling the widget. Emulator walk: tile added/paused/resumed; widget added, pause and resume both applied and re-rendered, body opened `MainActivity`. Release build signs and installs over v1.3. Locked-tile and focus-session widget copy not exercised |
 | 2026-11-03 | F10 | completed | Implementation Agent | Wider browser coverage. `BrowserCatalog` now lists 18 packages across four families: Chromium forks on `url_bar`, Firefox/Beta/Nightly on the Android Components toolbar id, Opera/Opera Mini on `url_field`, DuckDuckGo on `omnibarTextInput`, plus Samsung Internet. `BrowserCatalogTest` (4 tests) pins the package-namespaced id rule, uniqueness and the mainstream set. Limit copy added to the website section and the README. Facebook rules were deliberately not added because its tab ids could not be verified; the picker that would let users author such rules is tracked as F10a. Ids are not yet checked against installed browsers |
 | 2026-11-03 | F10a | added | Task Tracker Agent | User-assisted section picker, split out of F10: record a rule from the live node tree so apps outside the shipped catalogue can be covered without guessing resource ids |
+| 2026-11-03 | F10a-store | completed | Implementation Agent | Recorded-rule storage. `DetectionRule` gains the custom path through `CustomSectionRuleRepository` (add/dedupe/remove) backed by an escaped `id\|package\|...` codec in one DataStore string set, plus a package-scoped capture request/result slot. `SectionRuleCodecTest` 8/8, `SectionCaptureCodecTest` 6/6 |
+| 2026-11-03 | F10a-capture | completed | Implementation Agent | The Accessibility service arms one recording at a time and reports the selected-tab candidates with their owner resource id, nearest label and the foreground activity. Custom rules are merged with the shipped catalog at runtime, so a saved rule takes effect without restarting the service. Candidates stay SELECTED_TAB/ACTIVITY only; a RESOURCE_ID match would hit nav containers |
+| 2026-11-03 | F10a-review | completed | Implementation Agent | The app sheet gains "Record a section": recording card (open the app), review card (radio candidates plus an editable name) and save/discard. Finished captures survive leaving the sheet, and `ON_RESUME` only ends a recording whose result came from the requested package. Recorded rows can be removed; catalog rows cannot. `:feature:apps` compiles, 11/11 tests |
+| 2026-11-03 | F10a-backup | completed | Implementation Agent | Backup format 2 carries recorded section rules with their enabled flag. Restore drops any `custom:` id from the stored enabled set, mints fresh ids, rebuilds the enabled set from the document and collapses duplicates; version 1 files still restore. `BackupCodecTest` 6/6 |
+| 2026-11-03 | F10a | completed | QA Agent | Full suite 515/515 and `:app:assembleDebug` green. End-to-end capture on a device is unverified: arming, opening a real app, the service writing selected tabs, review and removal were not walked, and no installed app was checked for `isSelected` tab semantics |
 | 2026-11-03 | F12 | completed | Implementation Agent | Saved reason. `YourReason.normalize` (trim, collapse whitespace, 120-char cap) runs in the DataStore setter so stored and rendered values agree; Settings → Protection gains an Add/Edit dialog with a live counter; the overlay collects the value on construction and renders it under a "YOUR REASON" eyebrow in place of the quote. `YourReasonTest` 4/4, `BlockOverlayScreenTest` gained a reason case. Device walk pending |
 | 2026-11-03 | F11 | completed | Implementation Agent | Reflection before unlock. The override wait now ends in a panel asking "What will you do instead?", listing three time-of-day alternatives and the user's reason. Choosing an alternative cancels the request; only "Open {app} anyway" grants. `reflectionSuggestions` is a pure function (boundaries tested 2/2), and the panel's presence is asserted in `BlockOverlayScreenTest`. The grant path still re-checks stored state. Device walk pending |
 | 2026-11-03 | F19 | completed | Implementation Agent | Launcher shortcuts and automation intents. `shortcuts.xml` declares Study/Work/Gym/Sleep; each sends `com.sober.app.action.START_PRESET` with a `preset` extra to `MainActivity`, which forwards it to `ShortcutViewModel`. `FocusShortcut.presetFor` owns parsing (case-insensitive, unknown → ignored). The session is built by `PresetResolver` on IO and the app lands on Focus. Refuses before onboarding and while a session is active, so the stored active-session pointer cannot be overwritten. No weakening action is exported. `FocusShortcutTest` 4/4, `:app:assembleDebug` green. Device walk pending |

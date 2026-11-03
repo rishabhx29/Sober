@@ -34,7 +34,7 @@ permission at all.
 | **Overall daily cap** | One budget for the whole phone, on top of individual limits. When it runs out, Sober blocks the apps you have not left out. A **Choose apps** picker in Settings decides what the cap covers, and Home, Settings, System UI and the keyboard are never blocked. |
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
-| **Section blocking** | Use Android's Accessibility API to close just the distracting section of an app: Instagram Reels and Explore, YouTube Shorts, a selected tab. Blocking a section never blocks the whole app. |
+| **Section blocking** | Use Android's Accessibility API to close just the distracting section of an app: Instagram Reels and Explore, YouTube Shorts, a selected tab. Blocking a section never blocks the whole app. Apps outside the shipped catalog can be covered too: record the section from the live screen in the app sheet and pick the tab Sober saw. |
 | **Website blocking** | Keep a domain closed inside the browser. Sober reads the address bar (Chrome verified; Chromium, Brave, Edge, Vivaldi, Firefox, Firefox Beta/Nightly, Opera, Opera Mini, DuckDuckGo, Samsung Internet and other Chromium forks best-effort), so a blocked site and all its subdomains are covered without a VPN and without the app ever sending traffic anywhere. In-app browsers and Custom Tabs are not readable — block the host app instead. |
 | **Custom rules** | Keep a named app or website closed, or mute notifications that contain a word you choose, at any hour. |
 | **Schedules** | Block chosen apps during set hours on set days. Useful for sleep, work, and school. |
@@ -348,7 +348,10 @@ automated tests.
 Section rules ship as a catalog with a package name and a tab or section id per
 app. Those ids are validated against the bundled rules, but app updates change
 their internals regularly; a rule that no longer matches degrades to blocking the
-whole app rather than doing nothing.
+whole app rather than doing nothing. Recorded rules avoid the guessing: Sober
+reads the highlighted tab while you stand on the section, and the rule you keep
+only applies to the screen it was recorded on. If an app does not mark its tabs
+as selected, the recording comes back empty rather than inventing a rule.
 
 ---
 
