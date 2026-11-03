@@ -8,5 +8,22 @@
   },
   "media": {
     "autoProxy": true
-  }
+  },
+  "registryItems": [
+    {
+      "name": "device-frame-stage",
+      "type": "hyperframes:component",
+      "target": "compositions/components/device-frame-stage.html"
+    },
+    {
+      "name": "number-pop-in",
+      "type": "hyperframes:component",
+      "target": "compositions/components/number-pop-in.html"
+    },
+    {
+      "name": "text-stagger",
+      "type": "hyperframes:component",
+      "target": "compositions/components/text-stagger.html"
+    }
+  ]
 }
