@@ -7,17 +7,23 @@ import android.view.accessibility.AccessibilityEvent
 import com.sober.core.common.accessibility.AccessibilitySettingsDetector
 import com.sober.core.common.runtime.ServiceLiveness
 import com.sober.core.domain.model.BrowserCatalog
+import com.sober.core.domain.model.CapturedSection
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.DetectionRule
+import com.sober.core.domain.model.SectionCaptureRequest
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.CustomRuleRepository
+import com.sober.core.domain.repository.CustomSectionRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
+import com.sober.core.domain.repository.SectionCaptureRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.usecase.DetectBlockedSectionUseCase
 import com.sober.core.domain.usecase.DetectBlockedWebsiteUseCase
+import com.sober.core.domain.usecase.SuggestSectionCandidatesUseCase
 import com.sober.system.overlay.ui.SectionBlockOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
+import com.sober.system.services.sections.SectionCaptureReader
 import com.sober.system.services.sections.SectionSnapshotReader
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +57,15 @@ class SoberAccessibilityService : AccessibilityService() {
     lateinit var sectionRulePreferencesRepository: SectionRulePreferencesRepository
 
     @Inject
+    lateinit var customSectionRuleRepository: CustomSectionRuleRepository
+
+    @Inject
+    lateinit var sectionCaptureRepository: SectionCaptureRepository
+
+    @Inject
+    lateinit var suggestSectionCandidatesUseCase: SuggestSectionCandidatesUseCase
+
+    @Inject
     lateinit var detectBlockedSectionUseCase: DetectBlockedSectionUseCase
 
     @Inject
@@ -71,6 +86,7 @@ class SoberAccessibilityService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private var catalog: DetectionRuleCatalog = DetectionRuleCatalog.EMPTY
+    private var customRules: List<DetectionRule> = emptyList()
     private var enabledRuleIds: Set<String> = emptySet()
     private var monitoredPackages: Set<String> = emptySet()
     private var lastActivityName: String? = null
@@ -79,6 +95,13 @@ class SoberAccessibilityService : AccessibilityService() {
     private var currentRuleId: String? = null
     private var currentWebsiteDomain: String? = null
     private var blockedDomains: Set<String> = emptySet()
+    private var captureRequest: SectionCaptureRequest? = null
+    private var lastCaptureAtMillis = 0L
+    private var lastCaptured: CapturedSection? = null
+
+    /** Shipped rules plus anything the user recorded, in that order. */
+    private val allRules: List<DetectionRule>
+        get() = catalog.rules + customRules
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -104,9 +127,33 @@ class SoberAccessibilityService : AccessibilityService() {
                 refreshMonitoredPackages()
                 // A rule switched off while its section is on screen must
                 // release the overlay without waiting for the next app switch.
-                if (catalog.rules.none { rule -> rule.id in enabledRuleIds && rule.id == currentRuleId }) {
+                if (allRules.none { rule -> rule.id in enabledRuleIds && rule.id == currentRuleId }) {
                     clearBlock()
                 }
+            }
+        }
+        scope.launch {
+            customSectionRuleRepository.rules().collect { rules ->
+                customRules = rules
+                refreshMonitoredPackages()
+                // Removing a recorded rule while its section is on screen must
+                // release the cover immediately, like switching one off does.
+                if (currentRuleId != null &&
+                    allRules.none { it.id == currentRuleId && it.id in enabledRuleIds }
+                ) {
+                    clearBlock()
+                }
+            }
+        }
+        scope.launch {
+            sectionCaptureRepository.request().collect { request ->
+                if (request?.packageName != captureRequest?.packageName) {
+                    // A new recording starts clean: the previous result belongs
+                    // to another app and must not be read as this one's screen.
+                    lastCaptured = null
+                    lastCaptureAtMillis = 0L
+                }
+                captureRequest = request
             }
         }
         scope.launch {
@@ -164,6 +211,13 @@ class SoberAccessibilityService : AccessibilityService() {
             accessibilitySettingsGuard.hide()
         }
 
+        // A recording is passive: it reads the screen the user walked to and
+        // never adds a block of its own. It runs before the package filters so
+        // an app outside the shipped catalog can still be recorded.
+        if (captureRequest?.packageName == packageName) {
+            recordCapture(packageName, type)
+        }
+
         // Browsers are not section-rule packages. They are evaluated on their
         // own signal — the host in the address bar — so the section matcher,
         // which reads tabs and resource ids, has nothing to do here.
@@ -191,7 +245,7 @@ class SoberAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow?.takeIf { it.packageName == packageName } ?: return
 
         val snapshot = SectionSnapshotReader.read(packageName, lastActivityName, root)
-        val match = detectBlockedSectionUseCase(snapshot, catalog.rules, enabledRuleIds)
+        val match = detectBlockedSectionUseCase(snapshot, allRules, enabledRuleIds)
         if (match == null) clearBlock() else showBlock(match)
     }
 
@@ -229,11 +283,51 @@ class SoberAccessibilityService : AccessibilityService() {
     }
 
     private fun refreshMonitoredPackages() {
-        monitoredPackages = catalog.rules
+        monitoredPackages = allRules
             .asSequence()
             .filter { it.id in enabledRuleIds }
             .map { it.packageName }
             .toSet()
+    }
+
+    /**
+     * Saves the selected-tab signals of the screen the user walked to.
+     *
+     * Only a changed result is written: a scrolling feed fires content events
+     * constantly, and rewriting the same record dozens of times a second would
+     * cost battery for no new information.
+     */
+    private fun recordCapture(packageName: String, eventType: Int) {
+        val request = captureRequest ?: return
+        val now = System.currentTimeMillis()
+        if (now - request.requestedAt > CAPTURE_MAX_AGE_MS) return
+
+        val isStateChange = eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val elapsed = SystemClock.uptimeMillis()
+        if (!isStateChange && elapsed - lastCaptureAtMillis < CONTENT_THROTTLE_MS) return
+        lastCaptureAtMillis = elapsed
+
+        val root = rootInActiveWindow?.takeIf { it.packageName == packageName } ?: return
+        val captured = CapturedSection(
+            packageName = packageName,
+            activityName = lastActivityName,
+            capturedAt = now,
+            candidates = suggestSectionCandidatesUseCase(
+                activityName = lastActivityName,
+                selected = SectionCaptureReader.readSelected(root)
+            )
+        )
+
+        val previous = lastCaptured
+        if (previous != null &&
+            previous.packageName == captured.packageName &&
+            previous.activityName == captured.activityName &&
+            previous.candidates == captured.candidates
+        ) {
+            return
+        }
+        lastCaptured = captured
+        scope.launch { sectionCaptureRepository.record(captured) }
     }
 
     /**
@@ -315,5 +409,12 @@ class SoberAccessibilityService : AccessibilityService() {
          * enough to catch a tab switch and cheap enough for a scrolling app.
          */
         const val CONTENT_THROTTLE_MS = 250L
+
+        /**
+         * A recording older than this is not the screen the user meant any
+         * more. The screen ends it when they return; this stops a forgotten
+         * recording from turning a much later screen into a rule.
+         */
+        const val CAPTURE_MAX_AGE_MS = 10 * 60 * 1000L
     }
 }
