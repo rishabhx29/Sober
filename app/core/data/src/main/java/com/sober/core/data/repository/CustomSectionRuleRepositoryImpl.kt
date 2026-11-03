@@ -73,7 +73,8 @@ class CustomSectionRuleRepositoryImpl @Inject constructor(
         preferences.removeCustomSectionRule(id)
     }
 
-    private companion object {
+    internal companion object {
+        /** Also tells restore which enabled ids belong to a rule, not the catalog. */
         const val ID_PREFIX = "custom:"
         const val MAX_NAME_LENGTH = 40
     }

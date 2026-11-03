@@ -34,6 +34,26 @@ class BackupCodecTest {
                 BackupCustomRule(type = "BLOCKED_WEBSITE", value = "youtube.com", enabled = true)
             ),
             sectionRules = listOf("instagram_reels"),
+            customSectionRules = listOf(
+                BackupSectionRule(
+                    packageName = "com.reddit.frontpage",
+                    appName = "Reddit",
+                    sectionName = "Popular",
+                    detectionType = "SELECTED_TAB",
+                    detectionValue = "com.reddit.frontpage:id/nav_popular",
+                    overlayTitle = "Popular is blocked",
+                    overlaySubtitle = "The rest of Reddit still works.",
+                    activityValue = "com.reddit.frontpage.MainActivity",
+                    enabled = false
+                ),
+                BackupSectionRule(
+                    packageName = "com.reddit.frontpage",
+                    appName = "Reddit",
+                    sectionName = "Search",
+                    detectionType = "ACTIVITY",
+                    detectionValue = "com.reddit.frontpage.SearchActivity"
+                )
+            ),
             pauseRules = listOf(BackupPauseRule("com.zhiliaoapp.musically", 10)),
             categoryLimits = listOf(BackupCategoryLimit("SOCIAL", 45)),
             allowOnly = BackupAllowOnly(enabled = true, allowedPackages = listOf("com.android.dialer")),
@@ -58,10 +78,22 @@ class BackupCodecTest {
         assertTrue(decoded.appLimits.isEmpty())
         assertTrue(decoded.scheduleRules.isEmpty())
         assertTrue(decoded.customRules.isEmpty())
+        assertTrue(decoded.customSectionRules.isEmpty())
         assertTrue(decoded.categoryLimits.isEmpty())
         assertEquals(null, decoded.allowOnly)
         assertEquals(null, decoded.bedtime)
         assertEquals(null, decoded.dailyCap)
+    }
+
+    @Test
+    fun `a version 1 file still decodes without recorded sections`() {
+        val decoded = codec.decode(
+            """{"format":"sober-backup","version":1,"sectionRules":["instagram_reels"]}"""
+        )
+
+        assertEquals(2, BackupDocument.CURRENT_VERSION)
+        assertEquals(listOf("instagram_reels"), decoded.sectionRules)
+        assertTrue(decoded.customSectionRules.isEmpty())
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -71,7 +103,7 @@ class BackupCodecTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `a file from a newer version is rejected`() {
-        codec.decode("""{"format":"sober-backup","version":2}""")
+        codec.decode("""{"format":"sober-backup","version":3}""")
     }
 
     @Test(expected = IllegalArgumentException::class)

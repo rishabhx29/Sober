@@ -19,6 +19,7 @@ data class BackupDocument(
     val scheduleRules: List<BackupScheduleRule> = emptyList(),
     val customRules: List<BackupCustomRule> = emptyList(),
     val sectionRules: List<String> = emptyList(),
+    val customSectionRules: List<BackupSectionRule> = emptyList(),
     val pauseRules: List<BackupPauseRule> = emptyList(),
     val categoryLimits: List<BackupCategoryLimit> = emptyList(),
     val allowOnly: BackupAllowOnly? = null,
@@ -27,7 +28,12 @@ data class BackupDocument(
 ) {
     companion object {
         const val FORMAT = "sober-backup"
-        const val CURRENT_VERSION = 1
+
+        /**
+         * 2 added user-recorded section rules. The reader still accepts 1, where
+         * that list is simply absent and the shipped toggles are all there is.
+         */
+        const val CURRENT_VERSION = 2
     }
 }
 
@@ -53,6 +59,24 @@ data class BackupScheduleRule(
 data class BackupCustomRule(
     val type: String,
     val value: String,
+    val enabled: Boolean = true
+)
+
+/**
+ * A section the user recorded themselves.
+ *
+ * The rule's id is not stored: restore mints a fresh one, exactly like custom
+ * rules, because the id only names a row in this device's DataStore.
+ */
+data class BackupSectionRule(
+    val packageName: String,
+    val appName: String,
+    val sectionName: String,
+    val detectionType: String,
+    val detectionValue: String,
+    val overlayTitle: String = "",
+    val overlaySubtitle: String = "",
+    val activityValue: String? = null,
     val enabled: Boolean = true
 )
 
@@ -148,6 +172,11 @@ class BackupCodec {
         writer.name("sectionRules")
         writeStringList(writer, document.sectionRules)
 
+        writer.name("customSectionRules")
+        writer.beginArray()
+        document.customSectionRules.forEach { writeSectionRule(writer, it) }
+        writer.endArray()
+
         writer.name("pauseRules")
         writer.beginArray()
         document.pauseRules.forEach { writePauseRule(writer, it) }
@@ -202,6 +231,21 @@ class BackupCodec {
         writer.beginObject()
         writer.name("type").value(value.type)
         writer.name("value").value(value.value)
+        writer.name("enabled").value(value.enabled)
+        writer.endObject()
+    }
+
+    private fun writeSectionRule(writer: JsonWriter, value: BackupSectionRule) {
+        writer.beginObject()
+        writer.name("packageName").value(value.packageName)
+        writer.name("appName").value(value.appName)
+        writer.name("sectionName").value(value.sectionName)
+        writer.name("detectionType").value(value.detectionType)
+        writer.name("detectionValue").value(value.detectionValue)
+        writer.name("overlayTitle").value(value.overlayTitle)
+        writer.name("overlaySubtitle").value(value.overlaySubtitle)
+        writer.name("activityValue")
+        if (value.activityValue == null) writer.nullValue() else writer.value(value.activityValue)
         writer.name("enabled").value(value.enabled)
         writer.endObject()
     }
@@ -261,6 +305,7 @@ class BackupCodec {
         var scheduleRules: List<BackupScheduleRule> = emptyList()
         var customRules: List<BackupCustomRule> = emptyList()
         var sectionRules: List<String> = emptyList()
+        var customSectionRules: List<BackupSectionRule> = emptyList()
         var pauseRules: List<BackupPauseRule> = emptyList()
         var categoryLimits: List<BackupCategoryLimit> = emptyList()
         var allowOnly: BackupAllowOnly? = null
@@ -276,6 +321,7 @@ class BackupCodec {
                 "scheduleRules" -> scheduleRules = readArray(reader) { readScheduleRule(reader) }
                 "customRules" -> customRules = readArray(reader) { readCustomRule(reader) }
                 "sectionRules" -> sectionRules = readStringList(reader)
+                "customSectionRules" -> customSectionRules = readArray(reader) { readSectionRule(reader) }
                 "pauseRules" -> pauseRules = readArray(reader) { readPauseRule(reader) }
                 "categoryLimits" -> categoryLimits = readArray(reader) { readCategoryLimit(reader) }
                 "allowOnly" -> allowOnly = readNullable(reader) { readAllowOnly(reader) }
@@ -294,6 +340,7 @@ class BackupCodec {
             scheduleRules = scheduleRules,
             customRules = customRules,
             sectionRules = sectionRules,
+            customSectionRules = customSectionRules,
             pauseRules = pauseRules,
             categoryLimits = categoryLimits,
             allowOnly = allowOnly,
@@ -383,6 +430,46 @@ class BackupCodec {
         }
 
         return BackupCustomRule(type = type, value = value, enabled = enabled)
+    }
+
+    private fun readSectionRule(reader: JsonReader): BackupSectionRule {
+        var packageName = ""
+        var appName = ""
+        var sectionName = ""
+        var detectionType = ""
+        var detectionValue = ""
+        var overlayTitle = ""
+        var overlaySubtitle = ""
+        var activityValue: String? = null
+        var enabled = true
+
+        readObject(reader) { key ->
+            when (key) {
+                "packageName" -> packageName = reader.nextString()
+                "appName" -> appName = reader.nextString()
+                "sectionName" -> sectionName = reader.nextString()
+                "detectionType" -> detectionType = reader.nextString()
+                "detectionValue" -> detectionValue = reader.nextString()
+                "overlayTitle" -> overlayTitle = reader.nextString()
+                "overlaySubtitle" -> overlaySubtitle = reader.nextString()
+                "activityValue" -> activityValue = readNullable(reader) { reader.nextString() }
+                "enabled" -> enabled = reader.nextBoolean()
+                else -> return@readObject false
+            }
+            true
+        }
+
+        return BackupSectionRule(
+            packageName = packageName,
+            appName = appName,
+            sectionName = sectionName,
+            detectionType = detectionType,
+            detectionValue = detectionValue,
+            overlayTitle = overlayTitle,
+            overlaySubtitle = overlaySubtitle,
+            activityValue = activityValue,
+            enabled = enabled
+        )
     }
 
     private fun readPauseRule(reader: JsonReader): BackupPauseRule {

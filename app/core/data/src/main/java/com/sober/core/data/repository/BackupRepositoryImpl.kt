@@ -10,11 +10,13 @@ import com.sober.core.data.backup.BackupDailyCap
 import com.sober.core.data.backup.BackupDocument
 import com.sober.core.data.backup.BackupPauseRule
 import com.sober.core.data.backup.BackupScheduleRule
+import com.sober.core.data.backup.BackupSectionRule
 import com.sober.core.data.local.dao.AppLimitDao
 import com.sober.core.data.local.dao.ScheduleRuleDao
 import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.data.local.entity.toEntity
 import com.sober.core.data.rules.CustomRuleCodec
+import com.sober.core.data.rules.SectionRuleCodec
 import com.sober.core.domain.model.AllowOnlyMode
 import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.AppLimit
@@ -23,6 +25,8 @@ import com.sober.core.domain.model.BedtimeSettings
 import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
+import com.sober.core.domain.model.DetectionRule
+import com.sober.core.domain.model.DetectionType
 import com.sober.core.domain.model.ScheduleRule
 import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BackupSummary
@@ -54,6 +58,10 @@ class BackupRepositoryImpl @Inject constructor(
         val schedules = scheduleRuleDao.getAllRules().first()
         val customRules = preferences.customRulesRaw.first()
             .mapNotNull(CustomRuleCodec::decode)
+        val sectionIds = preferences.enabledSectionRules.first()
+        val customSectionRules = preferences.customSectionRulesRaw.first()
+            .mapNotNull(SectionRuleCodec::decode)
+            .distinctBy { it.id }
         val allowOnly = preferences.allowOnly.first()
         val bedtime = preferences.bedtime.first()
 
@@ -83,7 +91,22 @@ class BackupRepositoryImpl @Inject constructor(
             customRules = customRules.map {
                 BackupCustomRule(type = it.type.name, value = it.value, enabled = it.enabled)
             },
-            sectionRules = preferences.enabledSectionRules.first().sorted(),
+            sectionRules = sectionIds
+                .filterNot { it.startsWith(CustomSectionRuleRepositoryImpl.ID_PREFIX) }
+                .sorted(),
+            customSectionRules = customSectionRules.map {
+                BackupSectionRule(
+                    packageName = it.packageName,
+                    appName = it.appName,
+                    sectionName = it.sectionName,
+                    detectionType = it.detectionType.name,
+                    detectionValue = it.detectionValue,
+                    overlayTitle = it.overlayTitle,
+                    overlaySubtitle = it.overlaySubtitle,
+                    activityValue = it.activityValue,
+                    enabled = it.id in sectionIds
+                )
+            },
             pauseRules = preferences.appPauseRules.first().map {
                 BackupPauseRule(
                     packageName = it.packageName,
@@ -175,7 +198,45 @@ class BackupRepositoryImpl @Inject constructor(
             .filter { it.packageName.isNotBlank() }
             .map { AppPauseRule(it.packageName, it.delaySeconds.coerceIn(0, 300), it.isActive) }
 
-        val sectionRules = document.sectionRules.filter { it.isNotBlank() }.toSet()
+        // A recorded rule names the section it blocks, not a row in this
+        // device's store, so restore mints a fresh id the same way saving does.
+        // Duplicates collapse because two identical rows could not be told
+        // apart when the user removes one.
+        val customSectionRules = document.customSectionRules
+            .distinctBy { listOf(it.packageName, it.detectionType, it.detectionValue) }
+            .mapNotNull { entry ->
+                val type = DetectionType.entries.firstOrNull { it.name == entry.detectionType }
+                    ?: return@mapNotNull null
+                if (entry.packageName.isBlank() || entry.detectionValue.isBlank()) {
+                    return@mapNotNull null
+                }
+                val id = CustomSectionRuleRepositoryImpl.ID_PREFIX + UUID.randomUUID().toString()
+                val sectionName = entry.sectionName.trim().take(40).ifBlank {
+                    entry.detectionValue.substringAfterLast('.').ifBlank { entry.detectionValue }
+                }
+                val appName = entry.appName.ifBlank { entry.packageName }
+                DetectionRule(
+                    id = id,
+                    packageName = entry.packageName,
+                    appName = appName,
+                    sectionId = id,
+                    sectionName = sectionName,
+                    detectionType = type,
+                    detectionValue = entry.detectionValue,
+                    overlayTitle = entry.overlayTitle.ifBlank { "$sectionName is blocked" },
+                    overlaySubtitle = entry.overlaySubtitle.ifBlank {
+                        "You recorded this section in Sober. The rest of $appName still works."
+                    },
+                    activityValue = entry.activityValue
+                        ?.takeIf { it.isNotBlank() && type != DetectionType.ACTIVITY },
+                    isCustom = true
+                ) to entry.enabled
+            }
+
+        val sectionRules = document.sectionRules
+            .filter { it.isNotBlank() && !it.startsWith(CustomSectionRuleRepositoryImpl.ID_PREFIX) }
+            .toSet()
+        val enabledCustomSectionIds = customSectionRules.filter { it.second }.map { it.first.id }.toSet()
 
         // ---- writes ----
         appLimitDao.deleteAll()
@@ -185,7 +246,8 @@ class BackupRepositoryImpl @Inject constructor(
         schedules.forEach { scheduleRuleDao.insertRule(it.toEntity()) }
 
         preferences.updateCustomRules { customRules.map(CustomRuleCodec::encode).toSet() }
-        preferences.setSectionRules(sectionRules)
+        preferences.setCustomSectionRules(customSectionRules.map { SectionRuleCodec.encode(it.first) }.toSet())
+        preferences.setSectionRules(sectionRules + enabledCustomSectionIds)
         preferences.setAppPauseRules(pauseRules)
         preferences.setCategoryLimits(categoryLimits)
 
@@ -227,7 +289,7 @@ class BackupRepositoryImpl @Inject constructor(
             appLimits = limits.size,
             schedules = schedules.size,
             customRules = customRules.size,
-            sectionRules = sectionRules.size,
+            sectionRules = sectionRules.size + customSectionRules.size,
             pauseRules = pauseRules.size,
             categoryLimits = categoryLimits.size
         )

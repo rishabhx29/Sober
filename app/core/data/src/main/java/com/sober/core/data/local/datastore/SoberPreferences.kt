@@ -586,6 +586,13 @@ class SoberPreferences @Inject constructor(
         }
     }
 
+    /** Replaces the whole set; used by backup restore. */
+    suspend fun setCustomSectionRules(encoded: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_CUSTOM_SECTION_RULES] = encoded
+        }
+    }
+
     val sectionCaptureRequestRaw: Flow<String?> =
         dataStore.data.map { it[KEY_SECTION_CAPTURE_REQUEST] }
 
