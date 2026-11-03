@@ -34,9 +34,9 @@ dependencies {
     // Datastore
     implementation(libs.datastore.preferences)
 
-    // Moshi
-    implementation(libs.moshi.kotlin)
-    kapt(libs.moshi.kotlin.codegen)
+    // Moshi, used through its streaming reader and writer only — no reflection
+    // adapters, so release shrinking needs no keep rules for backup or rules.
+    implementation(libs.moshi)
 
     // WorkManager
     implementation(libs.work.runtime.ktx)

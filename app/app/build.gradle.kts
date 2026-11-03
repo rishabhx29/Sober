@@ -96,10 +96,6 @@ dependencies {
     // DataStore (Preferences)
     implementation(libs.datastore.preferences)
 
-    // Moshi (JSON Serialization)
-    implementation(libs.moshi.kotlin)
-    kapt(libs.moshi.kotlin.codegen)
-
     // WorkManager (Background Tasks)
     implementation(libs.work.runtime.ktx)
 
