@@ -144,10 +144,14 @@ fun HomeScreen(
             MetricDivider()
             val remaining = (uiState.dailyLimitMinutes - uiState.totalScreenTimeMinutes)
                 .coerceAtLeast(0)
+            val overBy = (uiState.totalScreenTimeMinutes - uiState.dailyLimitMinutes)
+                .coerceAtLeast(0)
             val overLimit = uiState.totalScreenTimeMinutes >= uiState.dailyLimitMinutes &&
                 uiState.dailyLimitMinutes > 0
             SoberInlineMetric(
-                value = if (uiState.dailyLimitMinutes > 0) limitLabel(remaining) else "—",
+                value = if (uiState.dailyLimitMinutes > 0) {
+                    limitLabel(if (overLimit) overBy else remaining)
+                } else "—",
                 label = if (overLimit) "OVER CAP" else "LEFT TODAY",
                 modifier = Modifier.weight(1f),
                 isEmphasised = overLimit
