@@ -53,7 +53,7 @@ path.
   the system grants explicitly. Nothing is sent off the device.
 - No binary assets that need a `NonFreeAssets` flag.
 - Fastlane metadata under `fastlane/metadata/android/en-US/`: title, summary,
-  full description, screenshots and a changelog for version code 5.
+  full description, screenshots and a changelog for version code 6.
 
 ### Submitting
 
@@ -64,7 +64,7 @@ path.
    permission list and that the app can be built without network access to
    anything but the dependency mirrors.
 
-The recipe pins the `v1.4` tag (version code 5). A new release needs a new
+The recipe pins the `v1.5` tag (version code 6). A new release needs a new
 `Builds:` entry, not an edit to the old one; F-Droid keeps the old entry so it
 can reproduce earlier versions.
 
@@ -91,11 +91,11 @@ published one. What is true today:
   build is authoritative for F-Droid users; Obtainium and direct downloads use
   the signed GitHub APK.
 
-To rebuild the code that shipped as 1.4:
+To rebuild the code that shipped as 1.5:
 
 ```bash
 git clone https://github.com/rishabhx29/Sober.git
-cd Sober && git checkout v1.4
+cd Sober && git checkout v1.5
 cd app
 ./gradlew :app:assembleRelease
 # app/app/build/outputs/apk/release/app-release-unsigned.apk
@@ -105,7 +105,7 @@ Toolchain: JDK 17 or newer and Android SDK platform 37. The Gradle wrapper pins
 the Gradle version. To inspect a published APK's signature:
 
 ```bash
-apksigner verify --print-certs Sober-1.4.apk
+apksigner verify --print-certs Sober-1.5.apk
 ```
 
 ---

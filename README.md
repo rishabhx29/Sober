@@ -7,8 +7,8 @@
 <p align="center">
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.8%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
-  <img src="https://img.shields.io/badge/version-1.4-B3432F?style=flat-square" alt="Version 1.4">
-  <img src="https://img.shields.io/badge/tests-515%20passing-4C7A5C?style=flat-square" alt="515 unit tests passing">
+  <img src="https://img.shields.io/badge/version-1.5-B3432F?style=flat-square" alt="Version 1.5">
+  <img src="https://img.shields.io/badge/tests-527%20passing-4C7A5C?style=flat-square" alt="527 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -54,7 +54,7 @@ permission at all.
 <p align="center">
   <img src="docs/assets/screens/home.png" width="250" alt="Home: today's screen time and the daily cap">
   <img src="docs/assets/screens/apps.png" width="250" alt="Apps: search, limits, and blocked apps">
-  <img src="docs/assets/screens/stats.png" width="250" alt="Statistics: totals, top apps, and a usage heatmap">
+  <img src="docs/assets/screens/stats.png" width="250" alt="Statistics: totals, top apps, and patterns">
 </p>
 <p align="center">
   <em>Home · Apps · Statistics</em>
@@ -62,15 +62,15 @@ permission at all.
 
 <p align="center">
   <img src="docs/assets/screens/focus.png" width="250" alt="Focus: session duration and notification silencing">
-  <img src="docs/assets/screens/apps-limited.png" width="250" alt="An app that has run out of its daily limit">
+  <img src="docs/assets/screens/apps-limited.png" width="250" alt="Limited apps and their daily budgets">
   <img src="docs/assets/screens/block-overlay.png" width="250" alt="The block screen with the time until midnight">
 </p>
 <p align="center">
-  <em>Focus · A limit reached · The block screen</em>
+  <em>Focus · Limited apps · The block screen</em>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screens/settings.png" width="375" alt="Settings: overall cap, schedules, custom rules, and notifications">
+  <img src="docs/assets/screens/settings.png" width="375" alt="Settings: the overall cap and category budgets">
 </p>
 <p align="center">
   <em>Settings</em>
@@ -96,7 +96,7 @@ F-Droid build cannot update over this APK (different signing key).
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
-   and download `Sober-1.4.apk`.
+   and download `Sober-1.5.apk`.
 2. Open your **Downloads** notification, or the **Files** app, and tap the APK.
 3. Android will say the source is not allowed to install unknown apps. Tap
    **Settings**, enable **Allow from this source**, then go back and tap
@@ -153,7 +153,7 @@ the phone is idle.
 ### Install over ADB (optional)
 
 ```bash
-adb install -r Sober-1.4.apk
+adb install -r Sober-1.5.apk
 ```
 
 ADB skips the unknown-source prompt, but Play Protect can still show its
@@ -161,16 +161,16 @@ warning.
 
 ### Verify the download
 
-Release 1.4's APK has these properties:
+Release 1.5's APK has these properties:
 
 ```text
-SHA-256 (file):  70eda034162bb607a160cd821ebc9508569e770f1fba57c09e2679138ccb45b8
+SHA-256 (file):  a3ac2d3b1a50f2d25eda009dcef24b2b85d473504aef16f0a6ad3871783a596d
 SHA-256 (cert):  f9fc8e710485179fbad428689d72d949dea925129ff3ea5ddbef9fac63836c64
 Signer:          CN=Sober, O=Sober, C=IN
 ```
 
 ```bash
-sha256sum Sober-1.4.apk     # macOS: shasum -a 256
+sha256sum Sober-1.5.apk     # macOS: shasum -a 256
 ```
 
 ---
@@ -335,7 +335,7 @@ spacing are defined.
 
 ## Testing
 
-The repository currently has **367 JVM tests across 44 test classes**, including
+The repository currently has **527 JVM tests across 63 test classes**, including
 Robolectric tests for Compose behaviour and the design system.
 
 ```bash
