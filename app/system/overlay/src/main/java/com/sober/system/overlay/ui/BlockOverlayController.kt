@@ -1,6 +1,7 @@
 package com.sober.system.overlay.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
@@ -8,8 +9,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -59,8 +62,13 @@ import javax.inject.Singleton
  *
  * The emergency override lives inside this window rather than in an Activity
  * so it works on top of the blocked app: it is entered on an in-window number
- * pad, which avoids needing a focusable window (and an IME) for what is meant
- * to be a full-screen block.
+ * pad, which avoids needing an IME for what is meant to be a full-screen block.
+ *
+ * The window is focusable so Back is ours to answer. Without that, Back was
+ * delivered to the covered app: from a deep screen it navigated inside an app
+ * the user could not see, and from a root that ignores Back it did nothing at
+ * all. Both looked like the block screen had frozen. Back now leaves the app
+ * for Home, the same place Home itself goes.
  */
 @Singleton
 class BlockOverlayController @Inject constructor(
@@ -323,17 +331,32 @@ class BlockOverlayController @Inject constructor(
             }
         }
 
+        // The root exists only to own key handling: Compose inside this window
+        // has no activity and therefore no back dispatcher. It also carries
+        // the owners: Compose resolves its recomposer from the window's root
+        // view, not from the ComposeView nested inside it.
+        val root = OverlayWindowRoot(themedContext) { leaveBlockedApp() }.apply {
+            setViewTreeLifecycleOwner(this@BlockOverlayController)
+            setViewTreeViewModelStoreOwner(this@BlockOverlayController)
+            setViewTreeSavedStateRegistryOwner(this@BlockOverlayController)
+        }
+        root.addView(
+            view,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             // API 26+ (minSdk) guarantees this type exists.
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            // Not focusable: the user cannot type into it, and it must not trap
-            // hardware keys. Not touch-modal false either — it must swallow
-            // taps to stop the blocked app receiving them underneath. The
-            // override panel therefore uses its own on-screen keypad.
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            // Focusable so Back reaches this window. Touches must still land
+            // here rather than on the blocked app underneath, and the override
+            // panel therefore keeps its own on-screen keypad.
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.OPAQUE
         ).apply {
@@ -344,14 +367,27 @@ class BlockOverlayController @Inject constructor(
         }
 
         try {
-            wm.addView(view, params)
-            overlayView = view
+            wm.addView(root, params)
+            overlayView = root
         } catch (e: Exception) {
             // addView throws if overlay permission was revoked between the
             // check and the call. Drop the overlay rather than crash the
             // service; the next poll re-checks permission.
             overlayView = null
         }
+    }
+
+    /**
+     * Back on the block screen means "I am done here", not "navigate the app
+     * I cannot see". Sending the user Home keeps the block honest — the app
+     * leaves the foreground — and the engine clears the window as it would
+     * after a physical Home press.
+     */
+    private fun leaveBlockedApp() {
+        val home = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_HOME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(home) }
     }
 
     /**
@@ -388,5 +424,37 @@ class BlockOverlayController @Inject constructor(
         }
         overlayView = null
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
+    }
+}
+
+/**
+ * Root view that owns Back for a window with no Activity behind it.
+ *
+ * A `TYPE_APPLICATION_OVERLAY` window has no `OnBackPressedDispatcher`, so a
+ * back press would otherwise go to the focused window underneath — the app
+ * this overlay is covering. The root asks for focus when attached and answers
+ * Back itself.
+ */
+private class OverlayWindowRoot(
+    context: Context,
+    private val onBack: () -> Unit
+) : FrameLayout(context) {
+
+    init {
+        isFocusable = true
+        isFocusableInTouchMode = true
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        requestFocus()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+            if (event.action == KeyEvent.ACTION_UP) onBack()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 }

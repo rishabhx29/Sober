@@ -80,15 +80,13 @@ data class OverrideUi(
  * The full-screen block screen rendered inside a `TYPE_APPLICATION_OVERLAY`
  * window.
  *
- * The main body deliberately has no back affordance and no close control: the
- * only way out is the system back gesture (which here dismisses nothing, since
- * the window is not focusable) or the app's own limit resetting. That is the
- * product intent — "you've had enough for today."
+ * The main body deliberately has no close control: the block is not something
+ * the user can tap away. Leaving is a system action — Home, Recents, or Back,
+ * which the overlay window answers by sending the user Home.
  *
  * The emergency override (PRD 5.3) does have an exit, but a slow one: press and
  * hold for ten seconds, then PIN, then a five-minute wait. Everything is entered
- * on the in-window keypad because the overlay window is not focusable and
- * cannot host an IME.
+ * on the in-window keypad because the overlay window cannot host an IME.
  *
  * Per the PRD the ring counts down to whatever actually releases the block:
  * midnight for daily limits, session end for a focus session. A daily-limit
