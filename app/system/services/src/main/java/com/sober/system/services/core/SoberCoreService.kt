@@ -32,6 +32,7 @@ import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.system.overlay.ui.BlockOverlayController
 import com.sober.system.overlay.ui.PauseOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
+import com.sober.system.services.widget.WidgetRefresh
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +41,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -270,6 +273,22 @@ class SoberCoreService : Service() {
                 runCatching { syncBedtimeSilence() }
                 delay(BEDTIME_SYNC_INTERVAL_MS)
             }
+        }
+
+        // The home-screen widget shows a point-in-time summary, so it only
+        // needs a refresh when one of its inputs changes — not on every poll.
+        scope.launch {
+            combine(
+                protectionSettingsRepository.pausedUntil,
+                protectionSettingsRepository.lockedUntil,
+                soberPreferences.activeSessionId,
+                soberPreferences.activeSessionStartTime,
+                soberPreferences.activeSessionDuration
+            ) { pausedUntil, lockedUntil, sessionId, startTime, duration ->
+                "$pausedUntil|$lockedUntil|$sessionId|$startTime|$duration"
+            }
+                .distinctUntilChanged()
+                .collect { WidgetRefresh.request(this@SoberCoreService) }
         }
     }
 

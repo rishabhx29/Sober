@@ -1111,9 +1111,13 @@ promise: no feature here needs internet permission.
   table and `RecordAppOpenUseCase`; the engine evaluates before counting, so a
   budget of N allows exactly N usable opens. A 0-minute limit is treated as
   opens-only rather than "block immediately".*
-- [ ] F4 — Quick Settings tile and home widget — *Glance app widget plus a
-  `TileService` for pause/focus, reading the same repositories through Hilt
-  entry points.*
+- [x] F4 — Quick Settings tile and home widget — *`SoberTileService` toggles a
+  15-minute pause and resumes it, and opens the app instead of toggling while
+  lock mode is on. The home widget is a RemoteViews card reporting
+  protection/pause/focus/lock state with one pause-or-resume button; tapping the
+  body opens Sober. Both are Hilt-injected and read the same repositories as the
+  engine; the engine broadcasts a refresh only when pause, lock or session
+  state changes, so the 30-minute widget period is a floor, not the update path.*
 - [x] F5 — Category limits and allow-only mode — *`CategoryLimit` per
   `ApplicationInfo` category resolves installed apps through PackageManager;
   Settings exposes Social/Video/Games/News/Productivity budgets. Allow-only
@@ -1142,10 +1146,13 @@ promise: no feature here needs internet permission.
 > **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
 > and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass;
 > F6 compiles and `:core:domain` is 307/307; F7 compiles with
-> `BackupCodecTest` 5/5 in `:core:data`. No emulator or physical-device walk
-> has been done for the new Settings sections, the DND transition, the
-> pause/opens overlays, the weekly card's share sheet or the SAF backup
-> pickers. These are compile- and unit-verified only at this point.
+> `BackupCodecTest` 5/5 in `:core:data`. F4 was walked on the emulator: the tile
+> was added, paused and resumed, and the widget was added, rendered the paused
+> state, resumed and paused again, and its body opened the app. Not yet walked:
+> the tile's locked branch (it opens the app instead of toggling), the widget's
+> focus-session copy, and every other new Settings section, the DND transition,
+> the pause/opens overlays, the weekly card's share sheet and the SAF backup
+> pickers.
 
 ---
 
@@ -1350,6 +1357,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F8 | completed | Implementation Agent | Bedtime mode UI: enable switch, 24-hour start/end time picker, allow-list picker and Do Not Disturb access status. Added `bedtimePreviousFilter` so ending the window restores the user's own filter; `SoberCoreService` syncs DND every minute independently of the screen-on poll. Device walk pending |
 | 2026-11-03 | F6 | completed | Implementation Agent | Weekly report: `bestAndWorstDays` in domain (3 tests), `getScreenUnlockCount` from `KEYGUARD_HIDDEN` on API 28+, and a 7-day card with a PNG export. The image is drawn by `renderWeeklyReport` on a 1080×1350 canvas so the share does not depend on scroll position; export lands in `cacheDir/exports` behind the existing FileProvider. Compile + `:core:domain` 307/307. Device walk and share-sheet export pending |
 | 2026-11-03 | F7 | completed | Implementation Agent | Backup and restore over SAF. `BackupRepositoryImpl` collects limits, schedules, custom/section rules, pause rules, category budgets, allow-only, bedtime and the daily cap into one JSON document; restore validates every entry before deleting anything and replaces the stored rules, with the PIN gate when one is set. The codec is hand-written on Moshi's streaming reader/writer after the kapt codegen proved incompatible with Kotlin 2.2.10 and the reflective adapter would have needed R8 keep rules. `BackupCodecTest` 5/5, settings/app compile. Device walk of the pickers pending |
+| 2026-11-03 | F4 | completed | Implementation Agent | Quick Settings tile and home widget. `SoberTileService` toggles a 15-minute pause, resumes it, and refuses while locked by opening the app; `SoberStatusWidgetProvider` plus a non-exported action receiver render a RemoteViews card with pause-or-resume, and body taps open Sober. The engine observes pause/lock/session flows and broadcasts a refresh only on change, so updates are immediate without polling the widget. Emulator walk: tile added/paused/resumed; widget added, pause and resume both applied and re-rendered, body opened `MainActivity`. Release build signs and installs over v1.3. Locked-tile and focus-session widget copy not exercised |
 
 ---
 

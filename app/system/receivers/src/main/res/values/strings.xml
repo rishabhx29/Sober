@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Shows whether Sober is protecting you, and lets you pause for 15 minutes.</string>
+    <string name="widget_eyebrow">SOBER</string>
+    <string name="widget_on">Protection on</string>
+    <string name="widget_on_detail">Your limits and schedules are active.</string>
+    <string name="widget_paused">Paused</string>
+    <string name="widget_locked">Locked</string>
+    <string name="widget_focus">Focus session</string>
+    <string name="widget_focus_default">Focus session</string>
+    <string name="widget_focus_open">%1$s · runs until you stop</string>
+    <string name="widget_focus_until">%1$s · ends at %2$s</string>
+    <string name="widget_until">Until %1$s</string>
+    <string name="widget_pause">Pause 15 min</string>
+    <string name="widget_resume">Resume</string>
+</resources>

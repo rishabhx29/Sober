@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The widget is drawn by RemoteViews, which cannot read Compose tokens, so the
+  Manuscript palette is spelled out here: cream-white surface, warm border, ink
+  headings, secondary body text.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:letterSpacing="0.12"
+        android:fontFamily="sans-serif-medium"
+        android:text="@string/widget_eyebrow"
+        android:textColor="#726C67"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/widget_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:text="@string/widget_on"
+        android:textColor="#1A1A2E"
+        android:textSize="20sp" />
+
+    <TextView
+        android:id="@+id/widget_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="2"
+        android:text="@string/widget_on_detail"
+        android:textColor="#6B6560"
+        android:textSize="13sp" />
+
+    <TextView
+        android:id="@+id/widget_action"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/widget_action_background"
+        android:fontFamily="sans-serif-medium"
+        android:paddingStart="16dp"
+        android:paddingTop="9dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="9dp"
+        android:text="@string/widget_pause"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp" />
+
+</LinearLayout>

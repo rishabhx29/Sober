@@ -872,6 +872,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: The file format outlives the code that wrote it, so the reader must be written for the file, not for the classes as they are today. Explicit readers also let unknown keys be skipped, so a backup from a later build still restores what this build understands.  
 **Solution/Pattern**: Write the format by hand with `JsonWriter.of(Buffer())` and read it with `JsonReader.of(Buffer().writeUtf8(json))` — no reflection, no generated adapters, no keep rules. Give every field a default while parsing and build the data class at the end, skip unrecognised keys with `skipValue()`, and check `format` and `version` after parsing succeeds so the version error keeps its own message. Restore must validate every entry before deleting anything, and replace rather than merge, so a half-applied restore cannot leave the user with neither the old rules nor the new ones.
 
+### 11.36 RemoteViews Is a Different UI Toolkit
+
+**Date**: 2026-11-03  
+**Context**: F4 adds a home-screen widget and a Quick Settings tile. The rest of the app is Compose, but a widget is inflated by the launcher's process, so it cannot host Compose, cannot read Compose theme objects, and has only text, images and click handlers available.
+
+**Learning**: A widget is not a small screen. It is a `RemoteViews` description re-inflated on every update, with no lifecycle and no ability to observe a Flow. Copy therefore has to be point-in-time: "Paused until 8:22 AM" stays true between updates, while "13m left" goes stale the moment it is written.
+
+**Solution/Pattern**: Keep the widget a plain XML layout plus a suspend renderer that reads the repositories and calls `AppWidgetManager.updateAppWidget`. Use `goAsync()` in the provider's `onUpdate` and the action receiver, because the state reads are suspending and `onReceive` must not block. `updatePeriodMillis` has a thirty-minute floor, so treat it as a fallback: have the enforcement service observe pause, lock and session flows and send a package-scoped refresh broadcast only when their values change. Widget providers are `exported="true"` because the launcher (another UID) delivers `APPWIDGET_UPDATE`; the receiver that handles the widget's own buttons can stay `exported="false"` because its `PendingIntent`s run with Sober's identity. For the Quick Settings tile, remember that a pause lifts every rule at once — the tile must check lock mode too, and rather than silently ignore a tap, open the app so the end time is visible.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

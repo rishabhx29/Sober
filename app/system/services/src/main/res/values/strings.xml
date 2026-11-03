@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="accessibility_service_description">Sober uses Accessibility to detect when you open blocked apps and sections like Instagram Reels.</string>
+
+    <string name="tile_label">Sober</string>
+    <string name="tile_active">On</string>
+    <string name="tile_paused">Paused</string>
+    <string name="tile_locked">Locked</string>
+    <string name="tile_state_on">Protection on. Tap to pause for 15 minutes.</string>
+    <string name="tile_state_paused">Paused until %1$s. Tap to resume.</string>
+    <string name="tile_state_locked">Locked until %1$s. Tap to open Sober.</string>
 </resources>
