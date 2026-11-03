@@ -989,6 +989,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Wrap the `ComposeView` in a focusable `FrameLayout` that consumes Back (sending the user Home, which is also what makes the engine clear the cover) and carry the three owners on that root. Report the switcher as its own signal rather than as a package, keeping the classifier to System UI windows so an app activity named "RecentFilesActivity" cannot lift a block. While the cover is up, re-read the foreground every couple of seconds: the user can leave without any window-change hint, and a 15-second poll is long enough to feel like a freeze. Verify on device by pressing Back, then Home, then Recents, and timing how long the overlay window survives after each.
 
+### 11.49 Leaving Is Two Transitions, and the Return One Can Be Silent
+
+**Date**: 2026-11-03  
+**Context**: After 11.48 the cover cleared correctly for Home, Back and Recents. Closing Recents back into the same blocked app then showed no cover at all — the user was inside the app with the block gone.
+
+**Learning**: Foreground detection is a replay of `UsageStats` transitions, and it assumes an app switch produces a `RESUMED`. Launcher-hosted overviews break that assumption: opening Recents emits `launcher RESUMED`, and closing it emits only `launcher PAUSED` — no `ACTIVITY_RESUMED` for the app underneath. The accessibility service saw no window-state change either, so neither source could say "the app is back". Worse, the reply is not symmetric: the missing resume makes the replay answer "nothing on screen", and the engine reads nothing as *the user left*, so it actively clears the cover. A recovery that only re-blocks once therefore gets cleared again by the next poll. Test the return path as its own transition, not as the reverse of leaving.
+
+**Solution/Pattern**: Carry two facts through the replay instead of one: the foreground, and the last real app the launcher replaced. A pause of an ignored package (Sober itself or Home) with nothing resuming and an empty foreground means the app underneath came back, so restore it; an explicit resume of another app still wins, and `SCREEN_OFF` forgets both because the lock screen is a genuine "nothing". Keep the accessibility service as the fast path: a content event whose package owns the **active** window may re-assert it (throttled to once a second), which is safe because a background app's events cannot claim the active root. The two mechanisms are complementary — the hint blocks in under a second, the replay makes the answer survive the next poll.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
