@@ -1190,6 +1190,16 @@ promise: no feature here needs internet permission.
   screen" button opens the real `BlockOverlayScreen` in-app with inert actions,
   behind a banner that says nothing is blocked. Values refresh on resume, since
   every fix happens on a system screen.*
+- [x] F19 — Shortcuts and automation intents — *four static launcher
+  shortcuts (Study, Work, Gym, Sleep) and one exported action,
+  `com.sober.app.action.START_PRESET` with a `preset` extra, both handled by
+  `MainActivity` → `ShortcutViewModel`. `FocusShortcut.presetFor` is the single
+  parser: unknown names are ignored rather than substituted. Only starting a
+  session is exported; pausing, ending or lifting a block would let any
+  installed app undo Sober. A shortcut refuses before onboarding (no access
+  means a session would enforce nothing) and while a session runs (a second
+  start would overwrite the active pointer and strand the first history row).
+  Starting uses `PresetResolver`, off the main thread, and lands on Focus.*
 - [ ] F10a — User-assisted section picker — *let the user record a section rule
   by inspecting the live node tree (selected tab or screen id) and name it. The
   backlog calls for this so apps outside the shipped catalogue (Facebook, local
@@ -1221,6 +1231,8 @@ promise: no feature here needs internet permission.
 > composable, but neither the health screen nor the preview has been walked on
 > a device, and the "enabled but not connected" branch needs an actual
 > force-stop to observe.
+> F19 is `FocusShortcutTest` 4/4 and the APK builds; the launcher shortcuts and
+> an external `am start` were not exercised on a device. Full suite 489/489.
 
 ---
 
@@ -1430,6 +1442,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F10a | added | Task Tracker Agent | User-assisted section picker, split out of F10: record a rule from the live node tree so apps outside the shipped catalogue can be covered without guessing resource ids |
 | 2026-11-03 | F12 | completed | Implementation Agent | Saved reason. `YourReason.normalize` (trim, collapse whitespace, 120-char cap) runs in the DataStore setter so stored and rendered values agree; Settings → Protection gains an Add/Edit dialog with a live counter; the overlay collects the value on construction and renders it under a "YOUR REASON" eyebrow in place of the quote. `YourReasonTest` 4/4, `BlockOverlayScreenTest` gained a reason case. Device walk pending |
 | 2026-11-03 | F11 | completed | Implementation Agent | Reflection before unlock. The override wait now ends in a panel asking "What will you do instead?", listing three time-of-day alternatives and the user's reason. Choosing an alternative cancels the request; only "Open {app} anyway" grants. `reflectionSuggestions` is a pure function (boundaries tested 2/2), and the panel's presence is asserted in `BlockOverlayScreenTest`. The grant path still re-checks stored state. Device walk pending |
+| 2026-11-03 | F19 | completed | Implementation Agent | Launcher shortcuts and automation intents. `shortcuts.xml` declares Study/Work/Gym/Sleep; each sends `com.sober.app.action.START_PRESET` with a `preset` extra to `MainActivity`, which forwards it to `ShortcutViewModel`. `FocusShortcut.presetFor` owns parsing (case-insensitive, unknown → ignored). The session is built by `PresetResolver` on IO and the app lands on Focus. Refuses before onboarding and while a session is active, so the stored active-session pointer cannot be overwritten. No weakening action is exported. `FocusShortcutTest` 4/4, `:app:assembleDebug` green. Device walk pending |
 | 2026-11-03 | F16 | completed | Implementation Agent | Health check screen reached from Settings. Required checks (usage access, overlay, notifications, enforcement engine) are summarised; Accessibility reports off / not connected / connected and the age of the last event. `ServiceLiveness` adds in-memory flags written by `SoberCoreService` and `SoberAccessibilityService` — deliberately not persisted, since a stored heartbeat survives the death it is meant to reveal. Battery exemption, vendor background panel, DND and device admin are listed with links; values re-read on resume and the relative age ticks every 15 s. "Preview the block screen" renders the real `BlockOverlayScreen` in-app with inert actions behind a "nothing is blocked" banner. `HealthCopyTest` 9/9, `:app:assembleDebug` green. Device walk pending |
 | 2026-11-03 | F13 | completed | Implementation Agent | Challenges and richer achievements. `ChallengeRules` owns the target dates (day after opt-in; the weekend challenge waits for the next Saturday) and `evaluateChallenge` counts only whole days, stopping at the first bad one and recording `failedOn`. `CalculateStreakUseCase.cleanDates` exposes the streak's per-day limit rule so `GetChallengeStateUseCase` does not duplicate it; social challenges use a separate quiet-day check and treat unobserved days as quiet. `ManageChallengeUseCase` refuses a clean-week start without limits and a social start without installed social apps, allows one challenge at a time, and re-derives completion before recording the win. "Feed-free week" replaces "no-Reels week" because section-level usage is not recorded. DataStore stores one active record and a completed set; the Stats section adds offer cards, an active card with progress and a leave dialog. Also added Deep Work (90-minute session) and Challenge Champion (one finished challenge). Tests: `ChallengeRulesTest` 8, `GetChallengeStateUseCaseTest` 6, `ManageChallengeUseCaseTest` 8, `ChallengeCodecTest` 4, `ChallengeCopyTest` 6, `cleanDates` 4, achievements 3; full suite 476/476. Device walk pending |
 

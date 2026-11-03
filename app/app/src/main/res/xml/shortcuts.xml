@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Launcher long-press shortcuts, one per preset.
+
+  They all send the same exported action the automation docs describe, so a
+  Tasker profile and a long-press are the same entry point rather than two
+  code paths. Only starting a session is exported: pausing or ending one
+  weakens protection, and an exported action for those would let any installed
+  app lift a block.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="focus_study"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_study_short"
+        android:shortcutLongLabel="@string/shortcut_study_long">
+        <intent
+            android:action="com.sober.app.action.START_PRESET"
+            android:targetPackage="com.sober.app"
+            android:targetClass="com.sober.app.MainActivity">
+            <extra
+                android:name="preset"
+                android:value="STUDY" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="focus_work"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_work_short"
+        android:shortcutLongLabel="@string/shortcut_work_long">
+        <intent
+            android:action="com.sober.app.action.START_PRESET"
+            android:targetPackage="com.sober.app"
+            android:targetClass="com.sober.app.MainActivity">
+            <extra
+                android:name="preset"
+                android:value="WORK" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="focus_gym"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_gym_short"
+        android:shortcutLongLabel="@string/shortcut_gym_long">
+        <intent
+            android:action="com.sober.app.action.START_PRESET"
+            android:targetPackage="com.sober.app"
+            android:targetClass="com.sober.app.MainActivity">
+            <extra
+                android:name="preset"
+                android:value="GYM" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="focus_sleep"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_sleep_short"
+        android:shortcutLongLabel="@string/shortcut_sleep_long">
+        <intent
+            android:action="com.sober.app.action.START_PRESET"
+            android:targetPackage="com.sober.app"
+            android:targetClass="com.sober.app.MainActivity">
+            <extra
+                android:name="preset"
+                android:value="SLEEP" />
+        </intent>
+    </shortcut>
+
+</shortcuts>

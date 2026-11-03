@@ -926,6 +926,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: `ServiceLiveness` holds volatile flags set on `onServiceConnected`/`onCreate` and cleared on `onUnbind`/`onDestroy`, plus the time of the last delivered accessibility event using `SystemClock.elapsedRealtime` (it keeps counting in deep sleep and cannot be moved by changing the wall clock). The health screen reads enabled (Settings), connected (flag) and event age (flag) as three separate facts, so "on but not connected" is its own sentence rather than a green row. Re-read on `ON_RESUME`, because every fix happens on a system screen; tick the relative age every 15 seconds while the screen is open so "last event 2 h ago" does not silently age into a lie. A preview of the block screen reuses the real composable with inert callbacks and an always-visible Close, so it tests layout and copy without pretending to be enforcement.
 
+### 11.42 Export the Protective Action, Not the Bypass
+
+**Date**: 2026-11-03  
+**Context**: F19 exposes launcher shortcuts and a Tasker-style intent. The obvious API was "start and stop a session, pause protection", mirroring what the UI can do.
+
+**Learning**: An app's exported surface is not its UI surface. Any installed app can send an explicit intent to an exported activity, so exporting "pause" or "end session" would hand every other app a one-line bypass of the product. Starting a session only tightens restrictions, so it is the one action safe to export. The extras are also untrusted input from outside: an unknown preset should do nothing rather than fall back to a default session the caller never asked for.
+
+**Solution/Pattern**: Keep one action (`START_PRESET`) and one pure parser (`FocusShortcut.presetFor`) shared by launcher shortcuts and external tools, and test the parser rather than the intent plumbing. Refuse to start when onboarding is incomplete — a session without usage access and overlay permission looks active while enforcing nothing — and when a session already runs, because starting another overwrites the single active-session pointer in DataStore and leaves the first row `ACTIVE` in history forever. Do the PackageManager-heavy preset resolution off the main thread, and navigate to Focus so a started session has visible evidence. Document the exported contract in the README next to an `adb` example, since that is what an automation user will copy.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

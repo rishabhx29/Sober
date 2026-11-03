@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sober.app.navigation.SoberDestinations
 import com.sober.app.navigation.SoberNavHost
+import com.sober.app.shortcuts.ShortcutViewModel
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.core.ui.theme.SoberTheme
 
@@ -55,7 +57,10 @@ data class BottomNavTab(
 )
 
 @Composable
-fun SoberApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
+fun SoberApp(
+    themeViewModel: ThemeViewModel = hiltViewModel(),
+    shortcutViewModel: ShortcutViewModel = hiltViewModel()
+) {
     val themeMode by themeViewModel.mode.collectAsState()
     val darkTheme = when (themeMode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -65,6 +70,19 @@ fun SoberApp(themeViewModel: ThemeViewModel = hiltViewModel()) {
 
     SoberTheme(darkTheme = darkTheme) {
         val navController = rememberNavController()
+
+        // A shortcut starts its session in the ViewModel, then asks to land on
+        // Focus so the running timer is visible instead of the Home tab.
+        val openFocus by shortcutViewModel.openFocus.collectAsState()
+        LaunchedEffect(openFocus) {
+            if (!openFocus) return@LaunchedEffect
+            navController.navigate(SoberDestinations.FOCUS) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+            shortcutViewModel.consumeOpenFocus()
+        }
 
         val tabs = listOf(
             BottomNavTab(SoberDestinations.HOME, "Home", Icons.Rounded.Home),

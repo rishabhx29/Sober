@@ -214,6 +214,30 @@ limit, schedules and focus sessions still apply.
 
 ---
 
+## Automation
+
+Long-press the Sober icon for one-tap **Study**, **Work**, **Gym** and **Sleep**
+sessions. External tools can do the same through the one exported action:
+
+```sh
+adb shell am start \
+  -n com.sober.app/.MainActivity \
+  -a com.sober.app.action.START_PRESET \
+  --es preset STUDY
+```
+
+`preset` accepts `STUDY`, `WORK`, `GYM` or `SLEEP` (case-insensitive) and starts
+that preset with its usual duration and app list; the app opens on the Focus
+tab. The same intent works in Tasker, MacroDroid and any other tool that can
+send an explicit activity intent.
+
+Only *starting* a session is exported. Pausing protection, ending a session and
+lifting a block stay inside the app, because an exported action for those would
+let any installed app undo Sober. A shortcut does nothing before onboarding is
+complete or while another session is already running.
+
+---
+
 ## Build from source
 
 **Toolchain:** JDK 17+, Android SDK with API 37, Gradle wrapper included. Kotlin

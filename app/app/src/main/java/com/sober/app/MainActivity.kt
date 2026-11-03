@@ -1,9 +1,12 @@
 package com.sober.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import com.sober.app.shortcuts.ShortcutViewModel
 import com.sober.app.ui.SoberApp
 import com.sober.system.overlay.ui.SectionBlockOverlayController
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,12 +18,24 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var sectionOverlayController: SectionBlockOverlayController
 
+    private val shortcutViewModel: ShortcutViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A shortcut launched while the process was dead arrives here; one
+        // launched from Recents arrives in onNewIntent, because the activity
+        // is reused rather than recreated.
+        shortcutViewModel.handleIntent(intent)
         enableEdgeToEdge()
         setContent {
             SoberApp()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        shortcutViewModel.handleIntent(intent)
     }
 
     override fun onResume() {

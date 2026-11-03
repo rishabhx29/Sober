@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">Sober</string>
+
+    <!-- Launcher shortcuts; the long label is what the launcher shows when
+         there is room, the short one when the row is tight. -->
+    <string name="shortcut_study_short">Study</string>
+    <string name="shortcut_study_long">Start a 2-hour study session</string>
+    <string name="shortcut_work_short">Work</string>
+    <string name="shortcut_work_long">Start a 4-hour work session</string>
+    <string name="shortcut_gym_short">Gym</string>
+    <string name="shortcut_gym_long">Start a 1-hour gym session</string>
+    <string name="shortcut_sleep_short">Sleep</string>
+    <string name="shortcut_sleep_long">Start an 8-hour sleep session</string>
 </resources>
