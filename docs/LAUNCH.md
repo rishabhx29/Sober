@@ -4,8 +4,11 @@ Everything needed to put Sober in front of people, in the order that does not ge
 the account banned. Copy is ready to paste; the sequence, the etiquette and the
 answers to the awkward questions are here too.
 
-**Status:** v1.6 is built and signed, the 25s film is rendered, repo metadata is
-set. Nothing has been posted anywhere yet.
+**Status:** v1.6 is published at
+https://github.com/rishabhx29/Sober/releases/tag/v1.6 with `Sober-1.6.apk` and
+`sober-promo.mp4`. Repo topics, description and homepage are set, and the README
+links the film. Nothing has been posted to a social platform yet — that step
+needs the account holder signed in.
 
 ---
 

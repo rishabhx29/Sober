@@ -1319,6 +1319,30 @@ promise: no feature here needs internet permission.
 
 ---
 
+## Phase 10 — Launch
+
+> Copy, sequence and etiquette live in `docs/LAUNCH.md`.
+
+### 10.1 Publish the release
+
+- [x] Set repo topics, description and homepage URL
+- [x] Publish `v1.6` with `Sober-1.6.apk` and `sober-promo.mp4`
+- [x] Link the film from the README
+
+### 10.2 Community posts
+
+- [ ] X post with the vertical film
+- [ ] r/SideProject
+- [ ] r/fossdroid
+- [ ] Show HN
+- [ ] r/androidapps (self-promotion megathread)
+- [ ] r/digitalminimalism, r/nosurf
+- [ ] Product Hunt
+- [ ] AlternativeTo, Slant, LibHunt listings
+- [ ] dev.to build story
+
+---
+
 ## Task Log
 
 | Date       | Task ID | Action                | Agent              | Notes |
@@ -1546,6 +1570,8 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | post-1.5-home-overcap | completed | QA Agent | The Home tile read "0m OVER CAP" under a ring that read "4h 1m of 3h cap" — the clamped remaining time was reused as the over-cap figure. Now split into `remaining` and `overBy`. Verified on the emulator against the 241-minute Chrome day: the tile reads "1h 1m OVER CAP". Found while reviewing a promo capture, not by a test, so no test covers the branch; `:app:assembleRelease` was rebuilt and installed to confirm. Not released |
 | 2026-11-04 | P9.1-P9.2 | completed | Implementation Agent | The 25 s film is cut: seven beats in 1080x1920, one continuous camera push with crossfades at the three app switches, an SVG trace that draws the device outline when the limit is named, and a cream wipe for the on-device claim. Real 1440x3200 emulator captures are masked and downscaled to 720x1600. `hyperframes check` passes with 13/13 contrast checks, no layout or hold-time findings. Reviewed as stills at every beat plus frames pulled from the encoded MP4; the 16:9 cut and the still exports are still open |
 | 2026-11-04 | P9.3 | completed | Implementation Agent | Seven SFX cues placed from measured peaks rather than by eye: both riser clips peak 2.5 s into their own file, so their starts are set so the first peak lands on the "draws the line" headline and the closing peak on the wordmark; a soft click lands with the row highlight at 7.5 s so the three-second apps beat is not silent. Rendered at 1080x1920 / 30 fps / 25.000 s, H.264 + AAC 48 kHz stereo, 8.9 MB, −15.3 LUFS integrated and −2.0 dBTP measured on the file. SFX only: no licensed music source was available, so the gap is recorded rather than filled with synthesised music |
+| 2026-11-04 | P10.1 | completed | Implementation Agent | GitHub release `v1.6` published from `main` with both assets: `Sober-1.6.apk` (3,774,696 bytes, `SHA-256 ac0858e3…8f2d`, certificate `f9fc8e71…6c64` — unchanged since 1.0) and `sober-promo.mp4` (9,377,803 bytes). `releases/latest` resolves to `v1.6`, so every link in the launch copy lands on the right download. Repo topics, description and homepage were already set. README gained a film section that uses `promo/stills/cover.png` as the poster and links the MP4 asset directly. The film could not be embedded as a player: GitHub strips `<video>` from Markdown, so it is a click-through still |
+| 2026-11-04 | P10.2 | blocked | Implementation Agent | Community posts cannot be made from this machine. The browser profile available to the agent is logged out of X (landed on `/i/jf/onboarding/web?mode=login`) and has no Reddit session; signing in would need the account holder's credentials, which are out of scope. Ready-to-paste copy for every channel is in `docs/LAUNCH.md` §3–§4 with the live release URL |
 
 ---
 

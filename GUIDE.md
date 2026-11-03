@@ -1025,6 +1025,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Measure each clip (`hyperframes audio <file> --json`) and place it from `moments.peak`, keeping `moments.onset` for the build-up length and `moments.tailEnd` to decide whether the clip must be truncated or allowed to ring out. Check the delivered file too: the mix is only as aligned as the encode, and an integrated loudness reading (LUFS) plus true peak from the rendered MP4 is the cheap proof that the bed is at a usable level.
 
+### 11.53 Publish the Asset Before the Copy Points At It
+
+**Date**: 2026-11-04  
+**Context**: The README, `docs/DISTRIBUTION.md` and the F-Droid recipe were rewritten for 1.6 in the same batch as the version bump, but the GitHub release with `Sober-1.6.apk` did not exist yet. For as long as that gap was open, the main install path and every marketing link pointed at a file that returned 404.
+
+**Learning**: A version bump, the docs that name the version, and the release that hosts it are one atomic unit of work. Docs are cheap to commit and easy to forget to follow with the release; the failure is silent because nothing builds or tests the link. Two habits catch it: after publishing, `curl -sIL .../releases/latest` must resolve to the new tag, and any file name quoted in Markdown should match an asset the release actually holds.
+
+**Solution/Pattern**: Order the work release-first when the assets already exist — publish, verify the redirect, then let the docs describe what is live. Also note what GitHub will not do: it strips `<video>` from Markdown, so a launch film in a README is a poster image linking to the asset, never an inline player.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

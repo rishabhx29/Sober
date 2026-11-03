@@ -78,6 +78,22 @@ permission at all.
 
 ---
 
+## The 25-second film
+
+<p align="center">
+  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.6/sober-promo.mp4">
+    <img src="promo/stills/cover.png" width="300" alt="Sober launch film — play the 25-second vertical video">
+  </a>
+</p>
+<p align="center">
+  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.6/sober-promo.mp4">Watch it (MP4, 25s, sound on)</a>
+</p>
+
+Every screen in it is the app running on a device. Nothing is a mockup, and no
+claim in it goes beyond what the APK does.
+
+---
+
 ## Install (sideload)
 
 Sober is not on Google Play. Apps that block other apps rely on Accessibility and
