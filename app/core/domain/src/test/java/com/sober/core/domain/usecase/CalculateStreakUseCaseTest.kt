@@ -7,6 +7,7 @@ import com.sober.core.domain.model.UsageSession
 import com.sober.core.domain.repository.StreakRule
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
@@ -316,5 +317,67 @@ class CalculateStreakUseCaseTest {
         // The live streak has already lost today, which is exactly why the
         // record is written from the closed day instead.
         assertEquals(0, useCase())
+    }
+
+    @Test
+    fun `clean dates report each closed day separately`() = runTest {
+        val usage = FakeUsageSessionRepository(
+            listOf(
+                row("com.instagram.android", dayBeforeYesterday, 60),
+                row("com.instagram.android", yesterday, 200)
+            )
+        )
+        val state = FakeSessionStateRepository().apply {
+            dailyScreenTimeLimitMinutes.value = 120
+        }
+
+        val clean = useCase(usage = usage, state = state)
+            .cleanDates(listOf(dayBeforeYesterday, yesterday, today))
+
+        assertEquals(setOf(dayBeforeYesterday), clean)
+    }
+
+    @Test
+    fun `clean dates exclude unobserved days and today`() = runTest {
+        val usage = FakeUsageSessionRepository(
+            listOf(row("com.instagram.android", dayBeforeYesterday, 60))
+        )
+        val state = FakeSessionStateRepository().apply {
+            dailyScreenTimeLimitMinutes.value = 120
+        }
+
+        val clean = useCase(usage = usage, state = state)
+            .cleanDates(listOf(dayBeforeYesterday, yesterday, today))
+
+        assertEquals(setOf(dayBeforeYesterday), clean)
+    }
+
+    @Test
+    fun `clean dates are empty without a limit to judge against`() = runTest {
+        val usage = FakeUsageSessionRepository(
+            listOf(row("com.instagram.android", yesterday, 60))
+        )
+
+        assertTrue(useCase(usage = usage).cleanDates(listOf(yesterday)).isEmpty())
+    }
+
+    @Test
+    fun `a cancelled day is not a clean day under the strict rule`() = runTest {
+        val usage = FakeUsageSessionRepository(
+            listOf(row("com.instagram.android", yesterday, 60))
+        )
+        val state = FakeSessionStateRepository().apply {
+            dailyScreenTimeLimitMinutes.value = 120
+        }
+        val sessions = FakeFocusSessionRepository(listOf(cancelledSessionOn(yesterday)))
+
+        val clean = useCase(
+            usage = usage,
+            state = state,
+            sessions = sessions,
+            streakPrefs = FakeStreakPreferencesRepository(StreakRule.LIMITS_AND_NO_CANCELLATIONS)
+        ).cleanDates(listOf(yesterday))
+
+        assertTrue(clean.isEmpty())
     }
 }

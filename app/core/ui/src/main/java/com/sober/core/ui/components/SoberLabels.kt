@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -68,7 +69,8 @@ fun SoberDivider(modifier: Modifier = Modifier) {
 fun SoberTextLink(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null
 ) {
     Text(
         text = text,
@@ -79,6 +81,15 @@ fun SoberTextLink(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .clickable(role = Role.Button, onClick = onClick)
+            .then(
+                // A repeated visible label ("Start") is ambiguous out of
+                // context in TalkBack; the caller names what it starts.
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                }
+            )
             .padding(vertical = 8.dp)
     )
 }

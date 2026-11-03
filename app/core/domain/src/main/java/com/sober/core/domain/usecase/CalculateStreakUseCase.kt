@@ -1,5 +1,7 @@
 package com.sober.core.domain.usecase
 
+import com.sober.core.domain.model.AppLimit
+import com.sober.core.domain.model.UsageSession
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.SessionStateRepository
@@ -52,29 +54,15 @@ class CalculateStreakUseCase @Inject constructor(
      * than a clock read so the window is unambiguous at the call site.
      */
     suspend fun streakEndingOn(endDate: LocalDate): Int {
-        val overallLimit = sessionStateRepository.dailyScreenTimeLimitMinutes.first()
-        val limits = appLimitRepository.getAllLimits().first()
-            .filter { it.isActive && it.dailyLimitMinutes > 0 }
-
-        // Nothing to stay under means nothing to succeed at.
-        if (overallLimit <= 0 && limits.isEmpty()) return 0
-
         val dates = (MAX_LOOKBACK_DAYS - 1 downTo 0).map { offset ->
             endDate.minusDays(offset.toLong()).toString()
         }
+        val rules = cleanRules(dates) ?: return 0
         val rows = runCatching { usageSessionRepository.getUsageForDates(dates) }
             .getOrDefault(emptyList())
         val rowsByDate = rows.groupBy { it.date }
         val today = LocalDate.now(ZoneId.systemDefault()).toString()
-
-        val cancelledDays =
-            if (streakPreferencesRepository.rule().first() ==
-                StreakRule.LIMITS_AND_NO_CANCELLATIONS
-            ) {
-                cancelledDays(dates)
-            } else {
-                emptySet()
-            }
+        val cancelledDays = rules.cancelledDates
 
         var streak = 0
         val newestFirst = dates.asReversed()
@@ -96,20 +84,79 @@ class CalculateStreakUseCase @Inject constructor(
                 break
             }
 
-            val total = dayRows.sumOf { it.usedMinutes }
-            val underOverall = overallLimit <= 0 || total < overallLimit
-            val underAppLimits = limits.all { limit ->
-                val appMinutes = dayRows
-                    .filter { it.packageName == limit.packageName }
-                    .sumOf { it.usedMinutes }
-                appMinutes < limit.dailyLimitMinutes
-            }
-
-            if (!underOverall || !underAppLimits) break
+            if (!stayedUnderLimits(dayRows, rules)) break
             streak++
         }
         return streak
     }
+
+    /**
+     * Which of [dates] were clean, by exactly the rule [streakEndingOn] applies.
+     *
+     * Challenges need the per-day answer rather than a run length, because a
+     * failure in the middle must end the challenge at that date. Unlike the
+     * streak, today is never folded in: a challenge only counts whole days, so
+     * this returns an empty set for a day that has not finished. An unobserved
+     * day is not clean — the service did not see it, and treating silence as
+     * success would hand out a week on a dead service.
+     */
+    suspend fun cleanDates(dates: List<String>): Set<String> {
+        if (dates.isEmpty()) return emptySet()
+        val rules = cleanRules(dates) ?: return emptySet()
+        val rows = runCatching { usageSessionRepository.getUsageForDates(dates) }
+            .getOrDefault(emptyList())
+            .groupBy { it.date }
+
+        val today = LocalDate.now(ZoneId.systemDefault()).toString()
+        return dates.filterTo(mutableSetOf()) { date ->
+            if (date == today || date in rules.cancelledDates) return@filterTo false
+            val dayRows = rows[date] ?: return@filterTo false
+            stayedUnderLimits(dayRows, rules)
+        }
+    }
+
+    /**
+     * The limits a day is judged against, or null when there are none.
+     *
+     * Nothing to stay under means nothing to succeed at: without a cap or an
+     * active per-app limit every day would be trivially clean, which would turn
+     * the streak and the clean-week challenge into fiction.
+     */
+    private suspend fun cleanRules(dates: List<String>): CleanRules? {
+        val overallLimit = sessionStateRepository.dailyScreenTimeLimitMinutes.first()
+        val limits = appLimitRepository.getAllLimits().first()
+            .filter { it.isActive && it.dailyLimitMinutes > 0 }
+        if (overallLimit <= 0 && limits.isEmpty()) return null
+
+        val cancelled =
+            if (streakPreferencesRepository.rule().first() ==
+                StreakRule.LIMITS_AND_NO_CANCELLATIONS
+            ) {
+                cancelledDays(dates)
+            } else {
+                emptySet()
+            }
+
+        return CleanRules(overallLimit, limits, cancelled)
+    }
+
+    private fun stayedUnderLimits(rows: List<UsageSession>, rules: CleanRules): Boolean {
+        val total = rows.sumOf { it.usedMinutes }
+        val underOverall = rules.overallLimit <= 0 || total < rules.overallLimit
+        val underAppLimits = rules.limits.all { limit ->
+            val appMinutes = rows
+                .filter { it.packageName == limit.packageName }
+                .sumOf { it.usedMinutes }
+            appMinutes < limit.dailyLimitMinutes
+        }
+        return underOverall && underAppLimits
+    }
+
+    private data class CleanRules(
+        val overallLimit: Int,
+        val limits: List<AppLimit>,
+        val cancelledDates: Set<String>
+    )
 
     /**
      * One query for the whole window rather than one per day: the loop can run

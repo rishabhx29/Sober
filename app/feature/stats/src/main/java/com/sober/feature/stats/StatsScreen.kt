@@ -26,17 +26,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PhoneDisabled
 import androidx.compose.material.icons.rounded.SelfImprovement
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +66,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.model.ChallengeId
+import com.sober.core.domain.model.ChallengeProgress
+import com.sober.core.domain.model.ChallengeState
 import com.sober.core.domain.usecase.DailyUsageTotal
 import com.sober.core.domain.usecase.ExtremeDay
 import com.sober.core.domain.usecase.UsageHeatmap
@@ -73,6 +81,7 @@ import com.sober.core.ui.components.SoberIconBadge
 import com.sober.core.ui.components.SoberProgressBar
 import com.sober.core.ui.components.SoberScreenHeader
 import com.sober.core.ui.components.SoberSectionHeader
+import com.sober.core.ui.components.SoberTextLink
 import com.sober.core.ui.format.spokenDuration
 import com.sober.core.ui.theme.JetBrainsMono
 import com.sober.core.ui.theme.SoberTheme
@@ -86,7 +95,18 @@ fun StatsScreen(
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val message by viewModel.message.collectAsState()
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+
+    // A refused or finished challenge happens away from the card, so the
+    // outcome needs to be spoken somewhere the next scroll cannot hide.
+    LaunchedEffect(message) {
+        message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.consumeMessage()
+        }
+    }
 
     // Stats are computed once per ViewModel, which outlives the tab, so the
     // numbers would still describe the moment the app opened. Re-reading on
@@ -117,6 +137,7 @@ fun StatsScreen(
         add("apps")
         add("patterns")
         add("heatmap")
+        add("challenges")
         add("achievements")
     }
     fun sectionIndex(key: String): String =
@@ -348,6 +369,31 @@ fun StatsScreen(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        SoberSectionHeader(
+            title = "Challenges",
+            index = sectionIndex("challenges"),
+            action = {
+                if (uiState.challenges.completedCount > 0) {
+                    Text(
+                        text = "${uiState.challenges.completedCount} finished",
+                        fontSize = 11.sp,
+                        color = SoberTheme.colors.textMuted
+                    )
+                }
+            }
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        ChallengesSection(
+            state = uiState.challenges,
+            onStart = viewModel::startChallenge,
+            onRestart = viewModel::restartChallenge,
+            onFinish = viewModel::finishChallenge,
+            onAbandon = viewModel::abandonChallenge
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -881,4 +927,200 @@ private fun AchievementId.badgeIcon(): ImageVector = when (this) {
     AchievementId.NIGHT_OWL -> Icons.Rounded.Bedtime
     AchievementId.SPEED_DEMON -> Icons.Rounded.Bolt
     AchievementId.SOBER_PRO -> Icons.Rounded.WorkspacePremium
+    AchievementId.DEEP_WORK -> Icons.Rounded.Timer
+    AchievementId.CHALLENGE_CHAMPION -> Icons.Rounded.EmojiEvents
+}
+
+@Composable
+private fun ChallengesSection(
+    state: ChallengeState,
+    onStart: (ChallengeId) -> Unit,
+    onRestart: (ChallengeId) -> Unit,
+    onFinish: () -> Unit,
+    onAbandon: () -> Unit
+) {
+    val active = state.active
+    if (active != null) {
+        ActiveChallengeCard(
+            progress = active,
+            onFinish = onFinish,
+            onRestart = { onRestart(active.id) },
+            onAbandon = onAbandon
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = "One at a time. The next challenge opens when this one is finished or left.",
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            color = SoberTheme.colors.textMuted
+        )
+        return
+    }
+
+    ChallengeId.entries.forEachIndexed { index, id ->
+        if (index > 0) Spacer(modifier = Modifier.height(10.dp))
+        ChallengeOfferCard(id = id, onStart = { onStart(id) })
+    }
+}
+
+@Composable
+private fun ChallengeOfferCard(
+    id: ChallengeId,
+    onStart: () -> Unit
+) {
+    val colors = SoberTheme.colors
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.cardBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = id.title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = id.description,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = colors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = offerMeta(id),
+                    fontFamily = JetBrainsMono,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.8.sp,
+                    color = colors.textMuted
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            SoberTextLink(
+                text = "Start",
+                onClick = onStart,
+                contentDescription = "Start ${id.title}"
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActiveChallengeCard(
+    progress: ChallengeProgress,
+    onFinish: () -> Unit,
+    onRestart: () -> Unit,
+    onAbandon: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    var confirmLeave by remember { mutableStateOf(false) }
+    val today = LocalDate.now()
+    val firstTarget = progress.targetDates.firstOrNull()
+
+    if (confirmLeave) {
+        AlertDialog(
+            onDismissRequest = { confirmLeave = false },
+            containerColor = colors.surface,
+            title = {
+                Text(
+                    text = "Leave this challenge?",
+                    color = colors.primary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    text = "The days so far will not be recorded. You can start it again later.",
+                    color = colors.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmLeave = false
+                        onAbandon()
+                    }
+                ) {
+                    Text(text = "Leave", color = colors.danger, fontWeight = FontWeight.Medium)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmLeave = false }) {
+                    Text(text = "Keep going", color = colors.textSecondary)
+                }
+            }
+        )
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.cardBorder)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = progress.id.title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = progress.id.description,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = colors.textSecondary
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = challengeStatusLabel(progress, today, firstTarget),
+                    fontFamily = JetBrainsMono,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.8.sp,
+                    color = if (progress.isFailed) colors.textMuted else colors.accent
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            SoberProgressBar(
+                progress = progress.fraction,
+                contentDescription = "${progress.daysDone} of ${progress.daysTarget} days done",
+                height = 6.dp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = challengeBodyLabel(progress, today),
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = colors.textSecondary
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                when {
+                    progress.isComplete ->
+                        SoberTextLink(text = "Collect the badge", onClick = onFinish)
+                    progress.isFailed -> {
+                        SoberTextLink(text = "Start again", onClick = onRestart)
+                        SoberTextLink(text = "Leave it", onClick = { confirmLeave = true })
+                    }
+                    else ->
+                        SoberTextLink(text = "Leave challenge", onClick = { confirmLeave = true })
+                }
+            }
+        }
+    }
 }

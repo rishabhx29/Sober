@@ -9,15 +9,20 @@ import androidx.lifecycle.viewModelScope
 import com.sober.core.data.local.datastore.SoberPreferences
 import com.sober.core.domain.model.Achievement
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.model.ChallengeId
+import com.sober.core.domain.model.ChallengeState
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.UsageStatsRepository
+import com.sober.core.domain.usecase.ChallengeStart
 import com.sober.core.domain.usecase.DailyUsageTotal
 import com.sober.core.domain.usecase.ExtremeDay
 import com.sober.core.domain.usecase.GetAchievementsUseCase
+import com.sober.core.domain.usecase.GetChallengeStateUseCase
 import com.sober.core.domain.usecase.GetOverrideSummaryUseCase
 import com.sober.core.domain.usecase.GetUsageHeatmapUseCase
 import com.sober.core.domain.usecase.GetUsageHistoryUseCase
+import com.sober.core.domain.usecase.ManageChallengeUseCase
 import com.sober.core.domain.usecase.OverrideSummary
 import com.sober.core.domain.usecase.StatsHighlights
 import com.sober.core.domain.usecase.UsageHeatmap
@@ -67,6 +72,7 @@ data class StatsUiState(
     val overrideSummary: OverrideSummary = OverrideSummary(),
     /** Keyguard dismissals over 7 days, or null when the platform cannot report it. */
     val screenUnlocks: Int? = null,
+    val challenges: ChallengeState = ChallengeState(),
     val achievements: List<Achievement> = AchievementId.entries.map {
         Achievement(it, isUnlocked = false)
     },
@@ -106,11 +112,21 @@ class StatsViewModel @Inject constructor(
     private val getOverrideSummaryUseCase: GetOverrideSummaryUseCase,
     private val appLimitRepository: AppLimitRepository,
     private val focusSessionRepository: FocusSessionRepository,
-    private val soberPreferences: SoberPreferences
+    private val soberPreferences: SoberPreferences,
+    private val getChallengeStateUseCase: GetChallengeStateUseCase,
+    private val manageChallengeUseCase: ManageChallengeUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StatsUiState())
     val uiState: StateFlow<StatsUiState> = _uiState
+
+    /** One-shot feedback for a refused or completed challenge tap. */
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
+
+    fun consumeMessage() {
+        _message.value = null
+    }
 
     /**
      * Sober itself and the launcher: both show up in usage stats, neither is an
@@ -141,6 +157,52 @@ class StatsViewModel @Inject constructor(
     }
 
     fun refresh() = loadStats(_uiState.value.selectedTimeframe)
+
+    fun startChallenge(id: ChallengeId) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching { manageChallengeUseCase.start(id) }
+                .getOrDefault(ChallengeStart.NothingToMeasure)
+            when (result) {
+                ChallengeStart.Started ->
+                    loadStats(_uiState.value.selectedTimeframe)
+                ChallengeStart.AlreadyRunning ->
+                    _message.value = "Finish or leave your current challenge first."
+                ChallengeStart.NothingToMeasure ->
+                    _message.value = if (id.isSocial) {
+                        "No social apps found on this device, so there is nothing to measure."
+                    } else {
+                        "Set a daily or per-app limit first, so a clean day means something."
+                    }
+            }
+        }
+    }
+
+    /** Starts the same challenge again after a failed run. */
+    fun restartChallenge(id: ChallengeId) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { manageChallengeUseCase.abandon() }
+            startChallenge(id)
+        }
+    }
+
+    fun finishChallenge() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val finished = runCatching { manageChallengeUseCase.finish() }.getOrDefault(false)
+            _message.value = if (finished) {
+                "Challenge complete."
+            } else {
+                "That challenge is not finished yet."
+            }
+            loadStats(_uiState.value.selectedTimeframe)
+        }
+    }
+
+    fun abandonChallenge() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { manageChallengeUseCase.abandon() }
+            loadStats(_uiState.value.selectedTimeframe)
+        }
+    }
 
     /**
      * Renders the current 7-day view to a PNG and hands back a shareable URI.
@@ -292,6 +354,10 @@ class StatsViewModel @Inject constructor(
                 getAchievementsUseCase()
             }.getOrElse { _uiState.value.achievements }
 
+            val challenges = runCatching {
+                getChallengeStateUseCase()
+            }.getOrDefault(ChallengeState())
+
             val overrideSummary = runCatching {
                 getOverrideSummaryUseCase(rangeStart, now)
             }.getOrDefault(OverrideSummary())
@@ -321,6 +387,7 @@ class StatsViewModel @Inject constructor(
                 dailyLimitMinutes = limit,
                 selectedTimeframe = timeframe,
                 heatmap = heatmap,
+                challenges = challenges,
                 achievements = achievements,
                 overrideSummary = overrideSummary,
                 screenUnlocks = screenUnlocks,

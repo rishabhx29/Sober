@@ -1,7 +1,7 @@
 package com.sober.core.domain.model
 
 /**
- * The six achievements from the PRD.
+ * The six PRD achievements, plus two added with challenges in Phase 8.
  *
  * The display strings live on the enum so the Stats grid and any notification
  * describe an achievement the same way. The badge glyph is chosen in the UI
@@ -35,6 +35,14 @@ enum class AchievementId(
     SOBER_PRO(
         title = "Sober Pro",
         description = "30 days under every limit"
+    ),
+    DEEP_WORK(
+        title = "Deep Work",
+        description = "Complete a 90-minute focus session"
+    ),
+    CHALLENGE_CHAMPION(
+        title = "Challenge Champion",
+        description = "Finish a challenge you started"
     )
 }
 

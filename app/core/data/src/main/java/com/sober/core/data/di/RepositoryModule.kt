@@ -7,6 +7,7 @@ import com.sober.core.data.repository.AppLimitRepositoryImpl
 import com.sober.core.data.repository.AppOpenRepositoryImpl
 import com.sober.core.data.repository.BackupRepositoryImpl
 import com.sober.core.data.repository.BlockableAppsRepositoryImpl
+import com.sober.core.data.repository.ChallengeRepositoryImpl
 import com.sober.core.data.repository.CustomRuleRepositoryImpl
 import com.sober.core.data.repository.DetectionRuleRepositoryImpl
 import com.sober.core.data.repository.FocusSessionRepositoryImpl
@@ -28,6 +29,7 @@ import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
+import com.sober.core.domain.repository.ChallengeRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.FocusSessionRepository
@@ -159,6 +161,12 @@ abstract class RepositoryModule {
     abstract fun bindAchievementRepository(
         impl: AchievementRepositoryImpl
     ): AchievementRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindChallengeRepository(
+        impl: ChallengeRepositoryImpl
+    ): ChallengeRepository
 
     @Binds
     @Singleton

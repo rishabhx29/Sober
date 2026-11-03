@@ -908,6 +908,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Put the rule in a small pure function (`YourReason.normalize`) and call it in the DataStore setter, before writing. Store nothing when the result is empty so "unset" has one representation. Keep the field's `onValueChange` cap as a separate, cosmetic guard so the counter and the text never disagree; it is not the rule, it is the UI mirroring it. Test the function directly — the interesting cases are whitespace runs, the boundary length, and a capped string that would otherwise end in a space.
 
+### 11.40 A Challenge Is a Promise, Not a Streak
+
+**Date**: 2026-11-03  
+**Context**: F13 adds opt-in challenges on the Stats screen. The streak already judges days, so the tempting shortcut was to reuse it: "challenge is complete when the streak reaches seven".
+
+**Learning**: A streak is a record of what happened; a challenge is a promise with a start date, a fixed set of days and an end. Reusing the run length makes the two agree only by accident. If the platform service is dead for a day, the streak breaks, but a social challenge should not fail the user for silence it cannot attribute. Conversely a limit that was never set cannot be checked, so a clean-day challenge started without limits would be free. The two need different evidence for the same day.
+
+**Solution/Pattern**: Model the challenge as its own value (`ActiveChallenge`, `ChallengeProgress`) with an explicit `startedOn`, and compute target dates once in `challengeTargetDates`. Day one is the day *after* opt-in: a promise made at 9pm must not be judged by what already happened that morning, and a Saturday opt-in for "quiet weekend" should wait for the next Saturday rather than half-count the current one. Only days strictly before today can pass or fail, so the card never claims a day that is still running. Record the failure date, not just a boolean, so the UI can say when the run ended. Share the rule, not the mechanism: `CalculateStreakUseCase.cleanDates` exposes the same per-day limit decision the streak uses, while the social challenges use their own "no social usage" check and treat an unobserved day as quiet — documented in code because it is a deliberate asymmetry. Completion is explicit (`finish` re-derives the result from storage before recording) so reading the screen never has side effects and a stale card cannot hand out a badge early.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

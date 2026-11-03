@@ -12,6 +12,8 @@ const val SOBER_PRO_DAYS = 30
 const val FOCUS_MASTER_SESSIONS = 10
 const val SPEED_DEMON_DAYS = 5
 const val NIGHT_OWL_NIGHTS = 5
+const val DEEP_WORK_MINUTES = 90
+const val CHALLENGE_CHAMPION_COUNT = 1
 
 /** A "Pomodoro" is the classic 25-minute interval. */
 const val POMODORO_DURATION_MINUTES = 25
@@ -35,7 +37,11 @@ data class AchievementSnapshot(
     val nightDates: List<String>,
     /** Dates on which the phone was actually used, so a night can be judged. */
     val observedDates: Set<String>,
-    val lateNightDates: Set<String>
+    val lateNightDates: Set<String>,
+    /** Longest completed focus session in the judged window, in minutes. */
+    val longestSessionMinutes: Int = 0,
+    /** Challenges the user has finished, all time. */
+    val completedChallenges: Int = 0
 )
 
 fun evaluateAchievements(snapshot: AchievementSnapshot): Set<AchievementId> = buildSet {
@@ -43,6 +49,10 @@ fun evaluateAchievements(snapshot: AchievementSnapshot): Set<AchievementId> = bu
     if (snapshot.streakDays >= SOBER_PRO_DAYS) add(AchievementId.SOBER_PRO)
     if (snapshot.completedSessions >= FOCUS_MASTER_SESSIONS) add(AchievementId.FOCUS_MASTER)
     if (snapshot.socialFreeDay) add(AchievementId.SOCIAL_DETOX)
+    if (snapshot.longestSessionMinutes >= DEEP_WORK_MINUTES) add(AchievementId.DEEP_WORK)
+    if (snapshot.completedChallenges >= CHALLENGE_CHAMPION_COUNT) {
+        add(AchievementId.CHALLENGE_CHAMPION)
+    }
     if (hasConsecutiveDays(snapshot.pomodoroDates, SPEED_DEMON_DAYS)) {
         add(AchievementId.SPEED_DEMON)
     }

@@ -97,6 +97,13 @@ class SoberPreferences @Inject constructor(
         // Achievement unlocks as "ID:epochMillis;ID:epochMillis"
         val KEY_ACHIEVEMENTS = androidx.datastore.preferences.core.stringPreferencesKey("achievements")
 
+        // Challenges: one active record and the finished ones, encoded by
+        // ChallengeRepositoryImpl as "ID|yyyy-MM-dd".
+        val KEY_ACTIVE_CHALLENGE =
+            androidx.datastore.preferences.core.stringPreferencesKey("active_challenge")
+        val KEY_COMPLETED_CHALLENGES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("completed_challenges")
+
         // Dismissed schedule suggestions, by enum name
         val KEY_DISMISSED_SUGGESTIONS =
             androidx.datastore.preferences.core.stringPreferencesKey("dismissed_suggestions")
@@ -395,6 +402,33 @@ class SoberPreferences @Inject constructor(
     suspend fun setAchievementsRaw(value: String) {
         dataStore.edit { preferences ->
             preferences[KEY_ACHIEVEMENTS] = value
+        }
+    }
+
+    /** Encoded active challenge; decoding belongs to the repository. */
+    val activeChallengeRaw: Flow<String?> = dataStore.data.map { it[KEY_ACTIVE_CHALLENGE] }
+
+    val completedChallengesRaw: Flow<Set<String>> =
+        dataStore.data.map { it[KEY_COMPLETED_CHALLENGES] ?: emptySet() }
+
+    suspend fun setActiveChallengeRaw(value: String?) {
+        dataStore.edit { preferences ->
+            if (value == null) preferences.remove(KEY_ACTIVE_CHALLENGE)
+            else preferences[KEY_ACTIVE_CHALLENGE] = value
+        }
+    }
+
+    /**
+     * Records a finished challenge and clears the active slot in one edit.
+     *
+     * Two edits could leave a challenge counted as both active and finished if
+     * the process died between them, which would block every new challenge.
+     */
+    suspend fun recordCompletedChallengeRaw(record: String) {
+        dataStore.edit { preferences ->
+            preferences.remove(KEY_ACTIVE_CHALLENGE)
+            preferences[KEY_COMPLETED_CHALLENGES] =
+                (preferences[KEY_COMPLETED_CHALLENGES] ?: emptySet()) + record
         }
     }
 

@@ -4,6 +4,7 @@ import com.sober.core.domain.model.Achievement
 import com.sober.core.domain.model.AchievementId
 import com.sober.core.domain.repository.AchievementRepository
 import com.sober.core.domain.repository.AppCategoryRepository
+import com.sober.core.domain.repository.ChallengeRepository
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.UsageSessionRepository
 import com.sober.core.domain.repository.UsageStatsRepository
@@ -14,7 +15,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 
 /**
- * Evaluates the six PRD achievements and merges them with the unlocks already
+ * Evaluates every achievement and merges the result with the unlocks already
  * stored on the device.
  *
  * Evaluation is derived, only the *first unlock* is persisted: the streak is
@@ -28,7 +29,8 @@ class GetAchievementsUseCase @Inject constructor(
     private val usageStatsRepository: UsageStatsRepository,
     private val appCategoryRepository: AppCategoryRepository,
     private val achievementRepository: AchievementRepository,
-    private val calculateStreakUseCase: CalculateStreakUseCase
+    private val calculateStreakUseCase: CalculateStreakUseCase,
+    private val challengeRepository: ChallengeRepository
 ) {
 
     suspend operator fun invoke(
@@ -55,6 +57,10 @@ class GetAchievementsUseCase @Inject constructor(
         val socialPackages = runCatching {
             appCategoryRepository.getSocialPackages()
         }.getOrDefault(emptySet())
+
+        val completedChallenges = runCatching {
+            challengeRepository.getCompleted().first().size
+        }.getOrDefault(0)
 
         val pomodoroDates = recentCompleted
             .filter { it.durationMinutes == POMODORO_DURATION_MINUTES }
@@ -87,7 +93,9 @@ class GetAchievementsUseCase @Inject constructor(
                 pomodoroDates = pomodoroDates,
                 nightDates = nightDates,
                 observedDates = observedDates,
-                lateNightDates = lateNightDates(intervals, NIGHT_CUTOFF_HOUR, zone)
+                lateNightDates = lateNightDates(intervals, NIGHT_CUTOFF_HOUR, zone),
+                longestSessionMinutes = recentCompleted.maxOfOrNull { it.durationMinutes } ?: 0,
+                completedChallenges = completedChallenges
             )
         )
 

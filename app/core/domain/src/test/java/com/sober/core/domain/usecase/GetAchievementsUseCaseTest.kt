@@ -1,6 +1,8 @@
 package com.sober.core.domain.usecase
 
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.model.ActiveChallenge
+import com.sober.core.domain.model.ChallengeId
 import com.sober.core.domain.model.FocusSession
 import com.sober.core.domain.model.SessionStatus
 import com.sober.core.domain.model.UsageInterval
@@ -40,7 +42,8 @@ class GetAchievementsUseCaseTest {
         categories: FakeAppCategoryRepository = FakeAppCategoryRepository(),
         achievements: FakeAchievementRepository = FakeAchievementRepository(),
         sessionState: FakeSessionStateRepository = FakeSessionStateRepository(),
-        appLimits: FakeAppLimitRepository = FakeAppLimitRepository()
+        appLimits: FakeAppLimitRepository = FakeAppLimitRepository(),
+        challenges: FakeChallengeRepository = FakeChallengeRepository()
     ): GetAchievementsUseCase {
         val streak = CalculateStreakUseCase(
             usageSessionRepository = usage,
@@ -55,7 +58,8 @@ class GetAchievementsUseCaseTest {
             usageStatsRepository = stats,
             appCategoryRepository = categories,
             achievementRepository = achievements,
-            calculateStreakUseCase = streak
+            calculateStreakUseCase = streak,
+            challengeRepository = challenges
         )
     }
 
@@ -207,6 +211,44 @@ class GetAchievementsUseCaseTest {
         val result = useCase(usage = usage, categories = categories)(nowMillis = now, zone = zone)
 
         assertTrue(result.first { it.id == AchievementId.SOCIAL_DETOX }.isUnlocked)
+    }
+
+    @Test
+    fun `a ninety minute session unlocks Deep Work`() = runTest {
+        val focus = FakeFocusSessionRepository(
+            listOf(completedSession(now - 60_000L, durationMinutes = 90))
+        )
+
+        val result = useCase(focus = focus)(nowMillis = now, zone = zone)
+
+        assertTrue(result.first { it.id == AchievementId.DEEP_WORK }.isUnlocked)
+    }
+
+    @Test
+    fun `an eighty minute session does not unlock Deep Work`() = runTest {
+        val focus = FakeFocusSessionRepository(
+            listOf(completedSession(now - 60_000L, durationMinutes = 80))
+        )
+
+        val result = useCase(focus = focus)(nowMillis = now, zone = zone)
+
+        assertFalse(result.first { it.id == AchievementId.DEEP_WORK }.isUnlocked)
+    }
+
+    @Test
+    fun `a finished challenge unlocks Challenge Champion`() = runTest {
+        val challenges = FakeChallengeRepository(
+            initialCompleted = listOf(
+                ActiveChallenge(
+                    id = ChallengeId.CLEAN_WEEK,
+                    startedOn = LocalDate.now(zone).minusDays(10)
+                )
+            )
+        )
+
+        val result = useCase(challenges = challenges)(nowMillis = now, zone = zone)
+
+        assertTrue(result.first { it.id == AchievementId.CHALLENGE_CHAMPION }.isUnlocked)
     }
 
     @Test

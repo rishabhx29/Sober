@@ -1,6 +1,7 @@
 package com.sober.core.domain.usecase
 
 import com.sober.core.domain.model.AchievementId
+import com.sober.core.domain.model.ActiveChallenge
 import com.sober.core.domain.model.AllowOnlyMode
 import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.AppPauseRule
@@ -31,6 +32,7 @@ import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
+import com.sober.core.domain.repository.ChallengeRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
 import com.sober.core.domain.repository.DetectionRuleRepository
@@ -426,6 +428,31 @@ class FakeAchievementRepository(
     override suspend fun unlock(id: AchievementId, atMillis: Long) {
         if (unlocked.value.containsKey(id)) return
         unlocked.value = unlocked.value + (id to atMillis)
+    }
+}
+
+class FakeChallengeRepository(
+    initialActive: ActiveChallenge? = null,
+    initialCompleted: List<ActiveChallenge> = emptyList()
+) : ChallengeRepository {
+    val active = MutableStateFlow(initialActive)
+    val completed = MutableStateFlow(initialCompleted)
+
+    override fun getActive(): Flow<ActiveChallenge?> = active
+
+    override fun getCompleted(): Flow<List<ActiveChallenge>> = completed
+
+    override suspend fun start(challenge: ActiveChallenge) {
+        active.value = challenge
+    }
+
+    override suspend fun clearActive() {
+        active.value = null
+    }
+
+    override suspend fun complete(challenge: ActiveChallenge) {
+        active.value = null
+        completed.value = completed.value + challenge
     }
 }
 
