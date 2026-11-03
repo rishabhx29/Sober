@@ -35,7 +35,7 @@ permission at all.
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
 | **Section blocking** | Use Android's Accessibility API to close just the distracting section of an app: Instagram Reels and Explore, YouTube Shorts, a selected tab. Blocking a section never blocks the whole app. |
-| **Website blocking** | Keep a domain closed inside the browser. Sober reads the address bar (Chrome verified; Brave, Edge, Firefox and Samsung Internet best-effort), so a blocked site and all its subdomains are covered without a VPN and without the app ever sending traffic anywhere. |
+| **Website blocking** | Keep a domain closed inside the browser. Sober reads the address bar (Chrome verified; Chromium, Brave, Edge, Vivaldi, Firefox, Firefox Beta/Nightly, Opera, Opera Mini, DuckDuckGo, Samsung Internet and other Chromium forks best-effort), so a blocked site and all its subdomains are covered without a VPN and without the app ever sending traffic anywhere. In-app browsers and Custom Tabs are not readable — block the host app instead. |
 | **Custom rules** | Keep a named app or website closed, or mute notifications that contain a word you choose, at any hour. |
 | **Schedules** | Block chosen apps during set hours on set days. Useful for sleep, work, and school. |
 | **Statistics** | Today, 7 days, or 30 days: total screen time, top apps, streaks, focus sessions, and a heatmap of when you actually use the phone. |

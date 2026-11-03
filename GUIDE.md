@@ -881,6 +881,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Keep the widget a plain XML layout plus a suspend renderer that reads the repositories and calls `AppWidgetManager.updateAppWidget`. Use `goAsync()` in the provider's `onUpdate` and the action receiver, because the state reads are suspending and `onReceive` must not block. `updatePeriodMillis` has a thirty-minute floor, so treat it as a fallback: have the enforcement service observe pause, lock and session flows and send a package-scoped refresh broadcast only when their values change. Widget providers are `exported="true"` because the launcher (another UID) delivers `APPWIDGET_UPDATE`; the receiver that handles the widget's own buttons can stay `exported="false"` because its `PendingIntent`s run with Sober's identity. For the Quick Settings tile, remember that a pause lifts every rule at once — the tile must check lock mode too, and rather than silently ignore a tap, open the app so the end time is visible.
 
+### 11.37 Address Bar Ids Are Guesses Until Proven, and a Guess Fails Open
+
+**Date**: 2026-11-03  
+**Context**: F10 widens website blocking to more browsers. There is no public API that returns "the URL the browser is showing"; the only signal is the resource id of the address bar text field, and each browser names it differently.
+
+**Learning**: Never infer a resource id from a package name. Chromium and its forks happen to keep `url_bar` in their own namespace, but Firefox uses the Android Components toolbar id, Opera uses `url_field`, DuckDuckGo uses `omnibarTextInput` and Samsung ships its own. Verified ids are confirmed by a second independent source or a device; an unverified id is not a feature, it is a string that will never match. Because the lookup is by exact namespaced id, a wrong guess **fails open** — the site is simply not covered, never the wrong screen — which is the safe direction but still a silent gap, so the UI has to say which surfaces are out of reach (in-app browsers, Custom Tabs).
+
+**Solution/Pattern**: Keep the catalogue a single data list of `packageName` to `addressBarId`, one entry per browser (Beta/Nightly included because they ship under different packages but the same toolbar). Pin it with tests: every id must start with `"${packageName}:id/"`, no package twice, and the mainstream set must stay present so an edit cannot silently drop one. When an id cannot be verified, leave the browser out and record the reason in `TASKS.md`; the user-assisted picker (F10a) is the honest way to cover the rest, because the user can point at the real node instead of a developer guessing.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

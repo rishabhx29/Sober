@@ -394,7 +394,8 @@ fun AppsScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "The site and its subdomains are covered while the address bar shows them. " +
-                            "Matches the address bar, so a redirect can appear for a moment before the cover.",
+                            "Matches the address bar, so a redirect can appear for a moment before the cover. " +
+                            "Works in the common browsers; in-app browsers and Custom Tabs cannot be read, so block the app itself for those.",
                         fontSize = 11.sp,
                         color = SoberTheme.colors.textMuted
                     )

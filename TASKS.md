@@ -1140,8 +1140,23 @@ promise: no feature here needs internet permission.
 - [x] F9 — Pause everything — *time-boxed `pausedUntil` checked ahead of limit
   rules; Home offers 15 min/1 hour/3 hours, shows the remaining time and a
   Resume action, and refuses while lock mode is on.*
-- [ ] F10 — Wider section and browser coverage — *extend `BrowserCatalog` and
-  add section node rules for TikTok, Facebook, X and Snapchat.*
+- [x] F10 — Wider browser coverage — *`BrowserCatalog` grew from 8 to 18
+  packages: Chromium, Brave, Edge, Vivaldi, Cromite, Mulch, Vanadium (all the
+  Chromium `url_bar` id in their own namespace), Firefox/Beta/Nightly (the
+  Android Components toolbar id), Opera and Opera Mini (`url_field`), DuckDuckGo
+  (`omnibarTextInput`) and Samsung Internet. `BrowserCatalogTest` pins the
+  namespace rule, duplicate packages and the mainstream set. The in-app website
+  section and the README now state the limits: a browser that renames its
+  toolbar is not detected (it fails open, never wrong), and in-app browsers and
+  Custom Tabs cannot be read. Facebook section rules were **not** added: its tab
+  ids could not be verified, and a guessed rule would show a toggle that never
+  fires.*
+- [ ] F10a — User-assisted section picker — *let the user record a section rule
+  by inspecting the live node tree (selected tab or screen id) and name it. The
+  backlog calls for this so apps outside the shipped catalogue (Facebook, local
+  apps) can be covered without guessing ids. Needs a capture surface, a
+  persisted user-rule store and a review UI; the catalog parser stays the
+  trusted baseline.*
 
 > **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
 > and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass;
@@ -1153,6 +1168,8 @@ promise: no feature here needs internet permission.
 > focus-session copy, and every other new Settings section, the DND transition,
 > the pause/opens overlays, the weekly card's share sheet and the SAF backup
 > pickers.
+> F10 is compile- and unit-tested only: none of the newly listed address bar
+> ids were checked against an installed browser.
 
 ---
 
@@ -1358,6 +1375,8 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F6 | completed | Implementation Agent | Weekly report: `bestAndWorstDays` in domain (3 tests), `getScreenUnlockCount` from `KEYGUARD_HIDDEN` on API 28+, and a 7-day card with a PNG export. The image is drawn by `renderWeeklyReport` on a 1080×1350 canvas so the share does not depend on scroll position; export lands in `cacheDir/exports` behind the existing FileProvider. Compile + `:core:domain` 307/307. Device walk and share-sheet export pending |
 | 2026-11-03 | F7 | completed | Implementation Agent | Backup and restore over SAF. `BackupRepositoryImpl` collects limits, schedules, custom/section rules, pause rules, category budgets, allow-only, bedtime and the daily cap into one JSON document; restore validates every entry before deleting anything and replaces the stored rules, with the PIN gate when one is set. The codec is hand-written on Moshi's streaming reader/writer after the kapt codegen proved incompatible with Kotlin 2.2.10 and the reflective adapter would have needed R8 keep rules. `BackupCodecTest` 5/5, settings/app compile. Device walk of the pickers pending |
 | 2026-11-03 | F4 | completed | Implementation Agent | Quick Settings tile and home widget. `SoberTileService` toggles a 15-minute pause, resumes it, and refuses while locked by opening the app; `SoberStatusWidgetProvider` plus a non-exported action receiver render a RemoteViews card with pause-or-resume, and body taps open Sober. The engine observes pause/lock/session flows and broadcasts a refresh only on change, so updates are immediate without polling the widget. Emulator walk: tile added/paused/resumed; widget added, pause and resume both applied and re-rendered, body opened `MainActivity`. Release build signs and installs over v1.3. Locked-tile and focus-session widget copy not exercised |
+| 2026-11-03 | F10 | completed | Implementation Agent | Wider browser coverage. `BrowserCatalog` now lists 18 packages across four families: Chromium forks on `url_bar`, Firefox/Beta/Nightly on the Android Components toolbar id, Opera/Opera Mini on `url_field`, DuckDuckGo on `omnibarTextInput`, plus Samsung Internet. `BrowserCatalogTest` (4 tests) pins the package-namespaced id rule, uniqueness and the mainstream set. Limit copy added to the website section and the README. Facebook rules were deliberately not added because its tab ids could not be verified; the picker that would let users author such rules is tracked as F10a. Ids are not yet checked against installed browsers |
+| 2026-11-03 | F10a | added | Task Tracker Agent | User-assisted section picker, split out of F10: record a rule from the live node tree so apps outside the shipped catalogue can be covered without guessing resource ids |
 
 ---
 
