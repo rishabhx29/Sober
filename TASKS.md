@@ -1219,6 +1219,19 @@ promise: no feature here needs internet permission.
   block stays behind the in-app hold, because a sticker is still an untrusted
   physical trigger. `NFC` is a normal permission and `android.hardware.nfc` is
   not required, so non-NFC devices still install.*
+- [x] F15 — F-Droid and Obtainium — *distribution channels documented around
+  who signs, rather than by store: GitHub Releases and Obtainium share the
+  project key, an F-Droid build would use F-Droid's key and therefore cannot
+  update over it. `fastlane/metadata/android/en-US/` carries the title,
+  54-char summary,
+  full description, seven phone screenshots, a 512 px icon and the version-code
+  4 changelog, so F-Droid and IzzyOnDroid read the same source. A
+  ready-to-submit recipe lives in `docs/fdroiddata/com.sober.app.yml`, pinned to
+  `v1.3` with the unsigned release output path; `docs/DISTRIBUTION.md` walks the
+  fdroiddata merge request, the Obtainium setup, the permission table for
+  reviewers and an honest reproducibility statement (source build, no secrets,
+  no `INTERNET`, no bit-for-bit claim). The listing is not live and was not
+  submitted.*
 - [ ] F10a — User-assisted section picker — *let the user record a section rule
   by inspecting the live node tree (selected tab or screen id) and name it. The
   backlog calls for this so apps outside the shipped catalogue (Facebook, local
@@ -1260,6 +1273,11 @@ promise: no feature here needs internet permission.
 > full suite 494/494. No NFC tag was written or tapped: the cold-launch filter,
 > warm `onNewIntent` delivery and the actual scan were not exercised on
 > hardware.
+> F15 builds `:app:assembleRelease` without signing environment variables and
+> lands `app-release-unsigned.apk` (3.7 MB) at the path the recipe names;
+> `full_description.txt` is 2,706 of 4,000 chars and the summary 54 of 80. The
+> F-Droid listing was not submitted (that needs a fdroiddata merge request) and
+> Obtainium was not exercised against the repository.
 
 ---
 
@@ -1474,6 +1492,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F13 | completed | Implementation Agent | Challenges and richer achievements. `ChallengeRules` owns the target dates (day after opt-in; the weekend challenge waits for the next Saturday) and `evaluateChallenge` counts only whole days, stopping at the first bad one and recording `failedOn`. `CalculateStreakUseCase.cleanDates` exposes the streak's per-day limit rule so `GetChallengeStateUseCase` does not duplicate it; social challenges use a separate quiet-day check and treat unobserved days as quiet. `ManageChallengeUseCase` refuses a clean-week start without limits and a social start without installed social apps, allows one challenge at a time, and re-derives completion before recording the win. "Feed-free week" replaces "no-Reels week" because section-level usage is not recorded. DataStore stores one active record and a completed set; the Stats section adds offer cards, an active card with progress and a leave dialog. Also added Deep Work (90-minute session) and Challenge Champion (one finished challenge). Tests: `ChallengeRulesTest` 8, `GetChallengeStateUseCaseTest` 6, `ManageChallengeUseCaseTest` 8, `ChallengeCodecTest` 4, `ChallengeCopyTest` 6, `cleanDates` 4, achievements 3; full suite 476/476. Device walk pending |
 | 2026-11-03 | F20 | completed | Implementation Agent | Optional brown noise during a focus session. `FocusSoundPlayer` synthesises white noise through a leaky integrator (16 kHz mono PCM16, 0.22 amplitude) and streams it into an `AudioTrack` on a daemon thread — no asset, no network, no media permission, media volume only. `SoberCoreService` combines `activeSessionId` with the stored `focusSoundEnabled` and calls `setPlaying`, so playback follows the session across app exits and screen locks, reacts to mid-session toggles, and stops in `onDestroy`. A refused `AudioTrack` logs and stays silent. Preference is global and off by default; the Focus setup screen gains a "Brown noise" switch. `:app:assembleDebug` green, full suite 489/489. Device walk pending (audible playback, screen-off continuity) |
 | 2026-11-03 | F18 | completed | Implementation Agent | NFC tags. `sober://focus?preset=NAME` as an NDEF URI record starts the preset through the same `ShortcutViewModel` path as launcher shortcuts, so onboarding and active-session refusals are shared. `FocusTag.presetFor` is a pure parser (strict scheme/host match, case-insensitive preset, unknown payloads ignored); only `ACTION_NDEF_DISCOVERED` intents are parsed. Manifest adds an `NDEF_DISCOVERED` filter for the custom scheme, `launchMode="singleTop"` (avoids stacking a second activity on a warm tap), the normal `NFC` permission and a not-required `android.hardware.nfc` feature. Ending or lifting a block is not tag-reachable by design. `FocusTagTest` 5/5, `:app:assembleDebug` green. Hardware scan pending |
+| 2026-11-03 | F15 | completed | Implementation Agent | Distribution. `fastlane/metadata/android/en-US/` holds the title, summary, full description, 512 px icon, seven screenshots and changelog `4.txt`; `docs/fdroiddata/com.sober.app.yml` is a ready recipe pinned to `v1.3` (versionCode 4, `subdir: app`, `output: app/build/outputs/apk/release/app-release-unsigned.apk`), and `docs/DISTRIBUTION.md` covers Obtainium, the fdroiddata submission, the permission table and reproducibility limits. The README now states the real update story: GitHub and Obtainium share the project key, an F-Droid build would not install over it. Release build without signing env produced `app-release-unsigned.apk` at the recipe's path, 3.7 MB. Listing not submitted |
 
 ---
 

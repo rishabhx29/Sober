@@ -8,7 +8,7 @@
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%204.0%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/version-1.3-B3432F?style=flat-square" alt="Version 1.3">
-  <img src="https://img.shields.io/badge/tests-401%20passing-4C7A5C?style=flat-square" alt="401 unit tests passing">
+  <img src="https://img.shields.io/badge/tests-494%20passing-4C7A5C?style=flat-square" alt="494 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -83,6 +83,12 @@ as a signed APK on GitHub Releases.
 is signed with a release key that has not changed since 1.0, so updates install
 over the previous version.
 
+Want automatic updates? Add this repository to
+[Obtainium](https://github.com/ImranR98/Obtainium); it tracks GitHub Releases
+directly. F-Droid is not listed yet — the build recipe and metadata are ready in
+[`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md), which also explains why an
+F-Droid build cannot update over this APK (different signing key).
+
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
    and download `Sober-1.3.apk`.
@@ -107,7 +113,8 @@ app it has not seen before; the message is about provenance, not a detected
 threat. If no *Install anyway* button is offered, open the Play Store → tap your
 profile → **Play Protect** → the gear icon → turn off **Scan apps with Play
 Protect**, install, then turn scanning back on. Sober's source is in this
-repository and the APK is reproducibly built from it.
+repository, and the release is built from the tagged commit with no binary
+blobs.
 
 **"Restricted setting" when enabling Accessibility**
 

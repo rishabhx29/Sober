@@ -953,6 +953,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: One pure parser (`FocusTag.presetFor`) accepts exactly `sober://focus?preset=NAME`, ignores everything else, and is tested as a string function so the contract does not depend on an emulator's NFC hardware. `ShortcutViewModel` reuses the shortcut path, so onboarding, an already-running session and preset resolution behave identically regardless of which trigger arrived. The manifest adds an `NDEF_DISCOVERED` filter for the custom scheme, `singleTop` on `MainActivity` so a warm tap becomes `onNewIntent` instead of a second activity, and `NFC` as a normal permission with `android.hardware.nfc` marked not required so devices without a reader can still install. Document the payload in the README next to the `adb` example: the tag writer is the user's tool, and the format is the contract.
 
+### 11.45 A Store Is a Second Signing Chain
+
+**Date**: 2026-11-03  
+**Context**: F15 prepares F-Droid and Obtainium distribution. The obvious framing was "add the app to a store", as if the same APK could simply be listed everywhere.
+
+**Learning**: An APK's identity is its signing key. F-Droid builds from source on its own machines and signs with its own key, so its APK is a different app as far as Android's update rules are concerned — it cannot install over the GitHub build, and switching means uninstalling, which deletes local state. Obtainium is the opposite: it is a downloader for the GitHub release, so it reuses the project key and needs nothing published beyond the existing releases. Reproducible builds do not remove this either: F-Droid can accept a prebuilt APK only with `Binaries` and an allowed signing key, and the project does not yet prove byte-identical output across JDKs. The honest documentation is therefore a table of *who signs* and *what update path that creates*, not a list of stores.
+
+**Solution/Pattern**: Publish metadata where the builders look for it — `fastlane/metadata/android/en-US/` with title, summary, full description, screenshots, a changelog keyed by `versionCode`, and a 512 px icon — so both F-Droid and IzzyOnDroid read the same source. Keep a ready-to-submit recipe in `docs/fdroiddata/` pinned to the released tag, and document that the F-Droid entry is *not* live instead of implying it is. Point Obtainium at the existing GitHub repository and explain it needs no extra artifacts. Verify the recipe's fragile part — the relative `output:` path — by building `:app:assembleRelease` without signing env vars and confirming `app-release-unsigned.apk` appears where the recipe says. Describe reproducibility as a direction with current facts: source-only build, no secrets required, no `INTERNET` permission, and an explicit statement that bit-for-bit equality is not claimed.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
