@@ -122,6 +122,19 @@ class SoberPreferences @Inject constructor(
         val KEY_SECTION_RULES =
             androidx.datastore.preferences.core.stringSetPreferencesKey("section_rules")
 
+        // Section rules the user recorded from a live screen, one encoded rule
+        // per entry. Kept apart from KEY_SECTION_RULES, which only says which
+        // rules are on: an app update replaces the shipped catalog, never these.
+        val KEY_CUSTOM_SECTION_RULES =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("custom_section_rules")
+
+        // The package a recording is armed for, and the last screen seen while
+        // it was. One slot: the user is walking to one screen at a time.
+        val KEY_SECTION_CAPTURE_REQUEST =
+            androidx.datastore.preferences.core.stringPreferencesKey("section_capture_request")
+        val KEY_SECTION_CAPTURE_RESULT =
+            androidx.datastore.preferences.core.stringPreferencesKey("section_capture_result")
+
         // The user's own rules, one encoded record per entry. See
         // CustomRuleCodec for the field order.
         val KEY_CUSTOM_RULES =
@@ -534,6 +547,63 @@ class SoberPreferences @Inject constructor(
     suspend fun setSectionRules(ruleIds: Set<String>) {
         dataStore.edit { preferences ->
             preferences[KEY_SECTION_RULES] = ruleIds
+        }
+    }
+
+    /** Encoded user-recorded rules; decoding belongs to the repository. */
+    val customSectionRulesRaw: Flow<Set<String>> = dataStore.data.map { preferences ->
+        preferences[KEY_CUSTOM_SECTION_RULES] ?: emptySet()
+    }
+
+    /**
+     * Stores the rule and switches it on in one edit.
+     *
+     * Two edits could leave a rule that exists but is off, or an enabled id
+     * with no rule, if the process died between them.
+     */
+    suspend fun addCustomSectionRule(encoded: String, ruleId: String) {
+        dataStore.edit { preferences ->
+            preferences[KEY_CUSTOM_SECTION_RULES] =
+                (preferences[KEY_CUSTOM_SECTION_RULES] ?: emptySet()) + encoded
+            preferences[KEY_SECTION_RULES] =
+                (preferences[KEY_SECTION_RULES] ?: emptySet()) + ruleId
+        }
+    }
+
+    /**
+     * Removes the rule and its id in one edit, for the same reason. The prefix
+     * check is safe because the repository only mints ids without the field
+     * separator (`custom:` plus a UUID).
+     */
+    suspend fun removeCustomSectionRule(ruleId: String) {
+        dataStore.edit { preferences ->
+            preferences[KEY_CUSTOM_SECTION_RULES] = preferences[KEY_CUSTOM_SECTION_RULES]
+                .orEmpty()
+                .filterNot { it.startsWith("$ruleId|") }
+                .toSet()
+            preferences[KEY_SECTION_RULES] =
+                (preferences[KEY_SECTION_RULES] ?: emptySet()) - ruleId
+        }
+    }
+
+    val sectionCaptureRequestRaw: Flow<String?> =
+        dataStore.data.map { it[KEY_SECTION_CAPTURE_REQUEST] }
+
+    val sectionCaptureResultRaw: Flow<String?> =
+        dataStore.data.map { it[KEY_SECTION_CAPTURE_RESULT] }
+
+    /** Passing null ends or clears the recording. */
+    suspend fun setSectionCaptureRequest(encoded: String?) {
+        dataStore.edit { preferences ->
+            if (encoded == null) preferences.remove(KEY_SECTION_CAPTURE_REQUEST)
+            else preferences[KEY_SECTION_CAPTURE_REQUEST] = encoded
+        }
+    }
+
+    suspend fun setSectionCaptureResult(encoded: String?) {
+        dataStore.edit { preferences ->
+            if (encoded == null) preferences.remove(KEY_SECTION_CAPTURE_RESULT)
+            else preferences[KEY_SECTION_CAPTURE_RESULT] = encoded
         }
     }
 

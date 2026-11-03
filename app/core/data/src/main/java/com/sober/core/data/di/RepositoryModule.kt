@@ -9,6 +9,7 @@ import com.sober.core.data.repository.BackupRepositoryImpl
 import com.sober.core.data.repository.BlockableAppsRepositoryImpl
 import com.sober.core.data.repository.ChallengeRepositoryImpl
 import com.sober.core.data.repository.CustomRuleRepositoryImpl
+import com.sober.core.data.repository.CustomSectionRuleRepositoryImpl
 import com.sober.core.data.repository.DetectionRuleRepositoryImpl
 import com.sober.core.data.repository.FocusSessionRepositoryImpl
 import com.sober.core.data.repository.NotificationPreferencesRepositoryImpl
@@ -31,6 +32,7 @@ import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.ChallengeRepository
 import com.sober.core.domain.repository.CustomRuleRepository
+import com.sober.core.domain.repository.CustomSectionRuleRepository
 import com.sober.core.domain.repository.DetectionRuleRepository
 import com.sober.core.domain.repository.FocusSessionRepository
 import com.sober.core.domain.repository.NotificationPreferencesRepository
@@ -41,12 +43,14 @@ import com.sober.core.domain.repository.PinRepository
 import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.ScheduleRuleRepository
 import com.sober.core.domain.repository.ScheduleSuggestionRepository
+import com.sober.core.domain.repository.SectionCaptureRepository
 import com.sober.core.domain.repository.SectionRulePreferencesRepository
 import com.sober.core.domain.repository.StreakPreferencesRepository
 import com.sober.core.domain.repository.StreakRecordRepository
 import com.sober.core.domain.repository.ThemePreferencesRepository
 import com.sober.core.domain.repository.UsageSessionRepository
 import com.sober.core.data.repository.ScheduleSuggestionRepositoryImpl
+import com.sober.core.data.repository.SectionCaptureRepositoryImpl
 import com.sober.core.data.repository.SectionRulePreferencesRepositoryImpl
 import com.sober.core.data.repository.SessionStateRepositoryImpl
 import com.sober.core.domain.repository.SessionStateRepository
@@ -137,6 +141,18 @@ abstract class RepositoryModule {
     abstract fun bindSectionRulePreferencesRepository(
         impl: SectionRulePreferencesRepositoryImpl
     ): SectionRulePreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCustomSectionRuleRepository(
+        impl: CustomSectionRuleRepositoryImpl
+    ): CustomSectionRuleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSectionCaptureRepository(
+        impl: SectionCaptureRepositoryImpl
+    ): SectionCaptureRepository
 
     @Binds
     @Singleton
