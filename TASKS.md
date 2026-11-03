@@ -1308,7 +1308,7 @@ promise: no feature here needs internet permission.
 - [x] Single camera push with screen crossfades at the three app switches
 - [x] Lint, contrast and hold-time checks
 - [ ] 16:9 cut for YouTube and the README hero
-- [ ] Export still covers for the release notes and the listing
+- [x] Export still covers for the release notes and the listing
 
 ### 9.3 Sound and delivery
 
