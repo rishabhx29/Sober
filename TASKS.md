@@ -1291,6 +1291,34 @@ promise: no feature here needs internet permission.
 
 ---
 
+## Phase 9 — Launch Promo Film (unreleased)
+
+> Brief and channel plan live in `docs/PROMO.md`; the HyperFrames project is
+> `promo/`. Everything on screen is a real emulator capture — no mockups.
+
+### 9.1 Capture and assets
+
+- [x] Capture the seven screens at 1440x3200 and mask the system bars
+- [x] Re-capture Home after the over-cap tile fix
+- [x] Install the registry components and the SFX clips
+
+### 9.2 Composition
+
+- [x] Cut the 25s / 1080x1920 seven-beat composition
+- [x] Single camera push with screen crossfades at the three app switches
+- [x] Lint, contrast and hold-time checks
+- [ ] 16:9 cut for YouTube and the README hero
+- [ ] Export still covers for the release notes and the listing
+
+### 9.3 Sound and delivery
+
+- [x] Align the six SFX cues to their peaks from `hyperframes audio --json`
+- [x] Mixed to -15 LUFS / -2 dBTP at 1080x1920, 30 fps, 25.0 s
+- [ ] Licensed music bed (none was available; the film ships SFX only)
+- [ ] Caption pass if a platform cut needs burned-in text
+
+---
+
 ## Task Log
 
 | Date       | Task ID | Action                | Agent              | Notes |
@@ -1515,6 +1543,9 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | post-1.4-block-return | completed | Implementation Agent | Closing the launcher-hosted Recents back into a blocked app left no cover. The emulator emits no `ACTIVITY_RESUMED` for the app on return — only `ACTIVITY_PAUSED` for the launcher — and the accessibility service sees no window-state change, so the usage replay answered "nothing on screen" and the 2 s poll cleared the block. Fix is two-sided. `replayForegroundState` now carries the last real app alongside the foreground and restores it when the **launcher** pauses with nothing resuming (an explicit resume still wins; `SCREEN_OFF` forgets both; Sober's own pause is excluded, so leaving Sober for Home cannot resurrect a cover — pinned by 6 new tests in `ForegroundReplayTest`). `SoberAccessibilityService` also re-asserts the foreground from a content event whose package owns the active window, throttled to 1 s, which blocks in under a second without letting a background app promote itself. Emulator: Recents → tap Chrome re-blocks in ~1–2 s and stays; Home clears in ~1 s; Back returns to the launcher and a relaunch re-blocks; the cover never appears over the launcher or Recents; Sober → Home stays on the launcher. Full JVM suite 527/527; signed `:app:assembleRelease` green. No release made |
 | 2026-11-03 | v1.5 | completed | Implementation Agent | First public release after the block fixes. Version `1.5` / versionCode 6, changelog `6.txt`, README rewritten for the five-tab build with seven fresh dark-mode screenshots in the README and in `fastlane/metadata/android/en-US/images/phoneScreenshots/`. DISTRIBUTION rebuild steps and the fdroiddata recipe moved to `v1.5` with the 1.4 and 1.3 entries kept for reproduction. Signed `assembleRelease` with the project key: 3,774,696 bytes, `SHA-256 a3ac2d3b…596d`, certificate unchanged (`f9fc8e71…6c64`), `aapt2` reports `versionCode='6' versionName='1.5'`, installs over 1.4 on the API 36 emulator. GitHub release `v1.5` is public and marked Latest; the asset was renamed from `app-release.apk` to `Sober-1.5.apk` and the downloaded-back copy matched the local hash. No earlier release was deleted |
 | 2026-11-03 | v1.5-tests | completed | QA Agent | Full JVM suite 527/527 across 63 test classes; `assembleRelease` (signed) green with `lintVitalRelease` passing. The 1.5 delta was walked on the emulator before packaging (Recents return, Home/Back exits, sheet scrolling); the remaining 1.4-era surfaces were covered by the earlier walks, not re-walked in this build |
+| 2026-11-04 | post-1.5-home-overcap | completed | QA Agent | The Home tile read "0m OVER CAP" under a ring that read "4h 1m of 3h cap" — the clamped remaining time was reused as the over-cap figure. Now split into `remaining` and `overBy`. Verified on the emulator against the 241-minute Chrome day: the tile reads "1h 1m OVER CAP". Found while reviewing a promo capture, not by a test, so no test covers the branch; `:app:assembleRelease` was rebuilt and installed to confirm. Not released |
+| 2026-11-04 | P9.1-P9.2 | completed | Implementation Agent | The 25 s film is cut: seven beats in 1080x1920, one continuous camera push with crossfades at the three app switches, an SVG trace that draws the device outline when the limit is named, and a cream wipe for the on-device claim. Real 1440x3200 emulator captures are masked and downscaled to 720x1600. `hyperframes check` passes with 13/13 contrast checks, no layout or hold-time findings. Reviewed as stills at every beat plus frames pulled from the encoded MP4; the 16:9 cut and the still exports are still open |
+| 2026-11-04 | P9.3 | completed | Implementation Agent | Six SFX cues placed from measured peaks rather than by eye: both riser clips peak 2.5 s into their own file, so their starts are set so the first peak lands on the "draws the line" headline and the closing peak on the wordmark. Rendered at 1080x1920 / 30 fps / 25.000 s, H.264 + AAC 48 kHz stereo, 8.9 MB, −15.1 LUFS integrated and −2.0 dBTP measured on the file. SFX only: no licensed music source was available, so the gap is recorded rather than filled with synthesised music |
 
 ---
 

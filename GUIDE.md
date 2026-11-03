@@ -998,6 +998,33 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Carry two facts through the replay instead of one: the foreground, and the last real app the launcher replaced. A pause of an ignored package (Sober itself or Home) with nothing resuming and an empty foreground means the app underneath came back, so restore it; an explicit resume of another app still wins, and `SCREEN_OFF` forgets both because the lock screen is a genuine "nothing". Keep the accessibility service as the fast path: a content event whose package owns the **active** window may re-assert it (throttled to once a second), which is safe because a background app's events cannot claim the active root. The two mechanisms are complementary — the hint blocks in under a second, the replay makes the answer survive the next poll.
 
+### 11.50 A Clamped Number Can Only Answer One Question
+
+**Date**: 2026-11-04  
+**Context**: The Home screen showed a ring reading "4h 1m of 3h cap" and, three lines below it, "0m OVER CAP". The number was only wrong when the user was over their limit — the case the tile exists for.
+
+**Learning**: A single `remaining` value was computed as `limit - used`, clamped at zero so the "left today" metric could never go negative, and then reused for the over-cap metric. Clamping is a display decision that destroys information: after `coerceAtLeast(0)`, "you are one hour over" and "you are exactly at the limit" are the same number. Reusing the clamped value anywhere means the second question can never be answered correctly. The bug survived because the under-cap path — every screenshot, every manual walk of a fresh day — is unaffected.
+
+**Solution/Pattern**: Derive one value per question and let the label pick which to show: `remaining` keeps the clamp, `overBy` keeps the surplus with its own clamp in the other direction, and a single comparison decides which one is rendered. When a branch's copy contains a polarity word ("OVER", "LEFT"), the value it prints should be computed for that polarity, not borrowed from the opposite branch.
+
+### 11.51 A Computed Transform Is Already in Pixels
+
+**Date**: 2026-11-04  
+**Context**: A full-screen panel was supposed to wipe up from below the canvas. It was positioned correctly in the stylesheet and given a GSAP tween from 100% to 0%, and it never appeared in the render — the checker reported the panel present but the snapshots were empty.
+
+**Learning**: The panel's resting state was written in CSS as `transform: translateY(100%)`. Percentages in `transform` are resolved against the element's own size, so the browser's computed style reports `matrix(1, 0, 0, 1, 0, 1920)` — pixels. GSAP reads that computed matrix as its start state and stores `y: 1920`; the tween then set `yPercent: 0`, which composes with the existing `y` rather than replacing it, so the element settled 1920px below the canvas at every time. Nothing errors, and a `seek(0)` looks like a correctly hidden panel, which is why the still-frame review missed it until a mid-tween snapshot was read.
+
+**Solution/Pattern**: Express a starting offset in the same unit the animation will use. If the tween drives `y`, write `translateY(1920px)` in CSS and tween `{ y: 1920 } → { y: 0 }`; do not mix percentage CSS with a pixel tween. More generally, any animation library that measures the DOM is reading the *computed* value, so percentage lengths, `auto` heights and shorthand transforms are not what you wrote. Verify a full-screen element by sampling a frame in the middle of its entrance, not only at the ends.
+
+### 11.52 A Riser Does Not Start Where Its Sound Starts
+
+**Date**: 2026-11-04  
+**Context**: Six SFX cues were first placed by their onsets — the point where a clip stops being silent — and the two whooshes consistently landed about two seconds before the moment they were supposed to hit.
+
+**Learning**: A riser's onset is the start of the build, not the impact. `whoosh-cinematic` has an onset at 2.19 s and a peak at 2.50 s inside a 5.5 s file, so placing its onset on a cut puts the loud part two seconds late. Placing it at a fixed "lead time" is the same guess with the sign flipped: the correct offset is `cue time − (peak − 0)`, which for that clip is 2.5 s, not 0.
+
+**Solution/Pattern**: Measure each clip (`hyperframes audio <file> --json`) and place it from `moments.peak`, keeping `moments.onset` for the build-up length and `moments.tailEnd` to decide whether the clip must be truncated or allowed to ring out. Check the delivered file too: the mix is only as aligned as the encode, and an integrated loudness reading (LUFS) plus true peak from the rendered MP4 is the cheap proof that the bed is at a usable level.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
