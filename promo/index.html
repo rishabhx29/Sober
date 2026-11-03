@@ -7,26 +7,272 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
     <style>
       #root {
+        position: relative;
         width: 1080px;
         height: 1920px;
+        overflow: hidden;
+        background: var(--ground);
       }
 
-      #end-card {
-        width: 1080px;
-        height: 1920px;
+      /* ---------- ground ---------- */
+
+      #backdrop {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(115% 62% at 50% 74%, #191924 0%, #12121a 52%, #0e0e15 100%);
+      }
+
+      #backdrop::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(120% 90% at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.38) 100%);
+      }
+
+      /* ---------- device ---------- */
+
+      #phone-wrap {
+        position: absolute;
+        left: 203px;
+        top: 470px;
+        width: 674px;
+        height: 1466px;
+        transform-origin: 50% 0%;
+      }
+
+      #phone {
         position: relative;
+        width: 674px;
+        height: 1466px;
+        padding: 13px;
+        box-sizing: border-box;
+        border-radius: 74px;
+        background: #08080d;
+        box-shadow:
+          0 0 0 1px rgba(232, 224, 213, 0.1),
+          0 40px 90px rgba(0, 0, 0, 0.62),
+          0 8px 24px rgba(0, 0, 0, 0.45);
+      }
+
+      #screen {
+        position: relative;
+        width: 648px;
+        height: 1440px;
+        border-radius: 62px;
+        overflow: hidden;
+        background: #12121a;
+      }
+
+      .screen-img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #s-apps,
+      #s-block,
+      #s-settings {
+        opacity: 0;
+      }
+
+      #scrim {
+        position: absolute;
+        inset: 0;
+        background: #0a0a12;
+        opacity: 0.58;
+      }
+
+      #hl {
+        position: absolute;
+        left: 15px;
+        top: 530px;
+        width: 618px;
+        height: 146px;
+        border: 2px solid rgba(232, 224, 213, 0.9);
+        border-radius: 24px;
+        opacity: 0;
+      }
+
+      #rim {
+        position: absolute;
+        inset: 0;
+        border-radius: 74px;
+        border: 2px solid var(--signal);
+        box-shadow:
+          0 0 0 1px rgba(224, 104, 90, 0.35),
+          0 0 46px 2px rgba(224, 104, 90, 0.22);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #trace {
+        position: absolute;
+        inset: 0;
+        width: 674px;
+        height: 1466px;
+        pointer-events: none;
+      }
+
+      #trace rect {
+        fill: none;
+        stroke: rgba(232, 224, 213, 0.82);
+        stroke-width: 3;
+        stroke-dasharray: 1000;
+        stroke-dashoffset: 1001;
+      }
+
+      /* ---------- copy ---------- */
+
+      .scene {
+        position: absolute;
+        left: 96px;
+        top: 176px;
+        width: 888px;
+        z-index: 3;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        line-height: 1.2;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--signal);
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 36px;
+        height: 2px;
+        flex: none;
+        background: var(--signal);
+      }
+
+      .line {
+        margin-top: 22px;
+        font-size: 68px;
+        font-weight: 600;
+        line-height: 1.04;
+        letter-spacing: -0.032em;
+        color: var(--text);
+      }
+
+      .line em {
+        font-style: normal;
+        color: var(--signal);
+      }
+
+      .line--xl {
+        font-size: 96px;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+
+      .sub {
+        margin-top: 20px;
+        font-size: 30px;
+        line-height: 1.4;
+        color: var(--text-secondary);
+        max-width: 840px;
+      }
+
+      /* ---------- privacy card ---------- */
+
+      #privacy {
+        position: absolute;
+        inset: 0;
+        z-index: 4;
+        background: var(--cream-ground);
+        transform: translateY(1920px);
+        padding: 176px 96px 132px;
+        box-sizing: border-box;
+      }
+
+      #privacy-inner {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
+      #privacy .eyebrow {
+        color: var(--signal-light);
+      }
+
+      #privacy .eyebrow::before {
+        background: var(--signal-light);
+      }
+
+      #privacy .line {
+        color: var(--ink);
+        margin-bottom: 0;
+      }
+
+      #privacy .sub {
+        color: var(--ink-secondary);
+        margin-top: 30px;
+        max-width: 760px;
+      }
+
+      .receipt {
+        margin-top: auto;
+      }
+
+      .receipt-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 24px 0 22px;
+        border-top: 1px solid var(--ink-hairline);
+        font-family: var(--font-mono);
+        font-size: 28px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+
+      .receipt-row:last-child {
+        border-bottom: 1px solid var(--ink-hairline);
+      }
+
+      .receipt-row span:last-child {
+        color: var(--signal-light);
+        letter-spacing: 0.06em;
+      }
+
+      .receipt-foot {
+        margin-top: 26px;
+        font-family: var(--font-mono);
+        font-size: 28px;
+        line-height: 1.4;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-secondary);
+      }
+
+      /* ---------- end card ---------- */
+
+      #end-card {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
         background: var(--ground);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        opacity: 0;
       }
 
       #icon-wrap {
         width: 260px;
         height: 260px;
         margin-bottom: 64px;
-        position: relative;
       }
 
       #icon {
@@ -59,9 +305,8 @@
         margin-top: 30px;
         color: var(--text-secondary);
         font-size: 40px;
-        font-weight: 400;
-        letter-spacing: -0.01em;
         line-height: 1.3;
+        letter-spacing: -0.01em;
       }
 
       #proof {
@@ -85,7 +330,7 @@
       .proof-line {
         font-family: var(--font-mono);
         font-size: 28px;
-        letter-spacing: 0.14em;
+        letter-spacing: 0.13em;
         text-transform: uppercase;
         color: var(--text-muted);
         text-align: center;
@@ -97,11 +342,74 @@
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="4"
+      data-duration="25"
       data-width="1080"
       data-height="1920"
     >
-      <div id="end-card" class="clip" data-start="0" data-duration="4" data-track-index="0">
+      <div id="backdrop"></div>
+
+      <div id="phone-wrap" data-layout-allow-overflow>
+        <div id="phone">
+          <div id="screen">
+            <img id="s-home" class="screen-img" src="assets/screens-hd/home.png" alt="" />
+            <img id="s-apps" class="screen-img" src="assets/screens-hd/apps.png" alt="" />
+            <img id="s-block" class="screen-img" src="assets/screens-hd/block.png" alt="" />
+            <img id="s-settings" class="screen-img" src="assets/screens-hd/settings.png" alt="" />
+            <div id="scrim"></div>
+            <div id="hl"></div>
+          </div>
+          <div id="rim"></div>
+          <svg id="trace" viewBox="0 0 674 1466" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="671" height="1463" rx="72.5" pathLength="1000" />
+          </svg>
+        </div>
+      </div>
+
+      <div class="scene" id="c1">
+        <div class="eyebrow">The problem</div>
+        <div class="line">Willpower runs out.<br /><em>Limits don't.</em></div>
+        <div class="sub">You allowed three hours. You used four.</div>
+      </div>
+
+      <div class="scene" id="c2">
+        <div class="eyebrow">The fix</div>
+        <div class="line">So Sober draws the line.</div>
+        <div class="sub">One number you choose. Held all day.</div>
+      </div>
+
+      <div class="scene" id="c3">
+        <div class="eyebrow">Set once</div>
+        <div class="line">Chrome: 4 hours.<br />Cap: 1 hour.</div>
+        <div class="sub">Per app, per category, per website.</div>
+      </div>
+
+      <div class="scene" id="c4">
+        <div class="eyebrow">At the line</div>
+        <div class="line line--xl">Then it closes.</div>
+        <div class="sub">No debate. No doomscroll.</div>
+      </div>
+
+      <div class="scene" id="c5">
+        <div class="eyebrow">Your terms</div>
+        <div class="line">Your rules, not<br />an algorithm's.</div>
+        <div class="sub">Bedtime. Lock mode. Pause everything.</div>
+      </div>
+
+      <div id="privacy" data-layout-allow-overflow>
+        <div id="privacy-inner">
+          <div class="eyebrow">On device</div>
+          <div class="line" style="margin-top: 22px">Nothing leaves<br />your phone.</div>
+          <div class="sub">No sign-up. No servers. No tracking.</div>
+          <div class="receipt">
+            <div class="receipt-row"><span>No account</span><span>—</span></div>
+            <div class="receipt-row"><span>No cloud sync</span><span>—</span></div>
+            <div class="receipt-row"><span>No internet permission</span><span>—</span></div>
+            <div class="receipt-foot">Nothing to sync. Nothing to sell.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="end-card" data-layout-allow-overflow>
         <div id="icon-wrap">
           <img id="icon" src="assets/icon.png" alt="Sober" />
         </div>
@@ -109,40 +417,255 @@
         <div id="tagline">Less screen. More life.</div>
         <div id="proof">
           <div id="rule"></div>
-          <div class="proof-line">Free · Open source</div>
-          <div class="proof-line">No internet permission</div>
+          <div class="proof-line">Free · Open source · Android</div>
+          <div class="proof-line" style="text-transform: none; letter-spacing: 0.06em">github.com/rishabhx29/Sober</div>
         </div>
       </div>
+
+      <audio
+        id="sfx-riser"
+        src="assets/audio/whoosh-cinematic.mp3"
+        data-start="0.8"
+        data-duration="4.2"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="0.66"
+      ></audio>
+      <audio
+        id="sfx-cut1"
+        src="assets/audio/whoosh-short.mp3"
+        data-start="6.74"
+        data-duration="0.57"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="1.0"
+      ></audio>
+      <audio
+        id="sfx-impact"
+        src="assets/audio/impact-bass-1.mp3"
+        data-start="10.44"
+        data-duration="2.1"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="0.56"
+      ></audio>
+      <audio
+        id="sfx-cut2"
+        src="assets/audio/whoosh-short.mp3"
+        data-start="14.04"
+        data-duration="0.57"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="0.66"
+      ></audio>
+      <audio
+        id="sfx-cut3"
+        src="assets/audio/whoosh-short.mp3"
+        data-start="17.44"
+        data-duration="0.57"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="0.82"
+      ></audio>
+      <audio
+        id="sfx-lift"
+        src="assets/audio/whoosh-cinematic.mp3"
+        data-start="18.9"
+        data-duration="5.5"
+        data-media-start="0"
+        data-track-index="10"
+        data-volume="0.61"
+      ></audio>
     </div>
+
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
 
+      // ---------- camera: one continuous push, never reverses ----------
+      tl.to("#phone-wrap", { scale: 1.035, duration: 6.9, ease: "none" }, 0);
+      tl.to("#phone-wrap", { scale: 1.055, duration: 7.3, ease: "none" }, 6.9);
+      tl.to("#phone-wrap", { scale: 1.07, duration: 3.4, ease: "none" }, 14.2);
+
+      // ---------- S1 · the problem ----------
+      tl.fromTo(
+        "#scrim",
+        { opacity: 0.52 },
+        { opacity: 0, duration: 0.7, ease: "power2.inOut" },
+        2.95
+      );
+      tl.to(
+        "#c1 .eyebrow, #c1 .line, #c1 .sub",
+        { opacity: 0, y: -18, duration: 0.32, stagger: 0.04, ease: "power2.in" },
+        2.34
+      );
+
+      // ---------- S2 · the line ----------
+      tl.fromTo(
+        "#c2 .eyebrow",
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" },
+        3.32
+      );
+      tl.fromTo(
+        "#c2 .line",
+        { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, duration: 0.52, ease: "power3.out" },
+        3.4
+      );
+      tl.fromTo(
+        "#c2 .sub",
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+        3.62
+      );
+      tl.to("#trace rect", { strokeDashoffset: 0, duration: 1.05, ease: "power2.inOut" }, 3.5);
+      tl.to(
+        "#c2 .eyebrow, #c2 .line, #c2 .sub",
+        { opacity: 0, y: -16, duration: 0.3, stagger: 0.03, ease: "power2.in" },
+        6.52
+      );
+      tl.to("#trace rect", { strokeDashoffset: 1001, duration: 0.4, ease: "power2.in" }, 6.55);
+
+      // ---------- S3 · the cap ----------
+      tl.to("#s-home", { opacity: 0, scale: 1.05, duration: 0.42, ease: "power2.in" }, 6.54);
+      tl.fromTo(
+        "#s-apps",
+        { opacity: 0, scale: 0.96 },
+        { opacity: 1, scale: 1, duration: 0.46, ease: "power2.out" },
+        6.63
+      );
+      tl.fromTo("#c3 .eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 7.06);
+      tl.fromTo(
+        "#c3 .line",
+        { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, duration: 0.52, ease: "power3.out" },
+        7.14
+      );
+      tl.fromTo("#c3 .sub", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45 }, 7.36);
+      tl.fromTo(
+        "#hl",
+        { opacity: 0, scale: 0.97 },
+        { opacity: 1, scale: 1, duration: 0.42, ease: "power3.out" },
+        7.5
+      );
+      tl.to(
+        "#c3 .eyebrow, #c3 .line, #c3 .sub",
+        { opacity: 0, y: -16, duration: 0.3, stagger: 0.03, ease: "power2.in" },
+        10.12
+      );
+      tl.to("#hl", { opacity: 0, duration: 0.25 }, 10.14);
+      tl.to("#s-apps", { opacity: 0, scale: 1.05, duration: 0.42, ease: "power2.in" }, 10.14);
+
+      // ---------- S4 · the block ----------
+      tl.fromTo(
+        "#s-block",
+        { opacity: 0, scale: 0.96 },
+        { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" },
+        10.23
+      );
+      tl.to("#rim", { opacity: 1, duration: 0.18, ease: "power1.out" }, 10.5);
+      tl.to("#rim", { opacity: 0.6, duration: 0.9, ease: "power2.out" }, 11.3);
+      tl.fromTo("#c4 .eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 10.66);
+      tl.fromTo(
+        "#c4 .line",
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" },
+        10.74
+      );
+      tl.fromTo("#c4 .sub", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45 }, 10.98);
+      tl.to(
+        "#c4 .eyebrow, #c4 .line, #c4 .sub",
+        { opacity: 0, y: -16, duration: 0.3, stagger: 0.03, ease: "power2.in" },
+        13.82
+      );
+      tl.to("#rim", { opacity: 0, duration: 0.3 }, 13.9);
+      tl.to("#s-block", { opacity: 0, scale: 1.05, duration: 0.42, ease: "power2.in" }, 13.84);
+
+      // ---------- S5 · your rules ----------
+      tl.fromTo(
+        "#s-settings",
+        { opacity: 0, scale: 0.96 },
+        { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" },
+        13.93
+      );
+      tl.fromTo("#c5 .eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 14.36);
+      tl.fromTo(
+        "#c5 .line",
+        { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, duration: 0.52, ease: "power3.out" },
+        14.44
+      );
+      tl.fromTo("#c5 .sub", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45 }, 14.66);
+      tl.to(
+        "#c5 .eyebrow, #c5 .line, #c5 .sub",
+        { opacity: 0, y: -16, duration: 0.3, stagger: 0.03, ease: "power2.in" },
+        17.18
+      );
+
+      // ---------- S6 · the receipt ----------
+      tl.fromTo(
+        "#privacy",
+        { y: 1920 },
+        { y: 0, duration: 0.52, ease: "power4.out" },
+        17.6
+      );
+      tl.fromTo("#privacy .eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4 }, 17.92);
+      tl.fromTo(
+        "#privacy .line",
+        { opacity: 0, y: 22 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+        18.02
+      );
+      tl.fromTo(
+        "#privacy .sub",
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+        18.32
+      );
+      tl.fromTo(
+        ".receipt-row",
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.42, stagger: 0.11, ease: "power2.out" },
+        18.78
+      );
+      tl.fromTo(
+        ".receipt-foot",
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+        19.02
+      );
+      tl.fromTo("#privacy-inner", { y: 0 }, { y: -18, duration: 2.7, ease: "none" }, 18.3);
+
+      // ---------- S7 · the mark ----------
+      tl.set("#end-card", { opacity: 1 }, 21.0);
+      tl.set("#privacy", { autoAlpha: 0 }, 21.0);
+      tl.fromTo("#end-card", { scale: 1 }, { scale: 1.02, duration: 4, ease: "none" }, 21.0);
       tl.fromTo(
         "#icon",
         { scale: 1.06, filter: "blur(6px)" },
         { scale: 1, filter: "blur(0px)", duration: 0.65, ease: "power3.out" },
-        0
-      )
-        .fromTo(
-          "#wordmark",
-          { opacity: 0, y: 26, filter: "blur(8px)" },
-          { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
-          0.3
-        )
-        .fromTo(
-          "#tagline",
-          { opacity: 0, y: 18 },
-          { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
-          0.55
-        )
-        .fromTo("#rule", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0.75)
-        .fromTo(
-          ".proof-line",
-          { opacity: 0, y: 8 },
-          { opacity: 1, y: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" },
-          1.0
-        );
+        21.02
+      );
+      tl.fromTo(
+        "#wordmark",
+        { opacity: 0, y: 26, filter: "blur(8px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "power4.out" },
+        21.32
+      );
+      tl.fromTo(
+        "#tagline",
+        { opacity: 0, y: 18 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" },
+        21.57
+      );
+      tl.fromTo("#rule", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" }, 21.77);
+      tl.fromTo(
+        ".proof-line",
+        { opacity: 0, y: 8 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" },
+        22.02
+      );
 
       window.__timelines["main"] = tl;
       tl.seek(0);
