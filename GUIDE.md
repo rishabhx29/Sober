@@ -980,6 +980,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Put `Modifier.verticalScroll(rememberScrollState())` on the content column of any bottom sheet whose row count is not fixed, and keep the scroll state inside the sheet's composition so each open starts at the top. Bounded scrollable children (the drum pickers are fixed-height `LazyColumn`s) nest safely inside it; an unbounded one would throw instead. When verifying, swipe in the sheet and look for a control that was not in the accessibility dump before the swipe — "Save rules" appearing is the proof the content moved.
 
+### 11.48 A System Overlay Owns Its Own Back
+
+**Date**: 2026-11-03  
+**Context**: Users reported the block screen "staying stuck" after pressing Home, Recents or Back. The window was `FLAG_NOT_FOCUSABLE`, so Back was never delivered to it.
+
+**Learning**: A non-focusable overlay does not answer keys: Back went to the covered app. From a deep screen that navigated inside an app the user could not see; from a root activity it did nothing at all. Both look identical on screen — a frozen block. Focusability is therefore a product decision, not a rendering detail. Two traps follow. First, making the window focusable means it now needs a view root that handles `KEYCODE_BACK`, because a `TYPE_APPLICATION_OVERLAY` window has no Activity and so no `OnBackPressedDispatcher`. Second, Compose resolves its recomposer from the **window's root view**, so the `ViewTreeLifecycleOwner` tags must be on that root — tagging only the inner `ComposeView` crashes at attach with `IllegalStateException: ViewTreeLifecycleOwner not found from <root>`. The same applies to the rare device where Recents is drawn by System UI: it is chrome, not an app switch, and holding the block over it looks exactly like being stuck again.
+
+**Solution/Pattern**: Wrap the `ComposeView` in a focusable `FrameLayout` that consumes Back (sending the user Home, which is also what makes the engine clear the cover) and carry the three owners on that root. Report the switcher as its own signal rather than as a package, keeping the classifier to System UI windows so an app activity named "RecentFilesActivity" cannot lift a block. While the cover is up, re-read the foreground every couple of seconds: the user can leave without any window-change hint, and a 15-second poll is long enough to feel like a freeze. Verify on device by pressing Back, then Home, then Recents, and timing how long the overlay window survives after each.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues
