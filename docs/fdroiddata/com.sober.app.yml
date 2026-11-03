@@ -22,6 +22,13 @@ RepoType: git
 Repo: https://github.com/rishabhx29/Sober.git
 
 Builds:
+  - versionName: '1.6'
+    versionCode: 7
+    commit: v1.6
+    subdir: app
+    gradle:
+      - "yes"
+    output: app/build/outputs/apk/release/app-release-unsigned.apk
   - versionName: '1.5'
     versionCode: 6
     commit: v1.5
@@ -46,5 +53,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: '1.5'
-CurrentVersionCode: 6
+CurrentVersion: '1.6'
+CurrentVersionCode: 7

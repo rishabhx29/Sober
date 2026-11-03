@@ -1,0 +1,4 @@
+The over-cap figure now matches the ring above it.
+
+- A day past the cap shows how far over you are instead of "0m".
+- Nothing else changed.
