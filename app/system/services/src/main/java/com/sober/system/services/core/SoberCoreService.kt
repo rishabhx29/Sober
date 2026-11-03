@@ -123,6 +123,9 @@ class SoberCoreService : Service() {
     @Inject
     lateinit var protectionSettingsRepository: ProtectionSettingsRepository
 
+    @Inject
+    lateinit var focusSoundPlayer: FocusSoundPlayer
+
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
@@ -222,6 +225,19 @@ class SoberCoreService : Service() {
                     updateNotification("Sober is active", "Protecting your focus...")
                 }
             }
+        }
+
+        // Brown noise follows the pair (session running, sound enabled). The
+        // engine owns this rather than the Focus screen: the user can leave the
+        // app or turn the screen off, and the sound must simply keep matching
+        // the session instead of dying with a screen's lifecycle.
+        scope.launch {
+            combine(
+                soberPreferences.activeSessionId,
+                soberPreferences.focusSoundEnabled
+            ) { sessionId, enabled -> sessionId != null && enabled }
+                .distinctUntilChanged()
+                .collect { focusSoundPlayer.setPlaying(it) }
         }
 
         // Enforcement cycle.
@@ -593,6 +609,9 @@ class SoberCoreService : Service() {
     override fun onDestroy() {
         ServiceLiveness.engineStopped()
         super.onDestroy()
+        // The engine dying is not the session ending; the sound still has to
+        // stop or the AudioTrack outlives its owner until the process dies.
+        focusSoundPlayer.setPlaying(false)
         overlayController.hide()
         pauseOverlayController.hide()
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

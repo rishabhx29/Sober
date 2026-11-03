@@ -81,6 +81,11 @@ class SoberPreferences @Inject constructor(
         val KEY_ALERT_DAILY_STREAK = androidx.datastore.preferences.core.booleanPreferencesKey("alert_daily_streak")
         val KEY_ALERT_BEDTIME_WARNING = androidx.datastore.preferences.core.booleanPreferencesKey("alert_bedtime_warning")
 
+        // Brown noise while a focus session runs. A global preference rather
+        // than a per-session field: it is a listening habit, and it has to be
+        // readable by the engine after a process restart.
+        val KEY_FOCUS_SOUND = androidx.datastore.preferences.core.booleanPreferencesKey("focus_sound")
+
         // What counts as a successful day, stored by name for readability.
         val KEY_STREAK_RULE = androidx.datastore.preferences.core.stringPreferencesKey("streak_rule")
 
@@ -214,6 +219,17 @@ class SoberPreferences @Inject constructor(
 
     val dailyCapExemptPackages: Flow<Set<String>> = dataStore.data.map {
         it[KEY_DAILY_CAP_EXEMPT_PACKAGES] ?: emptySet()
+    }
+
+    /** Off by default: sound is an opt-in, not a surprise in a silent room. */
+    val focusSoundEnabled: Flow<Boolean> = dataStore.data.map {
+        it[KEY_FOCUS_SOUND] ?: false
+    }
+
+    suspend fun setFocusSoundEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[KEY_FOCUS_SOUND] = enabled
+        }
     }
 
     /**

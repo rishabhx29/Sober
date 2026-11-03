@@ -1200,6 +1200,15 @@ promise: no feature here needs internet permission.
   means a session would enforce nothing) and while a session runs (a second
   start would overwrite the active pointer and strand the first history row).
   Starting uses `PresetResolver`, off the main thread, and lands on Focus.*
+- [x] F20 — Local focus sounds — *optional brown noise while a session runs,
+  synthesised on the device and written straight into a streaming `AudioTrack`
+  (16 kHz mono PCM16). Nothing is shipped as an asset, nothing is streamed and
+  no media permission is needed; the user's media volume applies. The engine
+  owns playback — `SoberCoreService` combines the active session with the
+  stored `focusSoundEnabled` preference, so the sound survives leaving the app,
+  follows the toggle live, and stops in `onDestroy`. A refused `AudioTrack`
+  build logs and stays silent rather than failing the session. Off by default;
+  the Focus setup screen has the "Brown noise" switch.*
 - [ ] F10a — User-assisted section picker — *let the user record a section rule
   by inspecting the live node tree (selected tab or screen id) and name it. The
   backlog calls for this so apps outside the shipped catalogue (Facebook, local
@@ -1233,6 +1242,10 @@ promise: no feature here needs internet permission.
 > force-stop to observe.
 > F19 is `FocusShortcutTest` 4/4 and the APK builds; the launcher shortcuts and
 > an external `am start` were not exercised on a device. Full suite 489/489.
+> F20 compiles and the full suite is 489/489 (the player has no JVM test:
+> `AudioTrack` is a stub off-device, and the meaningful check is audible
+> playback). Device walk pending: toggle on, start a session, lock the phone and
+> confirm the noise continues, then end the session and confirm it stops.
 
 ---
 
@@ -1445,6 +1458,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F19 | completed | Implementation Agent | Launcher shortcuts and automation intents. `shortcuts.xml` declares Study/Work/Gym/Sleep; each sends `com.sober.app.action.START_PRESET` with a `preset` extra to `MainActivity`, which forwards it to `ShortcutViewModel`. `FocusShortcut.presetFor` owns parsing (case-insensitive, unknown → ignored). The session is built by `PresetResolver` on IO and the app lands on Focus. Refuses before onboarding and while a session is active, so the stored active-session pointer cannot be overwritten. No weakening action is exported. `FocusShortcutTest` 4/4, `:app:assembleDebug` green. Device walk pending |
 | 2026-11-03 | F16 | completed | Implementation Agent | Health check screen reached from Settings. Required checks (usage access, overlay, notifications, enforcement engine) are summarised; Accessibility reports off / not connected / connected and the age of the last event. `ServiceLiveness` adds in-memory flags written by `SoberCoreService` and `SoberAccessibilityService` — deliberately not persisted, since a stored heartbeat survives the death it is meant to reveal. Battery exemption, vendor background panel, DND and device admin are listed with links; values re-read on resume and the relative age ticks every 15 s. "Preview the block screen" renders the real `BlockOverlayScreen` in-app with inert actions behind a "nothing is blocked" banner. `HealthCopyTest` 9/9, `:app:assembleDebug` green. Device walk pending |
 | 2026-11-03 | F13 | completed | Implementation Agent | Challenges and richer achievements. `ChallengeRules` owns the target dates (day after opt-in; the weekend challenge waits for the next Saturday) and `evaluateChallenge` counts only whole days, stopping at the first bad one and recording `failedOn`. `CalculateStreakUseCase.cleanDates` exposes the streak's per-day limit rule so `GetChallengeStateUseCase` does not duplicate it; social challenges use a separate quiet-day check and treat unobserved days as quiet. `ManageChallengeUseCase` refuses a clean-week start without limits and a social start without installed social apps, allows one challenge at a time, and re-derives completion before recording the win. "Feed-free week" replaces "no-Reels week" because section-level usage is not recorded. DataStore stores one active record and a completed set; the Stats section adds offer cards, an active card with progress and a leave dialog. Also added Deep Work (90-minute session) and Challenge Champion (one finished challenge). Tests: `ChallengeRulesTest` 8, `GetChallengeStateUseCaseTest` 6, `ManageChallengeUseCaseTest` 8, `ChallengeCodecTest` 4, `ChallengeCopyTest` 6, `cleanDates` 4, achievements 3; full suite 476/476. Device walk pending |
+| 2026-11-03 | F20 | completed | Implementation Agent | Optional brown noise during a focus session. `FocusSoundPlayer` synthesises white noise through a leaky integrator (16 kHz mono PCM16, 0.22 amplitude) and streams it into an `AudioTrack` on a daemon thread — no asset, no network, no media permission, media volume only. `SoberCoreService` combines `activeSessionId` with the stored `focusSoundEnabled` and calls `setPlaying`, so playback follows the session across app exits and screen locks, reacts to mid-session toggles, and stops in `onDestroy`. A refused `AudioTrack` logs and stays silent. Preference is global and off by default; the Focus setup screen gains a "Brown noise" switch. `:app:assembleDebug` green, full suite 489/489. Device walk pending (audible playback, screen-off continuity) |
 
 ---
 

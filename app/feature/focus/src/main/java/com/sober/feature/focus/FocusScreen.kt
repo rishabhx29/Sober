@@ -70,6 +70,7 @@ fun FocusScreen(
     val celebration by viewModel.celebration.collectAsState()
     val remainingTime by viewModel.remainingTimeText.collectAsState()
     val activeSilenceScope by viewModel.activeSilenceScope.collectAsState()
+    val focusSoundEnabled by viewModel.focusSoundEnabled.collectAsState()
     val presetNotice by viewModel.presetNotice.collectAsState()
     val mealBreakRemaining by viewModel.mealBreakRemainingText.collectAsState()
     val completedSession = celebration
@@ -171,6 +172,43 @@ fun FocusScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     NotificationAccessNotice(silenceScope = activeSilenceScope)
+
+                    // The engine reads the preference live, so turning the
+                    // sound off mid-session works; without this row the only
+                    // way to stop it would be ending the session.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = focusSoundEnabled,
+                                role = Role.Switch,
+                                onValueChange = viewModel::setFocusSound
+                            )
+                            .padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Brown noise",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = SoberTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = if (focusSoundEnabled) {
+                                    "Playing · generated on device"
+                                } else {
+                                    "Off"
+                                },
+                                fontSize = 11.sp,
+                                color = SoberTheme.colors.textSecondary
+                            )
+                        }
+                        SoberToggleSwitch(
+                            checked = focusSoundEnabled,
+                            onCheckedChange = null
+                        )
+                    }
 
                     SoberHoldToCancelButton(
                         onCancelConfirmed = {
@@ -383,6 +421,43 @@ fun FocusScreen(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
+
+            // A listening habit rather than a per-session choice: the value is
+            // stored globally, and the engine reads it live, so turning it on
+            // mid-session works too.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = focusSoundEnabled,
+                        role = Role.Switch,
+                        onValueChange = viewModel::setFocusSound
+                    )
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Brown noise",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = SoberTheme.colors.textPrimary
+                    )
+                    Text(
+                        text = if (focusSoundEnabled) {
+                            "Generated on device · follows your media volume"
+                        } else {
+                            "A steady background while the session runs"
+                        },
+                        fontSize = 12.sp,
+                        color = SoberTheme.colors.textSecondary
+                    )
+                }
+                SoberToggleSwitch(
+                    checked = focusSoundEnabled,
+                    onCheckedChange = null
+                )
+            }
 
             var showAppSelection by remember { mutableStateOf(false) }
             var selectedApps by remember { mutableStateOf(setOf<String>()) }

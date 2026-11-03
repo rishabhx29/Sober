@@ -935,6 +935,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: Keep one action (`START_PRESET`) and one pure parser (`FocusShortcut.presetFor`) shared by launcher shortcuts and external tools, and test the parser rather than the intent plumbing. Refuse to start when onboarding is incomplete — a session without usage access and overlay permission looks active while enforcing nothing — and when a session already runs, because starting another overwrites the single active-session pointer in DataStore and leaves the first row `ACTIVE` in history forever. Do the PackageManager-heavy preset resolution off the main thread, and navigate to Focus so a started session has visible evidence. Document the exported contract in the README next to an `adb` example, since that is what an automation user will copy.
 
+### 11.43 Sound Belongs to the Session, Not the Screen
+
+**Date**: 2026-11-03  
+**Context**: F20 adds optional brown noise while a focus session runs. The first sketch played it from the Focus screen and shipped a looping audio file.
+
+**Learning**: Both choices are wrong for this app. A screen-owned player dies with the view or pauses in the background, so the sound would stop the moment the user locked the phone — exactly when sleep and study sessions are still running. A shipped audio file would work, but it costs APK size for one sound and turns "what is this app playing" into a licensing question. Brown noise is also trivial to generate: white noise through a leaky integrator, which is the same rule media apps use without needing a decoder. The lifecycle rule follows from who is telling the truth: the active session lives in DataStore and is read by the foreground service, so the engine must own playback, not the UI.
+
+**Solution/Pattern**: `FocusSoundPlayer` writes 16 kHz mono PCM16 into a streaming `AudioTrack` on a daemon thread, so no asset, no network, no media permission, and only the user's media volume applies. `SoberCoreService` collects `combine(activeSessionId, focusSoundEnabled)` and calls `setPlaying`, which makes the preference live: toggling it mid-session works, and the engine dying stops it in `onDestroy` instead of leaving a released-elsewhere track playing. Treat the sound as optional at every step: if `AudioTrack` cannot be built (some emulators refuse custom streams), log and stay silent rather than failing the session — a focus session must never break because a convenience failed. The preference defaults off and lives in DataStore rather than the session row, because it is a listening habit that has to survive the process and apply to the next session, not a property of one session.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

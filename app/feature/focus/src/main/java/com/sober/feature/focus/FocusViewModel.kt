@@ -47,6 +47,14 @@ class FocusViewModel @Inject constructor(
             initialValue = null
         )
 
+    /** Global listening preference; the engine applies it to every session. */
+    val focusSoundEnabled: StateFlow<Boolean> = soberPreferences.focusSoundEnabled
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     // Eager, not WhileSubscribed: the countdown loop only reads `.value`, which
     // never attaches a subscriber, so a lazy share would leave these at null
     // and the screen stuck on "--:--" for the whole session.
@@ -272,6 +280,10 @@ class FocusViewModel @Inject constructor(
             )
             enforcementController.ensureRunning()
         }
+    }
+
+    fun setFocusSound(enabled: Boolean) {
+        viewModelScope.launch { soberPreferences.setFocusSoundEnabled(enabled) }
     }
 
     fun startMealBreak() {
