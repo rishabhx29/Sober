@@ -25,4 +25,8 @@ interface AppLimitDao {
 
     @Query("SELECT * FROM app_limits")
     fun getAllLimits(): Flow<List<AppLimitEntity>>
+
+    /** Used by backup restore, which replaces the whole table in one pass. */
+    @Query("DELETE FROM app_limits")
+    suspend fun deleteAll()
 }

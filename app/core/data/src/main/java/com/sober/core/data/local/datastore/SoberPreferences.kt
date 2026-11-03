@@ -235,6 +235,13 @@ class SoberPreferences @Inject constructor(
         }
     }
 
+    /** Replaces the whole exempt list; used by backup restore. */
+    suspend fun setDailyCapExemptPackages(packages: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_DAILY_CAP_EXEMPT_PACKAGES] = packages
+        }
+    }
+
     suspend fun setNotificationSilenceScope(scope: NotificationSilenceScope) {
         dataStore.edit { preferences ->
             preferences[KEY_NOTIFICATION_SILENCE_SCOPE] = scope.name
@@ -467,6 +474,13 @@ class SoberPreferences @Inject constructor(
         }
     }
 
+    /** Replaces the whole enabled set; used by backup restore. */
+    suspend fun setSectionRules(ruleIds: Set<String>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_SECTION_RULES] = ruleIds
+        }
+    }
+
     val customRulesRaw: Flow<Set<String>> = dataStore.data.map { preferences ->
         preferences[KEY_CUSTOM_RULES] ?: emptySet()
     }
@@ -519,6 +533,15 @@ class SoberPreferences @Inject constructor(
             } else {
                 (without + "${rule.packageName}|${rule.delaySeconds}|${rule.isActive}").toSet()
             }
+        }
+    }
+
+    /** Replaces every pause rule; used by backup restore. */
+    suspend fun setAppPauseRules(rules: List<AppPauseRule>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_APP_PAUSE_RULES] = rules
+                .map { "${it.packageName}|${it.delaySeconds}|${it.isActive}" }
+                .toSet()
         }
     }
 
@@ -592,6 +615,15 @@ class SoberPreferences @Inject constructor(
             } else {
                 (without + "${limit.category.name}|${limit.dailyLimitMinutes}").toSet()
             }
+        }
+    }
+
+    /** Replaces every category budget; used by backup restore. */
+    suspend fun setCategoryLimits(limits: List<CategoryLimit>) {
+        dataStore.edit { preferences ->
+            preferences[KEY_CATEGORY_LIMITS] = limits
+                .map { "${it.category.name}|${it.dailyLimitMinutes}" }
+                .toSet()
         }
     }
 

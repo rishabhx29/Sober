@@ -865,6 +865,13 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 **Learning**: A "share what you see" capture is only correct when the thing being shared is exactly what is on screen. A report is a document with its own fixed layout, so it must be rendered independently of the view hierarchy.  
 **Solution/Pattern**: Build a `WeeklyReportData` snapshot from the already-loaded UI state, then draw it with `android.graphics.Canvas` at a fixed 1080×1350. Put the PNG in `cacheDir/exports`, which the existing `FileProvider` already exposes, and grant `FLAG_GRANT_READ_URI_PERMISSION` on the `ACTION_SEND` intent. Render with local `Paint` copies (not shared painters) so a fitted-down value in one column cannot shrink the next one.
 
+### 11.35 A Backup Format Is a Promise to Future Versions
+
+**Date**: 2026-11-03  
+**Context**: F7 writes rules to a JSON file the user keeps and later restores, possibly after a few app updates. Moshi's kapt codegen failed on Kotlin 2.2.10 (`Could not parse metadata!`), and the reflective `KotlinJsonAdapterFactory` alternative depends on field names surviving R8, which release builds rename.  
+**Learning**: The file format outlives the code that wrote it, so the reader must be written for the file, not for the classes as they are today. Explicit readers also let unknown keys be skipped, so a backup from a later build still restores what this build understands.  
+**Solution/Pattern**: Write the format by hand with `JsonWriter.of(Buffer())` and read it with `JsonReader.of(Buffer().writeUtf8(json))` — no reflection, no generated adapters, no keep rules. Give every field a default while parsing and build the data class at the end, skip unrecognised keys with `skipValue()`, and check `format` and `version` after parsing succeeds so the version error keeps its own message. Restore must validate every entry before deleting anything, and replace rather than merge, so a half-applied restore cannot leave the user with neither the old rules nor the new ones.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

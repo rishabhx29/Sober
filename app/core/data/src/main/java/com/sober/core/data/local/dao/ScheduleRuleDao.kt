@@ -25,4 +25,8 @@ interface ScheduleRuleDao {
 
     @Query("SELECT * FROM schedule_rules WHERE isActive = 1")
     fun getActiveRules(): Flow<List<ScheduleRuleEntity>>
+
+    /** Used by backup restore, which replaces the whole table in one pass. */
+    @Query("DELETE FROM schedule_rules")
+    suspend fun deleteAll()
 }

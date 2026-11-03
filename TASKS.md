@@ -1122,8 +1122,13 @@ promise: no feature here needs internet permission.
   unlocks (API 28+, `KEYGUARD_HIDDEN`), days under the cap and focus sessions.
   "Share this week" renders a 1080×1350 PNG on an off-screen canvas — not a
   screen capture — and hands it to the chooser through FileProvider.*
-- [ ] F7 — Backup and restore — *JSON export/import through SAF; DataStore rules
-  serialised, restored behind the PIN.*
+- [x] F7 — Backup and restore — *`BackupRepository` writes every rule the app
+  enforces (per-app limits, schedules, custom/section rules, pauses, category
+  budgets, allow-only, bedtime, daily cap) as an indented JSON document through
+  SAF. Restore validates the whole file first, replaces rather than merges, and
+  stays behind the PIN. Encoding is a hand-written `JsonReader`/`JsonWriter`
+  codec, so release shrinking needs no reflection keep rules; the PIN, lock and
+  pause windows, overrides, streaks and usage history are deliberately left out.*
 - [x] F8 — Bedtime mode — *overnight `BedtimeSettings` window with its own
   allow-list, a time picker in Settings, and Do Not Disturb applied while the
   window is open. The previous interruption filter is stored so the user's own
@@ -1136,10 +1141,11 @@ promise: no feature here needs internet permission.
 
 > **Phase 8 verification so far (2026-11-03).** F1/F3/F9 shipped in `09be868`
 > and `de2c115`; F2 in `400dd83`/`03e354a`; F5/F8 compile and domain tests pass;
-> F6 compiles and `:core:domain` is 307/307. No emulator or physical-device walk
+> F6 compiles and `:core:domain` is 307/307; F7 compiles with
+> `BackupCodecTest` 5/5 in `:core:data`. No emulator or physical-device walk
 > has been done for the new Settings sections, the DND transition, the
-> pause/opens overlays or the weekly card's share sheet. These are compile- and
-> unit-verified only at this point.
+> pause/opens overlays, the weekly card's share sheet or the SAF backup
+> pickers. These are compile- and unit-verified only at this point.
 
 ---
 
@@ -1343,6 +1349,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F5 | completed | Implementation Agent | Category budgets and allow-only mode. Settings gains Social/Video/Games/News/Productivity half-hour budgets and an allow-list picker that opens on enable when empty. Engine precedence already had both rules; this pass added the missing entry points and category app counts. Device walk pending |
 | 2026-11-03 | F8 | completed | Implementation Agent | Bedtime mode UI: enable switch, 24-hour start/end time picker, allow-list picker and Do Not Disturb access status. Added `bedtimePreviousFilter` so ending the window restores the user's own filter; `SoberCoreService` syncs DND every minute independently of the screen-on poll. Device walk pending |
 | 2026-11-03 | F6 | completed | Implementation Agent | Weekly report: `bestAndWorstDays` in domain (3 tests), `getScreenUnlockCount` from `KEYGUARD_HIDDEN` on API 28+, and a 7-day card with a PNG export. The image is drawn by `renderWeeklyReport` on a 1080×1350 canvas so the share does not depend on scroll position; export lands in `cacheDir/exports` behind the existing FileProvider. Compile + `:core:domain` 307/307. Device walk and share-sheet export pending |
+| 2026-11-03 | F7 | completed | Implementation Agent | Backup and restore over SAF. `BackupRepositoryImpl` collects limits, schedules, custom/section rules, pause rules, category budgets, allow-only, bedtime and the daily cap into one JSON document; restore validates every entry before deleting anything and replaces the stored rules, with the PIN gate when one is set. The codec is hand-written on Moshi's streaming reader/writer after the kapt codegen proved incompatible with Kotlin 2.2.10 and the reflective adapter would have needed R8 keep rules. `BackupCodecTest` 5/5, settings/app compile. Device walk of the pickers pending |
 
 ---
 

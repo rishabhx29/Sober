@@ -2,6 +2,9 @@ package com.sober.feature.settings
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +82,7 @@ import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.StreakRule
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.feature.settings.admin.SoberDeviceAdminReceiver
+import java.time.LocalDate
 
 /**
  * Settings.
@@ -148,6 +152,48 @@ fun SettingsScreen(
     var showPrivacy by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var exportError by remember { mutableStateOf<String?>(null) }
+    var backupBusy by remember { mutableStateOf(false) }
+    var backupMessage by remember { mutableStateOf<String?>(null) }
+    var backupMessageIsError by remember { mutableStateOf(false) }
+    var pendingRestore by remember { mutableStateOf<Uri?>(null) }
+    var showRestorePin by remember { mutableStateOf(false) }
+
+    fun startRestore(uri: Uri) {
+        backupBusy = true
+        backupMessage = null
+        viewModel.restoreBackup(uri) { message, error ->
+            backupBusy = false
+            backupMessageIsError = error != null
+            backupMessage = error ?: message
+        }
+    }
+
+    val backupCreateLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        backupBusy = true
+        backupMessage = null
+        viewModel.exportBackup(uri) { ok, error ->
+            backupBusy = false
+            backupMessageIsError = !ok
+            backupMessage = if (ok) "Backup saved." else error
+        }
+    }
+
+    val backupOpenLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        // The file is only read after the PIN check: importing rules is a
+        // settings change, and the PIN is what protects settings.
+        if (hasPin) {
+            pendingRestore = uri
+            showRestorePin = true
+        } else {
+            startRestore(uri)
+        }
+    }
 
     // Device-admin and battery state only change on a system screen, so
     // re-reading them on resume is both sufficient and cheaper than polling.
@@ -797,6 +843,54 @@ fun SettingsScreen(
         SoberSectionHeader(title = "Data", index = "11")
 
         SoberListRow(
+            title = "Back up rules",
+            subtitle = "Limits, schedules, custom rules, category budgets and stricter " +
+                "modes as one JSON file. Usage history and your PIN are never included.",
+            trailing = {
+                SoberQuietButton(
+                    text = if (backupBusy) "Working…" else "Back up",
+                    onClick = {
+                        if (backupBusy) return@SoberQuietButton
+                        backupCreateLauncher.launch("sober-backup-${LocalDate.now()}.json")
+                    }
+                )
+            }
+        )
+
+        SoberDivider()
+
+        SoberListRow(
+            title = "Restore rules",
+            subtitle = if (hasPin) {
+                "Replaces the rules on this device with the file's. Your PIN is required."
+            } else {
+                "Replaces the rules on this device with the file's."
+            },
+            trailing = {
+                SoberQuietButton(
+                    text = if (backupBusy) "Working…" else "Restore",
+                    onClick = {
+                        if (backupBusy) return@SoberQuietButton
+                        backupOpenLauncher.launch(
+                            arrayOf("application/json", "text/plain", "application/octet-stream")
+                        )
+                    }
+                )
+            }
+        )
+
+        backupMessage?.let {
+            Text(
+                text = it,
+                color = if (backupMessageIsError) colors.danger else colors.textSecondary,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+            )
+        }
+
+        SoberDivider()
+
+        SoberListRow(
             title = "Export usage data",
             subtitle = "The last 30 days of per-app usage as a CSV. Nothing leaves the " +
                 "device unless you pick an app in the share sheet.",
@@ -920,6 +1014,21 @@ fun SettingsScreen(
             onDismiss = { showPinDialog = false },
             onSubmit = { currentPin, newPin, onResult ->
                 viewModel.savePin(currentPin, newPin, onResult)
+            }
+        )
+    }
+
+    if (showRestorePin) {
+        RestorePinDialog(
+            onDismiss = {
+                showRestorePin = false
+                pendingRestore = null
+            },
+            onVerify = { pin, onResult -> viewModel.verifyPin(pin, onResult) },
+            onVerified = {
+                showRestorePin = false
+                pendingRestore?.let { startRestore(it) }
+                pendingRestore = null
             }
         )
     }
@@ -1725,6 +1834,80 @@ private fun PinDialog(
                 Text(
                     text = "Save",
                     color = if (canSubmit) colors.primary else colors.textMuted,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel", color = colors.textSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * The PIN prompt for a restore, separate from [PinDialog] because this one
+ * authorises an action rather than setting a new code — and it says what the
+ * action will do before asking.
+ */
+@Composable
+private fun RestorePinDialog(
+    onDismiss: () -> Unit,
+    onVerify: (String, (Boolean) -> Unit) -> Unit,
+    onVerified: () -> Unit
+) {
+    val colors = SoberTheme.colors
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = {
+            Text(
+                text = "Restore these rules?",
+                color = colors.primary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "The file replaces this device's limits, schedules and " +
+                        "custom rules. Enter your PIN to continue.",
+                    color = colors.textSecondary,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                PinField(
+                    value = pin,
+                    label = "PIN",
+                    onValueChange = {
+                        pin = it
+                        error = null
+                    },
+                    isError = error != null
+                )
+                error?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = it, color = colors.danger, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = pin.isNotEmpty(),
+                onClick = {
+                    onVerify(pin) { ok ->
+                        if (ok) onVerified() else error = "Incorrect PIN."
+                    }
+                }
+            ) {
+                Text(
+                    text = "Restore",
+                    color = if (pin.isNotEmpty()) colors.primary else colors.textMuted,
                     fontWeight = FontWeight.Medium
                 )
             }

@@ -11,6 +11,7 @@ import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.BedtimeSettings
 import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.repository.AppCategoryRepository
+import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PinRepository
@@ -37,6 +38,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -67,7 +69,8 @@ class SettingsViewModel @Inject constructor(
     private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val setPinUseCase: SetPinUseCase,
     private val verifyPinUseCase: VerifyPinUseCase,
-    private val exportUsageCsvUseCase: ExportUsageCsvUseCase
+    private val exportUsageCsvUseCase: ExportUsageCsvUseCase,
+    private val backupRepository: BackupRepository
 ) : ViewModel() {
 
     /**
@@ -349,9 +352,87 @@ class SettingsViewModel @Inject constructor(
         return File(dir, "sober-usage-$day.csv").apply { writeText(csv) }
     }
 
+    /**
+     * Writes the rules to the file the user picked in the system picker.
+     *
+     * SAF rather than a share sheet: a backup is a file the user keeps, so it
+     * goes wherever they choose instead of being handed to another app.
+     */
+    fun exportBackup(target: Uri, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = backupRepository.export()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(target)?.use { stream ->
+                        stream.write(json.toByteArray())
+                    } ?: error("No output stream for $target")
+                }
+                onResult(true, null)
+            } catch (e: Exception) {
+                onResult(false, "Couldn't write the backup file.")
+            }
+        }
+    }
+
+    /**
+     * Reads the picked file and replaces the device's rules with it.
+     *
+     * The size cap exists because this reads an arbitrary file the user chose:
+     * a backup is a few kilobytes, and buffering a much larger one would only
+     * waste memory before the format check rejected it anyway.
+     */
+    fun restoreBackup(source: Uri, onResult: (String?, String?) -> Unit) {
+        viewModelScope.launch {
+            val json = try {
+                withContext(Dispatchers.IO) { readBackup(source) }
+            } catch (e: Exception) {
+                onResult(null, "Couldn't read that file.")
+                return@launch
+            }
+            if (json == null) {
+                onResult(null, "That file is too large to be a Sober backup.")
+                return@launch
+            }
+
+            try {
+                val summary = backupRepository.restore(json)
+                onResult(
+                    if (summary.totalRules == 0) {
+                        "Restored. The backup had no rules in it."
+                    } else {
+                        "Restored ${summary.totalRules} " +
+                            (if (summary.totalRules == 1) "rule." else "rules.")
+                    },
+                    null
+                )
+            } catch (e: IllegalArgumentException) {
+                onResult(null, e.message ?: "That file isn't a Sober backup.")
+            } catch (e: Exception) {
+                onResult(null, "Couldn't restore that file.")
+            }
+        }
+    }
+
+    /** Null when the file exceeds [MAX_BACKUP_BYTES]. */
+    private fun readBackup(source: Uri): String? {
+        context.contentResolver.openInputStream(source)?.use { input ->
+            val buffer = ByteArrayOutputStream()
+            val chunk = ByteArray(8 * 1024)
+            while (true) {
+                val read = input.read(chunk)
+                if (read < 0) break
+                buffer.write(chunk, 0, read)
+                if (buffer.size() > MAX_BACKUP_BYTES) return null
+            }
+            return buffer.toByteArray().toString(Charsets.UTF_8)
+        }
+        error("No input stream for $source")
+    }
+
     companion object {
         const val MIN_PIN_LENGTH = PinRepository.MIN_LENGTH
         const val MAX_PIN_LENGTH = PinRepository.MAX_LENGTH
         const val EXPORT_DIR = "exports"
+        private const val MAX_BACKUP_BYTES = 4 * 1024 * 1024
     }
 }
