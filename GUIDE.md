@@ -944,6 +944,15 @@ The AVD's clock and usage database reset to the host's notion of "today" on a co
 
 **Solution/Pattern**: `FocusSoundPlayer` writes 16 kHz mono PCM16 into a streaming `AudioTrack` on a daemon thread, so no asset, no network, no media permission, and only the user's media volume applies. `SoberCoreService` collects `combine(activeSessionId, focusSoundEnabled)` and calls `setPlaying`, which makes the preference live: toggling it mid-session works, and the engine dying stops it in `onDestroy` instead of leaving a released-elsewhere track playing. Treat the sound as optional at every step: if `AudioTrack` cannot be built (some emulators refuse custom streams), log and stay silent rather than failing the session — a focus session must never break because a convenience failed. The preference defaults off and lives in DataStore rather than the session row, because it is a listening habit that has to survive the process and apply to the next session, not a property of one session.
 
+### 11.44 A Tag Is a Physical Intent
+
+**Date**: 2026-11-03  
+**Context**: F18 lets an NFC tag start a preset session. The obvious payload was a toggle: tap to start, tap again to end.
+
+**Learning**: The physical form of a trigger does not change what it is allowed to do. A tag is a URI record that Android turns into an `NDEF_DISCOVERED` intent, and its payload is written by another app, so it is the same untrusted input as a Tasker extra. A toggle would also put session-ending behind a single tap, undoing the deliberate hold-to-cancel design — and a sticker on a desk can be tapped by anyone. Starting is the only action that always tightens protection, so it is the only one a tag may trigger. Two smaller traps: an exported activity can receive any intent with a `data` URI, so the payload must be parsed only when the action really is `NDEF_DISCOVERED`; and the system delivers a tag intent with `FLAG_ACTIVITY_NEW_TASK`, which on a `standard` launcher activity stacks a second `MainActivity` when Sober is already open.
+
+**Solution/Pattern**: One pure parser (`FocusTag.presetFor`) accepts exactly `sober://focus?preset=NAME`, ignores everything else, and is tested as a string function so the contract does not depend on an emulator's NFC hardware. `ShortcutViewModel` reuses the shortcut path, so onboarding, an already-running session and preset resolution behave identically regardless of which trigger arrived. The manifest adds an `NDEF_DISCOVERED` filter for the custom scheme, `singleTop` on `MainActivity` so a warm tap becomes `onNewIntent` instead of a second activity, and `NFC` as a normal permission with `android.hardware.nfc` marked not required so devices without a reader can still install. Document the payload in the README next to the `adb` example: the tag writer is the user's tool, and the format is the contract.
+
 ## 12. Troubleshooting
 
 ### 12.1 Common Build Issues

@@ -236,6 +236,22 @@ lifting a block stay inside the app, because an exported action for those would
 let any installed app undo Sober. A shortcut does nothing before onboarding is
 complete or while another session is already running.
 
+### NFC tags
+
+Write any cheap NFC tag as a URI record with this payload:
+
+```
+sober://focus?preset=STUDY
+```
+
+Tapping it with the phone starts that preset and opens the Focus tab, cold or
+already running. `preset` takes the same four names as above. Use any NFC
+writer app; no special hardware or pairing is involved.
+
+A tag can only start a session, never end one or lift a block — those stay
+behind the in-app hold, so a sticker someone else can tap cannot shorten a
+session. A tag with a different URI is ignored.
+
 ---
 
 ## Build from source

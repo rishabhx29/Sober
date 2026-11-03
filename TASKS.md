@@ -1209,6 +1209,16 @@ promise: no feature here needs internet permission.
   follows the toggle live, and stops in `onDestroy`. A refused `AudioTrack`
   build logs and stays silent rather than failing the session. Off by default;
   the Focus setup screen has the "Brown noise" switch.*
+- [x] F18 — NFC tags — *write any tag as the URI record
+  `sober://focus?preset=STUDY|WORK|GYM|SLEEP`; tapping it starts that preset and
+  opens Focus, cold or warm. `FocusTag.presetFor` is a pure string parser shared
+  with the intent path through `ShortcutViewModel`, so onboarding and
+  active-session refusals are identical. Only an `NDEF_DISCOVERED` intent is
+  parsed, and the manifest uses `launchMode="singleTop"` so a warm tap cannot
+  stack a second `MainActivity`. A tag can only start — ending or lifting a
+  block stays behind the in-app hold, because a sticker is still an untrusted
+  physical trigger. `NFC` is a normal permission and `android.hardware.nfc` is
+  not required, so non-NFC devices still install.*
 - [ ] F10a — User-assisted section picker — *let the user record a section rule
   by inspecting the live node tree (selected tab or screen id) and name it. The
   backlog calls for this so apps outside the shipped catalogue (Facebook, local
@@ -1246,6 +1256,10 @@ promise: no feature here needs internet permission.
 > `AudioTrack` is a stub off-device, and the meaningful check is audible
 > playback). Device walk pending: toggle on, start a session, lock the phone and
 > confirm the noise continues, then end the session and confirm it stops.
+> F18 is `FocusTagTest` 5/5 (plus `FocusShortcutTest` 4/4) and the APK builds;
+> full suite 494/494. No NFC tag was written or tapped: the cold-launch filter,
+> warm `onNewIntent` delivery and the actual scan were not exercised on
+> hardware.
 
 ---
 
@@ -1459,6 +1473,7 @@ promise: no feature here needs internet permission.
 | 2026-11-03 | F16 | completed | Implementation Agent | Health check screen reached from Settings. Required checks (usage access, overlay, notifications, enforcement engine) are summarised; Accessibility reports off / not connected / connected and the age of the last event. `ServiceLiveness` adds in-memory flags written by `SoberCoreService` and `SoberAccessibilityService` — deliberately not persisted, since a stored heartbeat survives the death it is meant to reveal. Battery exemption, vendor background panel, DND and device admin are listed with links; values re-read on resume and the relative age ticks every 15 s. "Preview the block screen" renders the real `BlockOverlayScreen` in-app with inert actions behind a "nothing is blocked" banner. `HealthCopyTest` 9/9, `:app:assembleDebug` green. Device walk pending |
 | 2026-11-03 | F13 | completed | Implementation Agent | Challenges and richer achievements. `ChallengeRules` owns the target dates (day after opt-in; the weekend challenge waits for the next Saturday) and `evaluateChallenge` counts only whole days, stopping at the first bad one and recording `failedOn`. `CalculateStreakUseCase.cleanDates` exposes the streak's per-day limit rule so `GetChallengeStateUseCase` does not duplicate it; social challenges use a separate quiet-day check and treat unobserved days as quiet. `ManageChallengeUseCase` refuses a clean-week start without limits and a social start without installed social apps, allows one challenge at a time, and re-derives completion before recording the win. "Feed-free week" replaces "no-Reels week" because section-level usage is not recorded. DataStore stores one active record and a completed set; the Stats section adds offer cards, an active card with progress and a leave dialog. Also added Deep Work (90-minute session) and Challenge Champion (one finished challenge). Tests: `ChallengeRulesTest` 8, `GetChallengeStateUseCaseTest` 6, `ManageChallengeUseCaseTest` 8, `ChallengeCodecTest` 4, `ChallengeCopyTest` 6, `cleanDates` 4, achievements 3; full suite 476/476. Device walk pending |
 | 2026-11-03 | F20 | completed | Implementation Agent | Optional brown noise during a focus session. `FocusSoundPlayer` synthesises white noise through a leaky integrator (16 kHz mono PCM16, 0.22 amplitude) and streams it into an `AudioTrack` on a daemon thread — no asset, no network, no media permission, media volume only. `SoberCoreService` combines `activeSessionId` with the stored `focusSoundEnabled` and calls `setPlaying`, so playback follows the session across app exits and screen locks, reacts to mid-session toggles, and stops in `onDestroy`. A refused `AudioTrack` logs and stays silent. Preference is global and off by default; the Focus setup screen gains a "Brown noise" switch. `:app:assembleDebug` green, full suite 489/489. Device walk pending (audible playback, screen-off continuity) |
+| 2026-11-03 | F18 | completed | Implementation Agent | NFC tags. `sober://focus?preset=NAME` as an NDEF URI record starts the preset through the same `ShortcutViewModel` path as launcher shortcuts, so onboarding and active-session refusals are shared. `FocusTag.presetFor` is a pure parser (strict scheme/host match, case-insensitive preset, unknown payloads ignored); only `ACTION_NDEF_DISCOVERED` intents are parsed. Manifest adds an `NDEF_DISCOVERED` filter for the custom scheme, `launchMode="singleTop"` (avoids stacking a second activity on a warm tap), the normal `NFC` permission and a not-required `android.hardware.nfc` feature. Ending or lifting a block is not tag-reachable by design. `FocusTagTest` 5/5, `:app:assembleDebug` green. Hardware scan pending |
 
 ---
 
