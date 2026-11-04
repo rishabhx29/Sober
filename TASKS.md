@@ -1339,6 +1339,7 @@ promise: no feature here needs internet permission.
 - [x] r/digitalminimalism karma comment (one, disclosed, no link)
 - [ ] r/digitalminimalism, r/nosurf posts
 - [x] Product Hunt (draft complete, scheduled Thu 2026-11-05, 12:01am PT)
+- [x] Indie Hackers product page (indiehackers.com/product/sober-2)
 - [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
 
