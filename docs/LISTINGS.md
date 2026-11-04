@@ -44,7 +44,7 @@ pick a paid tier.
 | # | Where | Link | Gate | Status |
 |---|---|---|---|---|
 | 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | product page public at `/products/sober-3`; launch scheduled 2026-11-05 |
-| 2 | AlternativeTo | alternativeto.net (submit form is behind sign-in; `/manage/submit/` 404s as of 2026-11-04) | account, free signup | Google sign-in done, blocked on e-mail confirmation |
+| 2 | AlternativeTo | alternativeto.net — the form lives at `/manage-item/` (`/manage/submit/` 404s) | account, free signup | submitted 2026-11-04 as "Sober Screen Time"; waiting for review, private until then |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
 | 5 | OpenAlternative | openalternative.co/submit | login required; free listings go live one per weekday | not started |
@@ -98,13 +98,27 @@ two gallery slots are `promo/stills/block.png` and `promo/stills/end-card.png`.
 The long tail. People search "alternative to Forest" or "alternative to
 one sec" for years and this is where they land.
 
-- Add as a new application, not as an alternative.
-- Description: the 158-char line.
-- License: MIT. Cost: free.
-- Platforms: Android.
-- Tags: `screen-time`, `digital-wellbeing`, `productivity`, `open-source`, `offline`.
-- Then list it as an alternative to: Forest, one sec, AppBlock, StayFree,
-  Digital Detox, ScreenZen. This is what makes it findable.
+Submitted 2026-11-04. The form is at `/manage-item/`; the old `/manage/submit/`
+path 404s.
+
+- The name had to be qualified: an unrelated Roblox client already owns
+  `/software/sober/`, and the form refuses a second "Sober". "Sober Screen Time"
+  is the form the site itself suggests ("add some other text to it like company
+  name or similar").
+- Description, license, platforms, tags, icon and two screenshots as below.
+- The listing is at `/software/sober-screen-time/` and says "Your submission is
+  waiting to be reviewed … Only you can see this app right now, so please do not
+  share the link to it yet."
+- Five real alternatives were attached, which is what the empty-listing warning
+  asks for and what puts the app on other apps' pages: Mindful, StayFree, One
+  Sec, Opal Focus, AppBlock. Among those, Mindful is the closest match — free,
+  open source, Android, screen-time quotas.
+- The form then offers a one-time $15 priority review, which moves it to the
+  front of a queue of "several thousand apps"; it was declined, so the listing
+  sits in the normal queue and may not be looked at for a long time. Revisit only
+  if the free queue is still silent in a few months.
+- Not done: the "Company / Author" field, which the form marks required but
+  accepts empty — revisit if a reviewer asks.
 
 ### 3. Slant
 
@@ -336,7 +350,7 @@ What an anonymous visitor can actually see, site by site:
 | Uneed | `/tool/sober` | **404** — queued for 2027-06-13; the preview link renders and is marked "draft shared by its maker" |
 | Reddit | `/r/SideProject/comments/1xnfxe3` | **hidden** — author view reads "Sorry, this post was removed by Reddit's filters"; no mod reply in the inbox |
 | Hacker News | `/submitted?id=rishabhjtripath` | **empty** — zero submissions, 1 karma |
-| AlternativeTo | — | **not submitted** — `/account-info/` lands on "Reset your password", so the account is not authenticated; e-mail confirmation outstanding |
+| AlternativeTo | https://alternativeto.net/software/sober-screen-time/ | **submitted 2026-11-04** — "waiting to be reviewed", private to the submitter until then; five alternatives attached; $15 priority review declined |
 
 That table is the answer to "why can't I see the launches": only one of the eight has a
 scheduled public moment, and it is tomorrow. The rest are queued (Uneed 2027),

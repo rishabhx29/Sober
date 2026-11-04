@@ -1341,7 +1341,8 @@ promise: no feature here needs internet permission.
 - [x] Product Hunt (product page live at `/products/sober-3`; launch scheduled Thu 2026-11-05, 12:01am PT)
 - [x] Indie Hackers product page (indiehackers.com/product/sober-2 — About filled 2026-11-04; posting gated to established members)
 - [x] Uneed (submitted; held in the free waiting line, launch 2027-06-13)
-- [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
+- [x] AlternativeTo (submitted 2026-11-04 as "Sober Screen Time" — name collision with a Roblox client; waiting for review, private until then, $15 priority review declined)
+- [ ] Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
 
 > **10.2 note (2026-11-04, Playwright):** the post-signing steps are now driven by
@@ -1361,13 +1362,19 @@ promise: no feature here needs internet permission.
 > lever. Show HN was attempted and refused: `u/rishabhjtripath` is brand new, and
 > submitting redirected to `/showlim`, "we're temporarily restricting Show HNs
 > because of a massive influx, mostly by users who aren't yet familiar with the
-> site". Nothing posted. AlternativeTo's Google sign-in worked but the account is
-> waiting on e-mail confirmation, and dev.to plus GitHub are still signed out, which
+> site". Nothing posted. AlternativeTo's Google sign-in worked but the account was
+> waiting on e-mail confirmation at the time, and dev.to plus GitHub are still signed
+> out, which
 > keeps the dev.to story and LibHunt's OAuth closed. The Uneed form has one trap
 > worth remembering: the
 > Tagline field is a `<textarea name="description">` capped at 80 characters, so the
 > 158-char short blurb pasted there silently fails validation and leaves the
-> schedule button disabled.
+> schedule button disabled. AlternativeTo's e-mail was confirmed on 2026-11-04 and
+> the form at `/manage-item/` went through as "Sober Screen Time": a plain "Sober"
+> is refused because an unrelated Roblox client owns it. Five alternatives were
+> attached (Mindful, StayFree, One Sec, Opal Focus, AppBlock) and the optional $15
+> priority review was declined, so the entry is in the normal queue and private
+> until reviewed.
 
 ### 10.3 Directory listings
 
@@ -1619,6 +1626,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.8 | completed | Implementation Agent | r/SideProject mod appeal sent, which retires the "one human click for reCAPTCHA" claim: `old.reddit.com` redirects modmail to the new composer, whose hidden `g-recaptcha-response` textarea fills itself, and the Send mutation `SendMessageToSubreddit` returned `{"errors":null,"ok":true}` in the network log. The reason it looked impossible is the feedback: the form clears, no toast appears, and `/message/sent.json` stays empty because modmail is a separate system from PMs — so the sent folder is not a way to verify this, and the GraphQL body is. Two earlier clicks were made before the log was in place and cleared identically, so duplicates are possible; there is no sent copy to count them. `docs/LISTINGS.md` §13 now carries the working procedure and the caveat |
 | 2026-11-04 | P10.9 | blocked | Implementation Agent | Show HN attempted as `u/rishabhjtripath` (1 karma, created today): title "Show HN: Sober – Android screen-time blocker with no internet permission" (72 chars) with the repo URL and an empty text field. The submit button answered with a redirect to `/showlim` — "We're temporarily restricting Show HNs because of a massive influx, mostly by users who aren't yet familiar with the site or its culture" — and `/submitted?id=rishabhjtripath` stayed empty, so nothing was published. No workaround taken: reposting the link under a non-Show-HN title is the exact circumvention the gate exists to stop, and a 1-karma self-link dies in /new regardless. The account needs weeks of genuine comments first; copy and procedure parked in `docs/LISTINGS.md` §9. AlternativeTo now completes Google sign-in but stops at e-mail confirmation, recorded in the gate table |
 | 2026-11-04 | P10.10 | completed | Implementation Agent | Public-state audit answered "I can't see the launches on any site", and two gaps were fixed. **Indie Hackers**: `/product/sober-2` was live but rendered **no About section** because the `*Required` Motivation field had saved empty — filled 194/220 chars plus the `@RishabhTri8805` Twitter handle, saved (`?saved=1`), and the paragraph now renders. The "Write a new post" button does nothing and the page carries "Publishing is open to established members … or subscribe to IH+ to publish right away", so a zero-post page never reaches an IH feed; that is a karma gate, not neglect. **Uneed**: `/tool/sober` 404s until 2027-06-13, but the dashboard's "Share a preview" panel yielded https://www.uneed.best/preview/n0Q2UkKu_IKDtQpRkWGZNc6u, which renders as "a draft shared by its maker". Confirmed unchanged: PH product page is public with logo/tagline/summary/3 gallery images/maker comment and the launch event still fires 2026-11-05 12:01am PT; the r/SideProject post still reads "Sorry, this post was removed by Reddit's filters" with no mod reply in the inbox; HN has zero submissions at 1 karma; AlternativeTo `/account-info/` still lands on "Reset your password" (e-mail unconfirmed); X main post 31 views / 1 like and CTA reply 2 views / 1 like; both awesome-list PRs still OPEN; repo has 1 star with description and 12 topics set. Written up site by site in `docs/LISTINGS.md` §17-§19 |
+| 2026-11-04 | P10.11 | completed | Implementation Agent | AlternativeTo submitted after the e-mail was confirmed. The form is `/manage-item/`, not the long-dead `/manage/submit/`. Two validations had to be cleared: "Source link is required when marking an app as open source" (the Source URL field is separate from the Website field) and "An app with the name Sober already exists", which is a Roblox client at `/software/sober/`, unconnected to this app — the name was qualified to "Sober Screen Time" as the site's own error text instructs. The post-submit step then insisted on alternatives because "apps without alternatives are almost invisible", so five real ones were attached: Mindful (closest — free, open source, Android, quotas), StayFree, One Sec, Opal Focus, AppBlock. The optional one-time $15 priority review was declined (no spend authorised), leaving the entry in the normal queue behind "several thousand apps". The listing at `/software/sober-screen-time/` reports "Your submission is waiting to be reviewed … only you can see this app right now", and the top bar counts it as "1 app waiting for review". Documented in `docs/LISTINGS.md` §2 and the audit table |
 
 ---
 
