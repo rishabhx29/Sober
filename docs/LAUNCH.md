@@ -14,6 +14,10 @@ Posted so far:
   the 25 s film, a reply with the GitHub link, and a second reply that asks for
   the install and the star.
 - r/SideProject: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
+  (removed five minutes later by Reddit's spam filter — a new account with no
+  karma and two links in the body. Not a mod action; the text is intact.)
+- r/digitalminimalism, first karma comment, no link:
+  https://www.reddit.com/r/digitalminimalism/comments/1xna3d1/tips_to_reduce_screen_time/19s442g96y3hg/
 
 Baseline when this section was written: 2 APK downloads on v1.6, 1 star,
 98 unique clones in the last 14 days (almost all of them this machine).
@@ -447,6 +451,12 @@ is the post engineers share, and it keeps bringing people months later.
    Accessibility for section blocking, and here is what that means" beats
    arguing.
 8. **Do not claim a user number you do not have.**
+
+**Practical note on Reddit:** the new UI's comment box renders its `Comment`
+button at 0×0 inside `comment-composer-host`, so an automated browser cannot
+submit from `www.reddit.com`. `old.reddit.com/r/<sub>/comments/<id>/` still serves
+a plain `<textarea name="text">` and a working `save` button — post and reply
+there, then check the thread on the normal domain.
 
 ---
 

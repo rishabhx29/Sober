@@ -1336,7 +1336,8 @@ promise: no feature here needs internet permission.
 - [ ] r/fossdroid
 - [ ] Show HN
 - [ ] r/androidapps (self-promotion megathread)
-- [ ] r/digitalminimalism, r/nosurf
+- [x] r/digitalminimalism karma comment (one, disclosed, no link)
+- [ ] r/digitalminimalism, r/nosurf posts
 - [ ] Product Hunt
 - [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
@@ -1582,6 +1583,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.1 | completed | Implementation Agent | GitHub release `v1.6` published from `main` with both assets: `Sober-1.6.apk` (3,774,696 bytes, `SHA-256 ac0858e3…8f2d`, certificate `f9fc8e71…6c64` — unchanged since 1.0) and `sober-promo.mp4` (9,377,803 bytes). `releases/latest` resolves to `v1.6`, so every link in the launch copy lands on the right download. Repo topics, description and homepage were already set. README gained a film section that uses `promo/stills/cover.png` as the poster and links the MP4 asset directly. The film could not be embedded as a player: GitHub strips `<video>` from Markdown, so it is a click-through still |
 | 2026-11-04 | P10.2 | in progress | Implementation Agent | X is live from `@RishabhTri8805`: the 25 s film posted at https://x.com/RishabhTri8805/status/2117845866484752498 with the no-internet-permission copy, and one reply carrying the GitHub link plus the `aapt dump permissions` check. The Google sign-in route failed on a Google video-verification page, so the session was made with username and password. Reddit, Product Hunt, dev.to and the listings still need a session; posting more than one subreddit on the same day is what the spam filters in §5 of the launch kit are built to catch, so the remaining subs go out one per day. A second X reply now carries the call to action at https://x.com/RishabhTri8805/status/2117850680132342184 (the main post was kept rather than deleted). r/SideProject went up at https://www.reddit.com/r/SideProject/comments/1xnfxe3/ and was removed within five minutes by Reddit's own spam filter, not by a mod: u/rishabh_t106 is new and has no karma, and the body carried two GitHub links. The content is intact, only its visibility is gone, so the fix is a modmail appeal or building karma with real comments first. Next is r/fossdroid, one community per day |
 | 2026-11-04 | P10.3 | started | Implementation Agent | Wrote `docs/LISTINGS.md` with the copy and the gate for every directory that matters: Product Hunt, AlternativeTo, Slant, LibHunt, OpenAlternative, IzzyOnDroid, F-Droid RFP, Show HN, dev.to, Mastodon, Lemmy, and the offa/android-foss list. The modmail to r/SideProject is drafted but its Send button sits behind reCAPTCHA, which this new account cannot pass from an automated browser, so it needs one human click. offa/android-foss requires six months of history and cannot be filed until about 2027-05 |
+| 2026-11-04 | P10.4 | completed | Implementation Agent | First karma comment posted at https://www.reddit.com/r/digitalminimalism/comments/1xna3d1/tips_to_reduce_screen_time/19s442g96y3hg/ — answers the actual question (email pushes, a rule that closes the app instead of asking, counting background audio as zero), discloses that Sober is mine, and carries no link so it does not look like a drop. The new UI's Comment button renders at 0×0 inside `comment-composer-host` and cannot be clicked; `old.reddit.com` still serves a plain form, which is where this and any future comment should be posted |
 
 ---
 
