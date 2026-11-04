@@ -193,27 +193,46 @@ Read `LAUNCH.md` §3 for the subreddits and §5 for the one-community-per-day ru
 The gate is account karma, not content, so expect the first two or three attempts
 to be filtered. A post with no links survives more often than a post with two.
 
-**Appeal the removed r/SideProject post from a signed-in browser.** Go to
-https://www.reddit.com/message/compose?to=/r/SideProject and paste:
+**The r/SideProject appeal was sent on 2026-11-04** through the new composer at
+https://www.reddit.com/message/compose?to=/r/SideProject, with the text below.
 
-> Subject: Removed by the spam filter, not by a mod — request to restore
->
-> Hi mods,
->
-> I posted "I built a screen-time app that has no INTERNET permission" and it was
-> removed within about five minutes with no mod message, so I believe it was the
-> automated spam filter: the account is days old and had no karma, and the body
-> carried a GitHub link.
->
-> I am the developer of the app (Sober, an MIT-licensed Android screen-time
-> blocker). If the removal was a rule I broke, I would rather know which one than
-> repost blind. If it was the filter, I would be grateful if the post could be
-> looked at: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
->
-> Either way, thank you.
+The reCAPTCHA is not actually the blocker it looked like: `old.reddit.com` redirects
+modmail to the new composer, the composer carries a hidden
+`textarea[name="g-recaptcha-response"]` that fills itself with an enterprise token,
+and a click on Send goes through. What misleads is the feedback — the form clears
+and no toast appears, so it reads as a failed submit. The proof is in the network
+log: the POST to `/svc/shreddit/graphql` returns
 
-The Send button on that page sits behind an invisible reCAPTCHA, which is why it
-has to be a human click.
+```json
+{"data":{"sendMessageToSubreddit":{"errors":null,"ok":true}},"errors":[]}
+```
+
+`/message/sent.json` stays empty after a successful modmail, because modmail is a
+separate system from private messages, so do not use it to check this. Until the
+toast-vs-network question is settled for another site, confirm writes by reading
+the GraphQL response rather than the UI.
+
+```text
+Subject: Removed by the spam filter, not by a mod — request to restore
+
+Hi mods,
+
+I posted "I built a screen-time app that has no INTERNET permission" and it was
+removed within about five minutes with no mod message, so I believe it was the
+automated spam filter: the account is days old and had no karma, and the body
+carried a GitHub link.
+
+I am the developer of the app (Sober, an MIT-licensed Android screen-time
+blocker). If the removal was a rule I broke, I would rather know which one than
+repost blind. If it was the filter, I would be grateful if the post could be
+looked at: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
+
+Either way, thank you.
+```
+
+Two earlier clicks may also have delivered the same text before the network log
+was in place; both cleared the form identically, and there is no sent copy to
+count. If the mods see duplicates, that is why.
 
 ### 16. Uneed
 

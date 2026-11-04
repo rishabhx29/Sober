@@ -1332,7 +1332,7 @@ promise: no feature here needs internet permission.
 ### 10.2 Community posts
 
 - [x] X post with the vertical film
-- [!] r/SideProject (posted, removed by Reddit's spam filter; needs a mod appeal or account karma)
+- [!] r/SideProject (posted, removed by Reddit's spam filter; appeal sent 2026-11-04, waiting on mods)
 - [ ] r/fossdroid
 - [ ] Show HN
 - [ ] r/androidapps (self-promotion megathread)
@@ -1351,8 +1351,10 @@ promise: no feature here needs internet permission.
 > links, "I made this", pricing Free and the pinned first comment — and scheduled.
 > Reddit is signed in as `u/rishabh_t106`; `old.reddit.com` is the only surface
 > where a comment or a post actually submits (the new composer's submit button
-> lays out at 0×0). Modmail to r/SideProject still needs one human click because
-> the compose form carries an invisible reCAPTCHA. Indie Hackers has a live
+> lays out at 0×0). The r/SideProject mod appeal was sent on 2026-11-04: the
+> composer's reCAPTCHA fills itself and the GraphQL mutation came back
+> `{"sendMessageToSubreddit":{"errors":null,"ok":true}}`, but the form clears with
+> no toast, which looks like a failure and is not. Indie Hackers has a live
 > product page. Uneed accepted the submission but its free queue runs to
 > 2027-06-13; the paid alternatives are $14.99 fast-track, $39.99 exact-date and
 > $249 directory blast, so the free line was taken and the site is not a launch
@@ -1610,6 +1612,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.5 | completed | Implementation Agent | Two awesome-list PRs opened from the same GitHub session, no new accounts: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 (Android section of a digital-wellbeing list, MIT, active, merges app PRs weekly) and https://github.com/fiedri/awesome-android-apps/pull/22 (Productivity row in a 548-app FOSS Android list; its issue tracker is disabled, so the PR is the only route — ran `scripts/build.py`, then restored the two Recently Added rows the build had dropped so the diff is Sober only). OpenAlternative was checked and does need a login, so the gate table in `docs/LISTINGS.md` was corrected |
 | 2026-11-04 | P10.6 | completed | Implementation Agent | Product Hunt launch built and scheduled for 2026-11-05 (Thu, 12:01am PT) through the Playwright MCP, draft `VIINBI3LAKFSTBKIDOP6P3ZUBZPEIKTU34`. The `github.com/rishabhx29/Sober` URL seeded the draft; added the tagline, description, 1024px logo, Productivity + Tech tags, "I made this", links, Free pricing and the first comment. PH's gallery wants 1270×760 and every still in `promo/` is vertical, so `promo/ph/gallery.html` was added and rendered at exactly that size with the two phone captures inside it. Uploads had to be staged under the MCP's allowed root — the server refuses any path outside it. The draft reports "All 7 required items done" |
 | 2026-11-04 | P10.7 | completed | Implementation Agent | Uneed submission finished at https://www.uneed.best/edit/waiting-line/70003. The disabled "Schedule your launch" button was not a missing field as the checklist implied ("❌ Tagline" with no empty input): Uneed renders the tagline as `<textarea name="description">`, so the 158-char short blurb pasted earlier had overflowed its 80-character budget and the checklist marked it failed. Replacing the value with the 46-char tagline enabled both schedule buttons. Uneed then offers a free line (2027-06-13), $14.99 fast-track (~14 days), $39.99 exact date and $249 directory blast; no spend was authorised, so the free line was taken and the toast confirmed "Launch scheduled!". Documented in `docs/LISTINGS.md` §16 with the queue table, and the stale AlternativeTo submit URL (404 as of today) was flagged in the gate table. Hacker News, dev.to, AlternativeTo and GitHub all resolve to their sign-in pages in this profile, so those four remain blocked on accounts |
+| 2026-11-04 | P10.8 | completed | Implementation Agent | r/SideProject mod appeal sent, which retires the "one human click for reCAPTCHA" claim: `old.reddit.com` redirects modmail to the new composer, whose hidden `g-recaptcha-response` textarea fills itself, and the Send mutation `SendMessageToSubreddit` returned `{"errors":null,"ok":true}` in the network log. The reason it looked impossible is the feedback: the form clears, no toast appears, and `/message/sent.json` stays empty because modmail is a separate system from PMs — so the sent folder is not a way to verify this, and the GraphQL body is. Two earlier clicks were made before the log was in place and cleared identically, so duplicates are possible; there is no sent copy to count them. `docs/LISTINGS.md` §13 now carries the working procedure and the caveat |
 
 ---
 
