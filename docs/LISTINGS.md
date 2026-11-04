@@ -47,7 +47,7 @@ pick a paid tier.
 | 2 | AlternativeTo | alternativeto.net/manage/submit/ | account, free signup | not started |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
-| 5 | OpenAlternative | openalternative.co/submit | form, no account needed | not started |
+| 5 | OpenAlternative | openalternative.co/submit | login required; free listings go live one per weekday | not started |
 | 6 | IzzyOnDroid | codeberg.org/IzzyOnDroid/repo/issues | Codeberg account | not started |
 | 7 | F-Droid (RFP) | gitlab.com/fdroid/rfp/-/issues | GitLab account | not started |
 | 8 | offa/android-foss | github.com/offa/android-foss | GitHub PR | blocked: 6-month rule |
@@ -56,6 +56,11 @@ pick a paid tier.
 | 11 | Mastodon (fosstodon.org) | fosstodon.org | account | not started |
 | 12 | Lemmy (!android@lemmy.ml) | lemmy.ml | account | not started |
 | 13 | Reddit | see `LAUNCH.md` §3 | new account, karma gate | one post filtered |
+| 14 | awesome-digital-wellbeing | pull/14 | none, PR | open: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 |
+| 15 | awesome-android-apps | pull/22 | none, PR | open: https://github.com/fiedri/awesome-android-apps/pull/22 |
+
+Two of these need nothing but a GitHub session, so they are already in front of
+a maintainer. Everything above them needs an account this machine does not hold.
 
 ### 1. Product Hunt
 
