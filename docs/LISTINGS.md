@@ -43,7 +43,7 @@ pick a paid tier.
 
 | # | Where | Link | Gate | Status |
 |---|---|---|---|---|
-| 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | scheduled 2026-11-05 |
+| 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | product page public at `/products/sober-3`; launch scheduled 2026-11-05 |
 | 2 | AlternativeTo | alternativeto.net (submit form is behind sign-in; `/manage/submit/` 404s as of 2026-11-04) | account, free signup | Google sign-in done, blocked on e-mail confirmation |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
@@ -58,7 +58,9 @@ pick a paid tier.
 | 13 | Reddit | see `LAUNCH.md` §3 | new account, karma gate | one post filtered |
 | 14 | awesome-digital-wellbeing | pull/14 | none, PR | open: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 |
 | 15 | awesome-android-apps | pull/22 | none, PR | open: https://github.com/fiedri/awesome-android-apps/pull/22 |
-| 16 | Uneed | uneed.best/submit-a-tool | account | submitted 2026-11-04, queued for 2027-06-13 |
+| 16 | Uneed | uneed.best/submit-a-tool | account | submitted 2026-11-04, queued for 2027-06-13; shareable preview link exists |
+| 17 | Indie Hackers | indiehackers.com/products/new | account; publishing gated to established members | product page live, posting blocked |
+| 18 | X | x.com | account | posted 2026-11-04, live |
 
 Two of these need nothing but a GitHub session, so they are already in front of
 a maintainer. Everything above them needs an account this machine does not hold.
@@ -277,6 +279,69 @@ Practical read: the entry costs nothing and may eventually produce a backlink, b
 it will not produce users. If a paid option is ever worth it, Fast-track at $14.99
 is the only sane one, and it should be spent on a week when there is something else
 running — not on its own.
+
+Until the queue comes up, `/tool/sober` returns 404. The dashboard's "Share a
+preview" panel produces a public page that needs no launch date —
+https://www.uneed.best/preview/n0Q2UkKu_IKDtQpRkWGZNc6u — rendered on 2026-11-04 as
+"a draft shared by its maker", not listed on Uneed. That is the only Uneed URL worth
+sending to anyone before 2027.
+
+### 17. Indie Hackers
+
+The product page at https://www.indiehackers.com/product/sober-2 is public: name,
+tagline ("Screen-time limits that actually close the app", 46/60), logo, website and
+founder. On 2026-11-04 the **Motivation** field was filled. It is marked `*Required`
+yet the form had saved without it, which is why the page rendered with no About
+section:
+
+> Every blocker I tried had a dismiss button, and the ones that worked wanted an
+> account and a server. I wanted limits that actually close the app, with no
+> network permission at all. Free and MIT.
+
+`@RishabhTri8805` was added as the Twitter handle. That text is 194 of the 220
+characters.
+
+Publishing is the gate. The page carries a standing notice — "Publishing is open to
+established members. Join in with a few thoughtful comments on posts you find
+interesting and we'll open it up for you — or subscribe to IH+ to publish right away" —
+and "Write a new post" does nothing on this account. A product page with zero posts
+never appears in an IH feed, so the page is a backlink and a landing page today, not
+a distribution channel. The only real route is a few genuine comments over the next
+week, then the first post. Buying IH+ to unlock posting is not worth it for one
+launch.
+
+### 18. X
+
+Two posts were live on 2026-11-04 from `@RishabhTri8805`:
+
+- https://x.com/RishabhTri8805/status/2117845866484752498 — the no-permission post:
+  31 views, 1 like, 1 bookmark at audit time
+- https://x.com/RishabhTri8805/status/2117850680132342184 — the CTA reply: put the
+  limit on the app you open without deciding to; a star on the repo is the whole
+  marketing budget: 2 views, 1 like
+
+Engagement is small because the account has no audience, not because the posts are
+hidden. Nothing to fix there; X needs followers before it produces installs.
+
+### 19. Public-state audit, 2026-11-04
+
+What an anonymous visitor can actually see, site by site:
+
+| Site | Public URL | State |
+|---|---|---|
+| Product Hunt | `/products/sober-3` | **live** — logo, tagline, summary, 3 gallery images, maker comment, "Launched in 2026"; the launch event fires 2026-11-05 12:01am PT |
+| X | two posts | **live**, low reach |
+| Indie Hackers | `/product/sober-2` | **live** page with About filled; zero posts, posting gated |
+| GitHub | repo + 2 PRs | **live**; jcanfield#14 and fiedri#22 both OPEN; 1 star; description and 12 topics set |
+| Uneed | `/tool/sober` | **404** — queued for 2027-06-13; the preview link renders and is marked "draft shared by its maker" |
+| Reddit | `/r/SideProject/comments/1xnfxe3` | **hidden** — author view reads "Sorry, this post was removed by Reddit's filters"; no mod reply in the inbox |
+| Hacker News | `/submitted?id=rishabhjtripath` | **empty** — zero submissions, 1 karma |
+| AlternativeTo | — | **not submitted** — `/account-info/` lands on "Reset your password", so the account is not authenticated; e-mail confirmation outstanding |
+
+That table is the answer to "why can't I see the launches": only one of the eight has a
+scheduled public moment, and it is tomorrow. The rest are queued (Uneed 2027),
+filtered (Reddit), refused (HN), gated (IH), unconfirmed (AlternativeTo), or live but
+audienceless (X).
 
 ---
 
