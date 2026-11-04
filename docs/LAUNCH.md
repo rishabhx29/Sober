@@ -7,8 +7,17 @@ answers to the awkward questions are here too.
 **Status:** v1.6 is published at
 https://github.com/rishabhx29/Sober/releases/tag/v1.6 with `Sober-1.6.apk` and
 `sober-promo.mp4`. Repo topics, description and homepage are set, and the README
-links the film. Nothing has been posted to a social platform yet — that step
-needs the account holder signed in.
+links the film.
+
+Posted so far:
+- X, from `@RishabhTri8805`: the 25 s film plus one reply with the GitHub link.
+- r/SideProject: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
+
+Baseline when this section was written: 2 APK downloads on v1.6, 1 star,
+98 unique clones in the last 14 days (almost all of them this machine).
+
+The rest of the list is one community per day — a new account that posts four
+subreddits in an hour gets filtered before anyone sees it.
 
 ---
 
@@ -143,19 +152,21 @@ Attach `sober-promo.mp4`. Do not put the link in the post body; put it in the
 first reply. Links in the body suppress reach.
 
 ```
-My screen-time app has no internet permission in its manifest.
+I shipped the screen-time app I wished existed.
 
-There's no server to send your usage to, and nothing in the app that could reach one.
+It shuts Reels when you are done and leaves Instagram DMs open. Run out of time and the app stays closed until midnight.
 
-Limits close the app until midnight. Reels closes; Instagram stays open for messages.
+No INTERNET permission in its manifest. Nothing to phone home to.
 
-Free, MIT, 3.8 MB.
+Free, MIT, 3.8 MB. Try it, link below.
 ```
 
-Then a reply within a minute:
+Then a reply within a minute. The install link and the ask both live here, because
+a link in the body costs reach and a bare fact does not get anyone to tap:
 ```
-Android 8+, sideload only (Play restricts accessibility-based blockers). Verify the manifest yourself: aapt dump permissions Sober-1.6.apk
-github.com/rishabhx29/Sober
+Install: github.com/rishabhx29/Sober
+
+Android 8+, sideload only (Play restricts accessibility-based blockers). If it earns a spot on your phone, a star on the repo is the whole marketing budget.
 ```
 
 ### 4.3 X, thread (post the morning after the single post)
@@ -186,7 +197,7 @@ github.com/rishabhx29/Sober
 
 Title:
 ```
-I built a screen-time app that physically cannot phone home — 25s demo inside
+I shipped a screen-time blocker that has no INTERNET permission — 25s demo
 ```
 
 Body:
@@ -195,19 +206,21 @@ I have tried most of the screen-time apps. What killed each one was the dismiss
 button. A limit you can overrule in one tap is a reminder, and I am bad at
 reminders.
 
-Sober is my version. Daily limits per app, one cap for the whole phone, focus
-sessions. The feature I end up using every day is section blocking: Reels closes,
-Instagram stays open for messages.
+So I shipped my own. Daily limits per app, one cap for the whole phone, focus
+sessions. The one I use every day is section blocking: Reels closes, Instagram
+stays open for messages.
 
 The manifest has no INTERNET permission. Whatever a dependency might want, the
 APK has no route out, and you can check that on the release file.
 
 25 seconds, sound on: [video]
-Repo and APK: https://github.com/rishabhx29/Sober
 
-MIT licensed, free, no ads. I am the author and I will answer everything,
-including why there is no Play Store listing (Play restricts accessibility-based
-blockers).
+Try it: https://github.com/rishabhx29/Sober — Android 8+, 3.8 MB, free, MIT.
+If it earns a spot on your phone, star the repo. That is the whole marketing
+budget.
+
+I will answer everything here, including why there is no Play Store listing
+(Play restricts accessibility-based blockers).
 
 Known gaps: no iOS version, and in-app browsers cannot be read, so block the
 host app instead.
@@ -491,6 +504,51 @@ One JSON file, written wherever you choose. No server exists to receive it.
 - **Comments asking "how do I..."** tell you what the README is missing.
 
 Do not measure impressions. There is nothing to learn from them.
+
+### The commands
+
+APK downloads per asset. This is the only install count that exists, because the
+app has nowhere to report to:
+
+```
+gh release view v1.6 --json assets --jq '.assets[] | "\(.name) \(.download_count)"'
+gh api repos/rishabhx29/Sober/releases --jq '.[] | "\(.tag_name) " + ([.assets[] | "\(.name)=\(.download_count)"] | join(" "))'
+```
+
+Stars, and the moment each one landed:
+
+```
+gh api repos/rishabhx29/Sober --jq '{stars: .stargazers_count, forks: .forks_count}'
+gh api -H "Accept: application/vnd.github.star+json" repos/rishabhx29/Sober/stargazers --jq '.[] | "\(.starred_at) \(.user.login)"'
+```
+
+Referrers and views. GitHub keeps 14 days of this, so save it if you want a
+trend:
+
+```
+gh api repos/rishabhx29/Sober/traffic/views --jq '{count, uniques}'
+gh api repos/rishabhx29/Sober/traffic/popular/referrers --jq '.[] | "\(.referrer) \(.count)"'
+gh api repos/rishabhx29/Sober/traffic/popular/paths --jq '.[] | "\(.path) \(.count)"'
+```
+
+Read download counts as a delta, not a total. One fetch is one download, so a
+mirror or a bot counts the same as a person. Take the number before you post and
+again a day later; the difference is what the post did.
+
+### The two platform dashboards
+
+- **X**: `x.com/i/account_analytics` gives impressions, profile clicks and link
+  clicks per post. On an account with no followers almost every impression comes
+  from the reply carrying the link, not from the post.
+- **Reddit**: open your own post and use "View insights" for views and upvote
+  rate. This is the one that tells you whether a subreddit is worth a second
+  post.
+
+### What the app itself reports
+
+Nothing, and that is the point of it. With no INTERNET permission no analytics SDK
+can run, so the install count lives only where the file was downloaded. If you
+ever want funnel numbers, you will have to ask users, not measure them.
 
 ---
 
