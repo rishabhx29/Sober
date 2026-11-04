@@ -198,6 +198,22 @@ post. Practically: comment on threads about Android battery, accessibility
 services, or digital wellbeing without mentioning Sober; the account needs history
 before it can carry a self-post.
 
+**First comment posted 2026-11-04** at
+https://news.ycombinator.com/item?id=50363461 — a thread about keeping devices
+offline. The answer is technical and carries no link: the only guarantee that
+survives an app update or a policy change is at the transport layer, so leave
+`android.permission.INTERNET` out of the manifest and prove it with
+`aapt dump permissions app.apk`. It posted, but karma still reads **1**: HN
+recalculates with a delay, and one comment is not history anyway. Two other things
+to know:
+
+- The account has **no e-mail address on file**. HN asks for one in
+  `/newsusers`; that is the user's address to enter, not mine, and without it a
+  password reset or an HN-initiated contact is not possible.
+- `/newsguidelines.html` is worth re-reading before the tenth comment rather than
+  after a shadow-ban. The comment above was written to be useful with or without
+  Sober existing, which is the test.
+
 Once the account can post:
 
 - Title: `Show HN: Sober – Android screen-time blocker with no internet permission`
@@ -269,6 +285,22 @@ Two earlier clicks may also have delivered the same text before the network log
 was in place; both cleared the form identically, and there is no sent copy to
 count. If the mods see duplicates, that is why.
 
+**Karma comment, 2026-11-04** — the day's one community was
+r/digitalminimalism, on the Safe Mode thread at
+https://old.reddit.com/r/digitalminimalism/comments/1xn5v5x/about_safe_mode_appblock_on_android/
+(a user asking how to stop Safe Mode from bypassing AppBlock). The reply discloses
+that Sober is mine in the first sentence, carries no link, and answers the actual
+question: Safe Mode boots with every third-party app disabled, so an app cannot
+defend itself from inside itself; the only in-OS remedy is a device-owner
+restriction (`UserManager.DISALLOW_SAFE_BOOT` via `DevicePolicyManager`), which is
+what a locked-down managed device gets. It posted through old.reddit.com's
+`button.save` inside `.usertext-edit` — the same surface as the earlier comment.
+
+No second community was touched the same day, per `LAUNCH.md` §5. Karma from one
+comment is negligible, so the realistic schedule is a few comments a week for the
+next month; that is also the honest answer to "make karma", because there is no
+shortcut that does not read as farming.
+
 ### 16. Uneed
 
 Submitted 2026-11-04. Scraped from the repo, then filled in: name, slug `sober`,
@@ -324,6 +356,22 @@ a distribution channel. The only real route is a few genuine comments over the n
 week, then the first post. Buying IH+ to unlock posting is not worth it for one
 launch.
 
+**First comment posted 2026-11-04** on
+https://www.indiehackers.com/post/i-looked-at-20-launch-directories-for-my-free-tool-most-wanted-a-link-back-or-money-WD6I8dKia2ilR1Swup8t
+— the thread is a maker's audit of 20+ launch directories, which is the same work
+in this document. The reply opens with the product difference (Android screen-time
+app, free, MIT), compares notes on what each directory actually wants, says plainly
+that no spend was authorised and the $15 AlternativeTo priority review was
+declined, and ends that the free path costs weeks while the paid path can cost more
+than a free app earns. No link, no ask. It is live — the comment shows EDIT and
+DELETE controls.
+
+The composer is TipTap: the visible `textarea` is hidden, so Playwright `fill`
+times out. Click `div[contenteditable="true"][aria-label="Write a comment"]` and
+insert with `document.execCommand('insertText', …)`, one paragraph per call —
+a single large insert reset the connection. `\n\n` produced doubled blank lines in
+ProseMirror; `selectAll` then re-inserting with single `\n` gives clean `<p>`s.
+
 ### 18. X
 
 Two posts were live on 2026-11-04 from `@RishabhTri8805`:
@@ -345,7 +393,7 @@ What an anonymous visitor can actually see, site by site:
 |---|---|---|
 | Product Hunt | `/products/sober-3` | **live** — logo, tagline, summary, 3 gallery images, maker comment, "Launched in 2026"; the launch event fires 2026-11-05 12:01am PT |
 | X | two posts | **live**, low reach |
-| Indie Hackers | `/product/sober-2` | **live** page with About filled; zero posts, posting gated |
+| Indie Hackers | `/product/sober-2` | **live** page with About filled; zero posts, posting gated; one substantive comment posted 2026-11-04 |
 | GitHub | repo + 2 PRs | **live**; jcanfield#14 and fiedri#22 both OPEN; 1 star; description and 12 topics set |
 | Uneed | `/tool/sober` | **404** — queued for 2027-06-13; the preview link renders and is marked "draft shared by its maker" |
 | Reddit | `/r/SideProject/comments/1xnfxe3` | **hidden** — author view reads "Sorry, this post was removed by Reddit's filters"; no mod reply in the inbox |

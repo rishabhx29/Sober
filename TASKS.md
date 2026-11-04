@@ -1334,12 +1334,12 @@ promise: no feature here needs internet permission.
 - [x] X post with the vertical film
 - [!] r/SideProject (posted, removed by Reddit's spam filter; appeal sent 2026-11-04, waiting on mods)
 - [ ] r/fossdroid
-- [ ] Show HN (blocked: HN restricts Show HNs from new accounts, redirects to /showlim)
+- [ ] Show HN (blocked: HN restricts Show HNs from new accounts, redirects to /showlim; first karma comment posted 2026-11-04, still 1 karma and no e-mail on file)
 - [ ] r/androidapps (self-promotion megathread)
 - [x] r/digitalminimalism karma comment (one, disclosed, no link)
 - [ ] r/digitalminimalism, r/nosurf posts
 - [x] Product Hunt (product page live at `/products/sober-3`; launch scheduled Thu 2026-11-05, 12:01am PT)
-- [x] Indie Hackers product page (indiehackers.com/product/sober-2 — About filled 2026-11-04; posting gated to established members)
+- [x] Indie Hackers product page (indiehackers.com/product/sober-2 — About filled 2026-11-04; posting gated to established members, so one substantive comment was posted instead)
 - [x] Uneed (submitted; held in the free waiting line, launch 2027-06-13)
 - [x] AlternativeTo (submitted 2026-11-04 as "Sober Screen Time" — name collision with a Roblox client; waiting for review, private until then, $15 priority review declined)
 - [ ] Slant, LibHunt, OpenAlternative listings
@@ -1375,6 +1375,16 @@ promise: no feature here needs internet permission.
 > attached (Mindful, StayFree, One Sec, Opal Focus, AppBlock) and the optional $15
 > priority review was declined, so the entry is in the normal queue and private
 > until reviewed.
+>
+> **10.2 note (2026-11-04, karma):** no post was possible on Indie Hackers — its
+> `[role=alert]` reads "Publishing is open to established members … or subscribe
+> to IH+" and "Write a new post" does nothing on a zero-post account — so the day's
+> IH work was one substantive comment on the launch-directory thread
+> `…/post/i-looked-at-20-launch-directories…`, live with EDIT/DELETE visible. The
+> HN account posted its first comment on `item?id=50363461`; karma still reads 1
+> because HN recalculates later, and the account has no e-mail on file, which only
+> the user can add. Reddit's one community for the day was r/digitalminimalism on
+> the Safe Mode / AppBlock thread, disclosed and link-free.
 
 ### 10.3 Directory listings
 
@@ -1627,6 +1637,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.9 | blocked | Implementation Agent | Show HN attempted as `u/rishabhjtripath` (1 karma, created today): title "Show HN: Sober – Android screen-time blocker with no internet permission" (72 chars) with the repo URL and an empty text field. The submit button answered with a redirect to `/showlim` — "We're temporarily restricting Show HNs because of a massive influx, mostly by users who aren't yet familiar with the site or its culture" — and `/submitted?id=rishabhjtripath` stayed empty, so nothing was published. No workaround taken: reposting the link under a non-Show-HN title is the exact circumvention the gate exists to stop, and a 1-karma self-link dies in /new regardless. The account needs weeks of genuine comments first; copy and procedure parked in `docs/LISTINGS.md` §9. AlternativeTo now completes Google sign-in but stops at e-mail confirmation, recorded in the gate table |
 | 2026-11-04 | P10.10 | completed | Implementation Agent | Public-state audit answered "I can't see the launches on any site", and two gaps were fixed. **Indie Hackers**: `/product/sober-2` was live but rendered **no About section** because the `*Required` Motivation field had saved empty — filled 194/220 chars plus the `@RishabhTri8805` Twitter handle, saved (`?saved=1`), and the paragraph now renders. The "Write a new post" button does nothing and the page carries "Publishing is open to established members … or subscribe to IH+ to publish right away", so a zero-post page never reaches an IH feed; that is a karma gate, not neglect. **Uneed**: `/tool/sober` 404s until 2027-06-13, but the dashboard's "Share a preview" panel yielded https://www.uneed.best/preview/n0Q2UkKu_IKDtQpRkWGZNc6u, which renders as "a draft shared by its maker". Confirmed unchanged: PH product page is public with logo/tagline/summary/3 gallery images/maker comment and the launch event still fires 2026-11-05 12:01am PT; the r/SideProject post still reads "Sorry, this post was removed by Reddit's filters" with no mod reply in the inbox; HN has zero submissions at 1 karma; AlternativeTo `/account-info/` still lands on "Reset your password" (e-mail unconfirmed); X main post 31 views / 1 like and CTA reply 2 views / 1 like; both awesome-list PRs still OPEN; repo has 1 star with description and 12 topics set. Written up site by site in `docs/LISTINGS.md` §17-§19 |
 | 2026-11-04 | P10.11 | completed | Implementation Agent | AlternativeTo submitted after the e-mail was confirmed. The form is `/manage-item/`, not the long-dead `/manage/submit/`. Two validations had to be cleared: "Source link is required when marking an app as open source" (the Source URL field is separate from the Website field) and "An app with the name Sober already exists", which is a Roblox client at `/software/sober/`, unconnected to this app — the name was qualified to "Sober Screen Time" as the site's own error text instructs. The post-submit step then insisted on alternatives because "apps without alternatives are almost invisible", so five real ones were attached: Mindful (closest — free, open source, Android, quotas), StayFree, One Sec, Opal Focus, AppBlock. The optional one-time $15 priority review was declined (no spend authorised), leaving the entry in the normal queue behind "several thousand apps". The listing at `/software/sober-screen-time/` reports "Your submission is waiting to be reviewed … only you can see this app right now", and the top bar counts it as "1 app waiting for review". Documented in `docs/LISTINGS.md` §2 and the audit table |
+| 2026-11-04 | P10.12 | completed | Implementation Agent | Karma and Indie Hackers, three written artifacts and no posts. **Indie Hackers** cannot take a post: the page carries `[role=alert]` "Publishing is open to established members … or subscribe to IH+", and "Write a new post" does nothing on a zero-post account, so the honest move was a comment. Posted one on `https://www.indiehackers.com/post/i-looked-at-20-launch-directories-for-my-free-tool-most-wanted-a-link-back-or-money-WD6I8dKia2ilR1Swup8t`, disclosing the product, comparing directory costs with today's measured facts, no link; live, EDIT/DELETE visible. The composer is TipTap — the `textarea` is hidden, so `fill` times out; click `div[contenteditable="true"][aria-label="Write a comment"]` and `execCommand('insertText')` one paragraph at a time, then `selectAll` and re-insert with single `\n` because `\n\n` double-spaces in ProseMirror. **Hacker News**: first comment on `https://news.ycombinator.com/item?id=50363461` (transport-layer guarantee: leave `INTERNET` out of the manifest, prove with `aapt dump permissions`), no link. Karma still reads 1 — HN recalculates with delay and one comment is not history — and the account has no e-mail on file, which only the user can supply. **Reddit**: the day's single community was r/digitalminimalism, Safe Mode / AppBlock thread `1xn5v5x`, disclosed, link-free, device-owner `DISALLOW_SAFE_BOOT` as the only in-OS remedy; submitted via `old.reddit.com` `button.save` in `.usertext-edit`. No second community touched, per `LAUNCH.md` §5. All three recorded in `docs/LISTINGS.md` §9, §13 and §17 |
 
 ---
 
