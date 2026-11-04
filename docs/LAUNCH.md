@@ -64,9 +64,9 @@ a red flag.
 > For You feed — without blocking the app itself. Focus sessions, lock mode and a
 > bedtime window cover the rest.
 >
-> The part I am proudest of is what it does not do. No account, no cloud, no
-> analytics, no internet permission at all. You can check that in the APK.
-> It is free and open source, 3.8 MB, and works offline forever.
+> The manifest has no INTERNET permission. No account, no cloud, no analytics,
+> and nothing that could leave the phone even if something tried. You can check
+> that on the APK yourself. It is free and MIT licensed, 3.8 MB, Android 8+.
 
 ---
 
@@ -143,40 +143,39 @@ Attach `sober-promo.mp4`. Do not put the link in the post body; put it in the
 first reply. Links in the body suppress reach.
 
 ```
-I built a screen-time app that has no internet permission.
+My screen-time app has no internet permission in its manifest.
 
-Not "we don't upload your data." The APK cannot reach the network at all.
+There's no server to send your usage to, and nothing in the app that could reach one.
 
-Set a daily limit per app, or one cap for the phone. When the time is gone,
-the app closes.
+Limits close the app until midnight. Reels closes; Instagram stays open for messages.
 
 Free, MIT, 3.8 MB.
 ```
 
 Then a reply within a minute:
 ```
-Android 8+, sideload only (Play restricts accessibility-based blockers):
+Android 8+, sideload only (Play restricts accessibility-based blockers). Verify the manifest yourself: aapt dump permissions Sober-1.6.apk
 github.com/rishabhx29/Sober
 ```
 
 ### 4.3 X, thread (post the morning after the single post)
 
 ```
-1/ Every screen-time app I tried had the same flaw: the limit was a suggestion.
-   One tap, "15 more minutes", and the feed is back.
+1/ I tried a lot of screen-time apps and every one of them lost to the same
+   button: "15 more minutes". At 11pm I am very good at accepting suggestions.
 
-2/ Sober removes the suggestion. You set a number per app and per day, or one
-   number for the whole phone. When it runs out, the app closes and stays closed
-   until midnight.
+2/ Sober sets a number per app per day, or one number for the phone. When it
+   runs out the app closes and stays closed until midnight. Changing the rule
+   takes a PIN.
 
-3/ The better idea is section blocking. You do not have to block Instagram to
-   stop Reels. Block the Reels tab, keep your messages. Same for Shorts and the
-   Explore feed.
+3/ The part I use every day is section blocking. Reels gets closed, Instagram
+   stays open for messages. Same for Shorts and the Explore feed. It reads the
+   screen through the Accessibility API and closes the one screen you named.
 
-4/ Focus sessions, a bedtime window, lock mode behind a PIN, and a regret timer
-   if you end a session early. All of it on the phone, none of it in a cloud.
+4/ Focus sessions, a bedtime window, and a regret timer that waits before
+   unlocking if you end a session early. All of it runs on the phone.
 
-5/ The proof: the app declares no internet permission. You can check it yourself:
+5/ No INTERNET permission in the manifest. You can check it on the APK:
    aapt dump permissions Sober-1.6.apk
 
 6/ Free, MIT, 527 tests, 3.8 MB, Android 8+.
@@ -192,29 +191,26 @@ I built a screen-time app that physically cannot phone home — 25s demo inside
 
 Body:
 ```
-I have tried most screen-time apps. The problem was never the tracking, it was
-that every limit could be dismissed in one tap, and most of them wanted an
-account to do it.
+I have tried most of the screen-time apps. What killed each one was the dismiss
+button. A limit you can overrule in one tap is a reminder, and I am bad at
+reminders.
 
-Sober is my version: a daily limit per app, a cap for the whole phone, and focus
-sessions that hold when you are tired. It also blocks just the Reels or Shorts
-part of an app instead of the whole app, which turned out to be the feature I
-actually use.
+Sober is my version. Daily limits per app, one cap for the whole phone, focus
+sessions. The feature I end up using every day is section blocking: Reels closes,
+Instagram stays open for messages.
 
-The part I care about most is what it does not have. No account, no cloud, no
-analytics, and no internet permission in the manifest. The APK cannot send your
-usage anywhere because it has no network access at all. That is verifiable, not
-a promise.
+The manifest has no INTERNET permission. Whatever a dependency might want, the
+APK has no route out, and you can check that on the release file.
 
 25 seconds, sound on: [video]
-Repo, APK, screenshots: https://github.com/rishabhx29/Sober
+Repo and APK: https://github.com/rishabhx29/Sober
 
-It is free and MIT licensed. I am the author, so I will answer everything
-honestly, including "why is this not on the Play Store" (short answer: Play
-restricts accessibility-based blockers).
+MIT licensed, free, no ads. I am the author and I will answer everything,
+including why there is no Play Store listing (Play restricts accessibility-based
+blockers).
 
-Happy to hear what is missing. Stats, iOS, and a smarter bedtime window are the
-obvious gaps.
+Known gaps: no iOS version, and in-app browsers cannot be read, so block the
+host app instead.
 ```
 
 ### 4.5 r/fossdroid
@@ -228,28 +224,24 @@ Body:
 ```
 A screen-time blocker for Android that I have been building for myself.
 
-What it does: per-app daily limits, one cap for the whole phone, timed focus
-sessions, schedule and bedtime windows, and section blocking for Reels, Shorts
-and For You feeds through the Accessibility API. Blocking a section does not
-block the app.
+Per-app daily limits, one cap for the whole phone, focus sessions, schedule and
+bedtime windows, and section blocking through the Accessibility API: Reels,
+Shorts and the For You feed get closed while the rest of the app stays usable.
 
-Why it might interest this sub:
-- No internet permission. Not "offline-first", physically no network access.
-- No account, no cloud, no analytics, no crash reporting, no third-party SDK.
-- MIT licensed, Kotlin + Compose, 527 JVM tests, builds from source with
-  ./gradlew :app:assembleRelease.
-- You can back up every rule to one JSON file and restore it on another phone.
+For this sub specifically, the manifest has no INTERNET permission. There is no
+account, no analytics, no crash reporting and no third-party SDK. MIT, Kotlin and
+Compose, 527 JVM tests, and ./gradlew :app:assembleRelease builds it from source.
+Every rule exports to one JSON file and restores on another phone.
 
-Honest limits: it needs usage access and (for section blocking) Accessibility.
-It is not on F-Droid yet; the recipe is in docs/DISTRIBUTION.md and a submission
-is the next step. The APK is signed with a project key, so an F-Droid build
-would not update over it.
+It needs usage access, and Accessibility if you want section blocking. It is not
+on F-Droid yet; the recipe is in docs/DISTRIBUTION.md. One thing to know before
+installing: this APK is signed with my own key, so an F-Droid build would not
+update over it.
 
 Repo: https://github.com/rishabhx29/Sober
 APK: https://github.com/rishabhx29/Sober/releases/latest
 
-Feedback welcome, especially on the permission model and anything that smells
-like it could leak.
+Tell me what looks wrong, especially around the permission model.
 ```
 
 ### 4.6 Show HN
@@ -266,24 +258,22 @@ First comment, posted immediately:
 Author here. I built this because every screen-time app I tried could be
 dismissed in one tap, and the ones that worked wanted an account.
 
-The enforcement is a foreground service plus the Accessibility API: per-app
-limits come from UsageStats, section blocking comes from the node tree (it
-closes Reels inside Instagram rather than closing Instagram). The interesting
-constraint is that the app declares no INTERNET permission, so nothing can be
-sent off the device even if a dependency wanted to. Usage never leaves the
-phone because there is nowhere for it to go.
+Enforcement is a foreground service plus the Accessibility API. Per-app limits
+come from UsageStats. Section blocking walks the node tree, which is how it
+closes Reels inside Instagram rather than closing Instagram. The manifest has no
+INTERNET permission, so usage has nowhere to go even if a dependency tried.
 
-Two things are deliberately conservative. A day only counts toward a streak if
-usage was actually observed and stayed under the cap, so an unobserved day is
-never celebrated. And the block overlay re-reads the foreground every 2s while
-it is up, because Android does not reliably tell you when the app underneath
-comes back.
+Two decisions worth mentioning. A day only counts toward a streak if usage was
+actually observed and stayed under the cap, so an unobserved day is never
+celebrated. And the block overlay re-reads the foreground every 2 seconds while
+it is up, because closing Recents back into an app emits a launcher pause with no
+resume, so the obvious "wait for a resume" logic clears the cover and leaves the
+user inside the blocked app.
 
 Known gaps: no root-based enforcement, in-app browsers are not readable (block
-the host app instead), and no iOS version. 527 JVM tests, Kotlin + Compose,
-MIT.
+the host app instead), no iOS version. 527 JVM tests, Kotlin and Compose, MIT.
 
-Happy to answer anything about the accessibility approach or the battery cost.
+Ask me anything about the accessibility approach or what it costs in battery.
 ```
 
 ### 4.7 r/androidapps
@@ -297,25 +287,26 @@ required developer format and put the disclosure in the first line.
 
 I am the developer. Free, open source, no ads, no paid tier, no account.
 
-Most screen-time apps have the same hole: the limit is one tap away from being
-ignored. Sober's limit closes the app and keeps it closed until midnight. You
-can also block only the Reels or Shorts section instead of the whole app.
+I kept ignoring my own screen-time limits, so this one closes the app and keeps
+it closed until midnight. It can also close only the Reels or Shorts section and
+leave the rest of Instagram usable, which is the part I actually wanted.
 
-What is in it: per-app daily limits with a 7-day chart, a phone-wide cap, focus
+Inside: per-app daily limits with a 7-day chart, a phone-wide cap, focus
 sessions with an optional regret timer, lock mode behind a PIN, bedtime and
 schedule windows, category budgets, website blocking inside the browser,
-allow-only mode, backup/restore to one JSON file, a Quick Settings tile and a
+allow-only mode, backup to one JSON file, a Quick Settings tile and a
 home-screen widget.
 
-Privacy: no internet permission, no account, no analytics, no third-party SDKs.
+Privacy: no INTERNET permission in the manifest, no account, no analytics, no
+third-party SDKs.
 
 Requires Android 8.0+. Sideload from GitHub, because Play restricts
 accessibility-based blockers:
 https://github.com/rishabhx29/Sober/releases/latest
 
-The first thing to know before installing: it is signed with my project key and
-not published on Play, so Play Protect will ask you to confirm. That is normal
-for any app it has not seen before.
+Before you install: the APK is signed with my own key and is not on Play, so Play
+Protect will ask you to confirm. That happens with anything it has not seen
+before, and the source is public if you want to build it yourself.
 ```
 
 ### 4.8 r/digitalminimalism and r/nosurf
@@ -326,25 +317,27 @@ of it.
 
 Title:
 ```
-The limit didn't fail. The fact that I could dismiss it did.
+I kept dismissing my own screen-time limits, so I built one I couldn't
 ```
 
 Body:
 ```
-For two years I tried to cut down with every app timer I could find. What I
-eventually noticed was that I was not losing to the app, I was losing to the
-dismiss button. A limit you can overrule in a second is not a limit, it is a
-reminder, and reminders are exactly what a tired brain is good at ignoring.
+For two years I tried to cut down with app timers. The pattern I eventually
+noticed was that I never lost to the app. I lost to the dismiss button. A limit
+you can overrule in a second is a reminder, and a tired brain is very good at
+ignoring reminders.
 
-The version that finally worked for me had three properties:
-- it closed the app instead of asking me to close it,
-- it covered the specific thing I lost time to (Reels, Shorts) rather than the
-  app I still need for messages,
-- and it made changing the rule slow enough that the impulse passed.
+What finally worked had three properties worth stealing whether or not you use
+my app:
+- it closed the app rather than asking me to close it,
+- it covered the specific thing I lost time to (Reels, Shorts) and left the app
+  I need for messages alone,
+- changing the rule was slow enough that the impulse had usually passed by the
+  time I could.
 
-I got tired of waiting for one, so I built it and put it on GitHub for free.
-Link in a comment if you want it; no pressure either way, the three properties
-are the useful part.
+I got tired of waiting for one that worked this way, so I built it and put it on
+GitHub for free. Link in a comment if you want it. The three properties are the
+useful part either way.
 ```
 
 ### 4.9 Product Hunt
@@ -362,20 +355,18 @@ Sober sets a daily limit per app and one for the whole phone, then closes the ap
 First comment:
 ```
 Maker here. I built Sober after failing with every other screen-time app for the
-same reason: the limit was a suggestion and I was very good at accepting it.
+same reason: the limit was a suggestion, and I was very good at accepting it.
 
-Three decisions shaped it:
+Two things shaped it. The limit is structural, so the app closes and the rule
+cannot be edited for a set number of hours without your PIN. And section
+blocking, where Reels closes and Instagram stays open for messages. That second
+one changed my own usage more than any limit ever did.
 
-1. The limit is structural, not advisory. The app closes, and the rule cannot be
-   edited for a set number of hours unless you enter your PIN.
-2. Section blocking. You can keep Instagram for messages and still close Reels.
-   That is the feature that changed my own usage.
-3. No internet permission. Not a privacy policy claim, a manifest fact. The APK
-   cannot send anything anywhere.
+The manifest has no INTERNET permission. You can check that on the APK rather
+than take my word for it in a policy.
 
-It is free, MIT licensed, 3.8 MB, and needs Android 8 or newer. Not on Google
-Play because Play restricts accessibility-based blockers, so it is distributed
-as a signed APK on GitHub.
+Free, MIT licensed, 3.8 MB, Android 8 or newer. Not on Google Play because Play
+restricts accessibility-based blockers, so it ships as a signed APK on GitHub.
 
 Ask me anything, including the uncomfortable questions about Accessibility.
 ```
