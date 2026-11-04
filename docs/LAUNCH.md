@@ -10,7 +10,9 @@ https://github.com/rishabhx29/Sober/releases/tag/v1.6 with `Sober-1.6.apk` and
 links the film.
 
 Posted so far:
-- X, from `@RishabhTri8805`: the 25 s film plus one reply with the GitHub link.
+- X, from `@RishabhTri8805`: https://x.com/RishabhTri8805/status/2117845866484752498 —
+  the 25 s film, a reply with the GitHub link, and a second reply that asks for
+  the install and the star.
 - r/SideProject: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
 
 Baseline when this section was written: 2 APK downloads on v1.6, 1 star,
@@ -151,6 +153,11 @@ Signer:          CN=Sober, O=Sober, C=IN
 Attach `sober-promo.mp4`. Do not put the link in the post body; put it in the
 first reply. Links in the body suppress reach.
 
+Published on 2026-11-04 at
+https://x.com/RishabhTri8805/status/2117845866484752498 — this is the text that
+went out, and the two replies under it. The version below is the stronger one;
+the live post predates it and X cannot edit, so it stays as the opener.
+
 ```
 I shipped the screen-time app I wished existed.
 
@@ -161,12 +168,20 @@ No INTERNET permission in its manifest. Nothing to phone home to.
 Free, MIT, 3.8 MB. Try it, link below.
 ```
 
-Then a reply within a minute. The install link and the ask both live here, because
-a link in the body costs reach and a bare fact does not get anyone to tap:
+Reply one, within a minute. The install link lives here, because a link in the
+body costs reach:
 ```
 Install: github.com/rishabhx29/Sober
 
 Android 8+, sideload only (Play restricts accessibility-based blockers). If it earns a spot on your phone, a star on the repo is the whole marketing budget.
+```
+
+Reply two, under the link reply, is the reason to install and the ask. It is live
+at https://x.com/RishabhTri8805/status/2117850680132342184:
+```
+One tip if you install it: put the limit on the app you open without deciding to, not the one you feel guilty about. That is the whole trick.
+
+And if it earns a spot on your phone, a star on the repo is the whole marketing budget.
 ```
 
 ### 4.3 X, thread (post the morning after the single post)
