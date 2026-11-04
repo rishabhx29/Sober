@@ -1,7 +1,7 @@
 # Sober
 
 <p align="center">
-  <img src="docs/assets/banner.png" alt="Sober — your phone is not the problem. The apps are." width="880">
+  <img src="assets/banner.png" alt="Sober — your phone is not the problem. The apps are." width="880">
 </p>
 
 <p align="center">
@@ -52,25 +52,25 @@ permission at all.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/screens/home.png" width="250" alt="Home: today's screen time and the daily cap">
-  <img src="docs/assets/screens/apps.png" width="250" alt="Apps: search, limits, and blocked apps">
-  <img src="docs/assets/screens/stats.png" width="250" alt="Statistics: totals, top apps, and patterns">
+  <img src="assets/screens/home.png" width="250" alt="Home: today's screen time and the daily cap">
+  <img src="assets/screens/apps.png" width="250" alt="Apps: search, limits, and blocked apps">
+  <img src="assets/screens/stats.png" width="250" alt="Statistics: totals, top apps, and patterns">
 </p>
 <p align="center">
   <em>Home · Apps · Statistics</em>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screens/focus.png" width="250" alt="Focus: session duration and notification silencing">
-  <img src="docs/assets/screens/apps-limited.png" width="250" alt="Limited apps and their daily budgets">
-  <img src="docs/assets/screens/block-overlay.png" width="250" alt="The block screen with the time until midnight">
+  <img src="assets/screens/focus.png" width="250" alt="Focus: session duration and notification silencing">
+  <img src="assets/screens/apps-limited.png" width="250" alt="Limited apps and their daily budgets">
+  <img src="assets/screens/block-overlay.png" width="250" alt="The block screen with the time until midnight">
 </p>
 <p align="center">
   <em>Focus · Limited apps · The block screen</em>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screens/settings.png" width="375" alt="Settings: the overall cap and category budgets">
+  <img src="assets/screens/settings.png" width="375" alt="Settings: the overall cap and category budgets">
 </p>
 <p align="center">
   <em>Settings</em>
@@ -82,7 +82,7 @@ permission at all.
 
 <p align="center">
   <a href="https://github.com/rishabhx29/Sober/releases/download/v1.6/sober-promo.mp4">
-    <img src="promo/stills/cover.png" width="300" alt="Sober launch film — play the 25-second vertical video">
+    <img src="assets/cover.png" width="300" alt="Sober launch film — play the 25-second vertical video">
   </a>
 </p>
 <p align="center">
@@ -106,9 +106,8 @@ over the previous version.
 
 Want automatic updates? Add this repository to
 [Obtainium](https://github.com/ImranR98/Obtainium); it tracks GitHub Releases
-directly. F-Droid is not listed yet — the build recipe and metadata are ready in
-[`docs/DISTRIBUTION.md`](docs/DISTRIBUTION.md), which also explains why an
-F-Droid build cannot update over this APK (different signing key).
+directly. F-Droid is not listed yet, and an F-Droid build cannot update over this
+APK because it is signed with a different key.
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
@@ -208,7 +207,7 @@ the privacy promise it does.
 
 The Accessibility service reads only the package name and text of the screen in
 front of you, on the device, at blocking time. Nothing is stored beyond the last
-match and nothing is transmitted. See [the privacy policy](docs/PRIVACY.md) for
+match and nothing is transmitted. See [the privacy policy](PRIVACY.md) for
 the full text.
 
 ---
@@ -385,7 +384,7 @@ Sober works entirely on-device:
 - a PIN is stored as a salted PBKDF2 hash and cannot be read back;
 - the only way data leaves the phone is when you export it yourself.
 
-Read [docs/PRIVACY.md](docs/PRIVACY.md) for the full policy.
+Read [PRIVACY.md](PRIVACY.md) for the full policy.
 
 ---
 

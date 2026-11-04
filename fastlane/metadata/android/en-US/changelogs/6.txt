@@ -1,6 +1,0 @@
-A steadier block screen, and a sheet you can finish reading.
-
-- The block screen answers Back, Home and Recents, so it no longer looks stuck.
-- A blocked app that comes back from Recents is covered again immediately.
-- The app detail sheet scrolls its full set of rules, websites and save button.
-- Foreground detection recovers when the launcher's overview resumes an app silently.

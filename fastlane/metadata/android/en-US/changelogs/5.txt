@@ -1,9 +1,0 @@
-Protection you can shape around your day.
-
-- Lock mode holds every rule change for 1, 3 or 8 hours, with a PIN gate.
-- Pause before opening gives you a short breather before the app appears.
-- Opens per day is a second budget for apps you check too often.
-- Category budgets, allow-only mode and a bedtime window are in Settings.
-- Record a section yourself: open the section in an app, come back and pick the tab Sober saw.
-- Website blocking covers 18 browsers, and a weekly report is ready to share.
-- Backups now include the sections you recorded.

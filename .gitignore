@@ -16,10 +16,16 @@
 # Machine-specific Android SDK configuration
 **/local.properties
 
-# Promo film tooling and generated renders
-promo/node_modules/
-promo/.hyperframes/
-promo/renders/
+# Internal working docs, launch kit, store metadata, and filmed promo
+# assets. Kept locally; the repository carries the app and the README only.
+/docs/
+/promo/
+/fastlane/
+/Required/
+/TASKS.md
+/GUIDE.md
+/IMPLEMENTATION.md
+/AGENTS.md
 
 # Signing credentials and keystores
 **/keystore.properties

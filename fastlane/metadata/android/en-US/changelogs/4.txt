@@ -1,7 +1,0 @@
-A calmer, clearer Sober: the interface was rebuilt around a single accent colour, Inter and JetBrains Mono, and a stricter spacing grid.
-
-- Every list row is now one screen-reader stop, with proper roles and labels.
-- Emoji badges were replaced with a Material icon set that follows the theme.
-- Contrast was raised across cards, secondary text and status colours.
-- Tabs cross-fade instead of cutting, and motion is reduced when the system asks for it.
-- The bottom bar gained a hairline edge above the content.
