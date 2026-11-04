@@ -1338,9 +1338,20 @@ promise: no feature here needs internet permission.
 - [ ] r/androidapps (self-promotion megathread)
 - [x] r/digitalminimalism karma comment (one, disclosed, no link)
 - [ ] r/digitalminimalism, r/nosurf posts
-- [ ] Product Hunt
+- [x] Product Hunt (draft complete, scheduled Thu 2026-11-05, 12:01am PT)
 - [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
+
+> **10.2 note (2026-11-04, Playwright):** the post-signing steps are now driven by
+> the Playwright MCP against a logged-in session. Product Hunt is fully set up —
+> name, 48-char tagline, 158-char description, logo, three gallery images (a
+> purpose-built 1270×760 board in `promo/ph/`), Productivity + Tech tags, the 3+1
+> links, "I made this", pricing Free and the pinned first comment — and scheduled.
+> Reddit is signed in as `u/rishabh_t106`; `old.reddit.com` is the only surface
+> where a comment or a post actually submits (the new composer's submit button
+> lays out at 0×0). Modmail to r/SideProject still needs one human click because
+> the compose form carries an invisible reCAPTCHA. Uneed, Hacker News and Indie
+> Hackers were left open at their sign-in pages.
 
 ### 10.3 Directory listings
 
@@ -1587,6 +1598,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.3 | started | Implementation Agent | Wrote `docs/LISTINGS.md` with the copy and the gate for every directory that matters: Product Hunt, AlternativeTo, Slant, LibHunt, OpenAlternative, IzzyOnDroid, F-Droid RFP, Show HN, dev.to, Mastodon, Lemmy, and the offa/android-foss list. The modmail to r/SideProject is drafted but its Send button sits behind reCAPTCHA, which this new account cannot pass from an automated browser, so it needs one human click. offa/android-foss requires six months of history and cannot be filed until about 2027-05 |
 | 2026-11-04 | P10.4 | completed | Implementation Agent | First karma comment posted at https://www.reddit.com/r/digitalminimalism/comments/1xna3d1/tips_to_reduce_screen_time/19s442g96y3hg/ — answers the actual question (email pushes, a rule that closes the app instead of asking, counting background audio as zero), discloses that Sober is mine, and carries no link so it does not look like a drop. The new UI's Comment button renders at 0×0 inside `comment-composer-host` and cannot be clicked; `old.reddit.com` still serves a plain form, which is where this and any future comment should be posted |
 | 2026-11-04 | P10.5 | completed | Implementation Agent | Two awesome-list PRs opened from the same GitHub session, no new accounts: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 (Android section of a digital-wellbeing list, MIT, active, merges app PRs weekly) and https://github.com/fiedri/awesome-android-apps/pull/22 (Productivity row in a 548-app FOSS Android list; its issue tracker is disabled, so the PR is the only route — ran `scripts/build.py`, then restored the two Recently Added rows the build had dropped so the diff is Sober only). OpenAlternative was checked and does need a login, so the gate table in `docs/LISTINGS.md` was corrected |
+| 2026-11-04 | P10.6 | completed | Implementation Agent | Product Hunt launch built and scheduled for 2026-11-05 (Thu, 12:01am PT) through the Playwright MCP, draft `VIINBI3LAKFSTBKIDOP6P3ZUBZPEIKTU34`. The `github.com/rishabhx29/Sober` URL seeded the draft; added the tagline, description, 1024px logo, Productivity + Tech tags, "I made this", links, Free pricing and the first comment. PH's gallery wants 1270×760 and every still in `promo/` is vertical, so `promo/ph/gallery.html` was added and rendered at exactly that size with the two phone captures inside it. Uploads had to be staged under the MCP's allowed root — the server refuses any path outside it. The draft reports "All 7 required items done" |
 
 ---
 

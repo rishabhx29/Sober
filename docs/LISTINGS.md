@@ -43,7 +43,7 @@ pick a paid tier.
 
 | # | Where | Link | Gate | Status |
 |---|---|---|---|---|
-| 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | not started |
+| 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | scheduled 2026-11-05 |
 | 2 | AlternativeTo | alternativeto.net/manage/submit/ | account, free signup | not started |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
@@ -84,6 +84,12 @@ apps that rely on the Accessibility API. Ask me anything about the block-screen
 lifecycle bug that took two releases to fix.
 ```
 
+Filled 2026-11-04 and scheduled for 2026-11-05. The gallery needs landscape
+frames, and every existing still is 1080×1920, so the first image is a board built
+for the purpose: `promo/ph/gallery.html` renders to `promo/ph/gallery-1270x760.png`
+at exactly the size PH asks for, with the two phone captures inside it. The other
+two gallery slots are `promo/stills/block.png` and `promo/stills/end-card.png`.
+
 ### 2. AlternativeTo
 
 The long tail. People search "alternative to Forest" or "alternative to
@@ -111,7 +117,8 @@ one sec" for years and this is where they land.
 
 ### 5. OpenAlternative
 
-- No account, which makes it the cheapest listing on this page.
+- Login required. Free listings are reviewed and go live one per weekday, so file
+  it and wait rather than re-submitting.
 - Category: Productivity.
 - Link: the GitHub repo, not the APK.
 

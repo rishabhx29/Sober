@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sober — Product Hunt gallery</title>
+<style>
+  @font-face {
+    font-family: "Inter";
+    src: url("../assets/fonts/inter.ttf") format("truetype");
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: "JetBrains Mono";
+    src: url("../assets/fonts/jetbrains-mono.ttf") format("truetype");
+    font-weight: 400;
+  }
+
+  :root {
+    --ground: #12121a;
+    --surface: #1b1b26;
+    --hairline: #2a2a38;
+    --text: #f2ede4;
+    --text-secondary: #b3aba2;
+    --signal: #e0685a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 1270px;
+    height: 760px;
+    overflow: hidden;
+    background: var(--ground);
+    font-family: "Inter", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--text);
+  }
+
+  .wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 56px 0 0 64px;
+    display: flex;
+    align-items: center;
+  }
+
+  .glow {
+    position: absolute;
+    width: 900px;
+    height: 900px;
+    right: -260px;
+    top: -340px;
+    background: radial-gradient(circle, rgba(224, 104, 90, 0.16) 0%, rgba(224, 104, 90, 0) 62%);
+    pointer-events: none;
+  }
+
+  .copy { width: 560px; position: relative; z-index: 2; }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 34px;
+  }
+
+  .brand img { width: 34px; height: 34px; border-radius: 9px; }
+
+  .brand span {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  h1 {
+    font-size: 62px;
+    line-height: 1.06;
+    font-weight: 620;
+    letter-spacing: -0.028em;
+  }
+
+  h1 em { font-style: normal; color: var(--signal); }
+
+  .sub {
+    margin-top: 26px;
+    font-size: 23px;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    max-width: 470px;
+  }
+
+  .facts {
+    margin-top: 34px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .fact {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    color: var(--text);
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 8px 14px;
+  }
+
+  .fact.hot { border-color: rgba(224, 104, 90, 0.45); color: var(--signal); }
+
+  .phones {
+    position: absolute;
+    right: 44px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    z-index: 1;
+  }
+
+  .phone {
+    width: 286px;
+    height: 636px;
+    border-radius: 30px;
+    overflow: hidden;
+    border: 1px solid var(--hairline);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55), 0 0 0 8px rgba(27, 27, 38, 0.6);
+    background: var(--surface);
+  }
+
+  .phone img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .back { transform: translateY(26px) rotate(-4deg); margin-right: -54px; opacity: 0.92; }
+  .front { position: relative; z-index: 2; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="glow"></div>
+    <div class="copy">
+      <div class="brand">
+        <img src="../assets/icon.png" alt="">
+        <span>Sober</span>
+      </div>
+      <h1>The limit holds.<br><em>The app closes.</em></h1>
+      <p class="sub">Daily limits per app, one cap for the phone, and section blocking: Reels closes while Instagram DMs keep working.</p>
+      <div class="facts">
+        <span class="fact hot">No INTERNET permission</span>
+        <span class="fact">Free · MIT</span>
+        <span class="fact">3.8 MB</span>
+      </div>
+    </div>
+    <div class="phones">
+      <div class="phone back"><img src="../captures/apps.png" alt=""></div>
+      <div class="phone front"><img src="../captures/block.png" alt=""></div>
+    </div>
+  </div>
+</body>
+</html>
