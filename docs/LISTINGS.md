@@ -185,6 +185,28 @@ Read `LAUNCH.md` §3 for the subreddits and §5 for the one-community-per-day ru
 The gate is account karma, not content, so expect the first two or three attempts
 to be filtered. A post with no links survives more often than a post with two.
 
+**Appeal the removed r/SideProject post from a signed-in browser.** Go to
+https://www.reddit.com/message/compose?to=/r/SideProject and paste:
+
+> Subject: Removed by the spam filter, not by a mod — request to restore
+>
+> Hi mods,
+>
+> I posted "I built a screen-time app that has no INTERNET permission" and it was
+> removed within about five minutes with no mod message, so I believe it was the
+> automated spam filter: the account is days old and had no karma, and the body
+> carried a GitHub link.
+>
+> I am the developer of the app (Sober, an MIT-licensed Android screen-time
+> blocker). If the removal was a rule I broke, I would rather know which one than
+> repost blind. If it was the filter, I would be grateful if the post could be
+> looked at: https://www.reddit.com/r/SideProject/comments/1xnfxe3/
+>
+> Either way, thank you.
+
+The Send button on that page sits behind an invisible reCAPTCHA, which is why it
+has to be a human click.
+
 ---
 
 ## What actually moves the download counter
