@@ -44,7 +44,7 @@ pick a paid tier.
 | # | Where | Link | Gate | Status |
 |---|---|---|---|---|
 | 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | scheduled 2026-11-05 |
-| 2 | AlternativeTo | alternativeto.net/manage/submit/ | account, free signup | not started |
+| 2 | AlternativeTo | alternativeto.net (submit form is behind sign-in; `/manage/submit/` 404s as of 2026-11-04) | account, free signup | not started |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
 | 5 | OpenAlternative | openalternative.co/submit | login required; free listings go live one per weekday | not started |
@@ -58,6 +58,7 @@ pick a paid tier.
 | 13 | Reddit | see `LAUNCH.md` §3 | new account, karma gate | one post filtered |
 | 14 | awesome-digital-wellbeing | pull/14 | none, PR | open: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 |
 | 15 | awesome-android-apps | pull/22 | none, PR | open: https://github.com/fiedri/awesome-android-apps/pull/22 |
+| 16 | Uneed | uneed.best/submit-a-tool | account | submitted 2026-11-04, queued for 2027-06-13 |
 
 Two of these need nothing but a GitHub session, so they are already in front of
 a maintainer. Everything above them needs an account this machine does not hold.
@@ -213,6 +214,31 @@ https://www.reddit.com/message/compose?to=/r/SideProject and paste:
 
 The Send button on that page sits behind an invisible reCAPTCHA, which is why it
 has to be a human click.
+
+### 16. Uneed
+
+Submitted 2026-11-04. Scraped from the repo, then filled in: name, slug `sober`,
+repo URL, category Personal Life, pricing Free, tags Happiness / Smartphones /
+Android, open source on, tagline "Screen-time limits that actually close the app",
+rich description from the long blurb, logo.
+
+Uneed's queue is the whole story, and it is the reason this is not a launch lever:
+
+| Option | Cost | When |
+|---|---|---|
+| Join the free line | $0 | 2027-06-13 (~221 days) |
+| Fast-track, Uneed picks the day | $14.99 | ~14 days after payment |
+| Pick the exact day | $39.99 | as soon as this week |
+| Auto-Submit to 100+ directories | $249 | n/a |
+
+Free was chosen. On the free line the listing also needs an upvote score of 10 on
+launch day to stay published, and 20 to keep a do-follow backlink — on a queue
+seven months long neither number is reachable.
+
+Practical read: the entry costs nothing and may eventually produce a backlink, but
+it will not produce users. If a paid option is ever worth it, Fast-track at $14.99
+is the only sane one, and it should be spent on a week when there is something else
+running — not on its own.
 
 ---
 

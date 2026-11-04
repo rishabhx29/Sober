@@ -1340,6 +1340,7 @@ promise: no feature here needs internet permission.
 - [ ] r/digitalminimalism, r/nosurf posts
 - [x] Product Hunt (draft complete, scheduled Thu 2026-11-05, 12:01am PT)
 - [x] Indie Hackers product page (indiehackers.com/product/sober-2)
+- [x] Uneed (submitted; held in the free waiting line, launch 2027-06-13)
 - [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
 
@@ -1351,8 +1352,16 @@ promise: no feature here needs internet permission.
 > Reddit is signed in as `u/rishabh_t106`; `old.reddit.com` is the only surface
 > where a comment or a post actually submits (the new composer's submit button
 > lays out at 0×0). Modmail to r/SideProject still needs one human click because
-> the compose form carries an invisible reCAPTCHA. Uneed, Hacker News and Indie
-> Hackers were left open at their sign-in pages.
+> the compose form carries an invisible reCAPTCHA. Indie Hackers has a live
+> product page. Uneed accepted the submission but its free queue runs to
+> 2027-06-13; the paid alternatives are $14.99 fast-track, $39.99 exact-date and
+> $249 directory blast, so the free line was taken and the site is not a launch
+> lever. Hacker News, dev.to, AlternativeTo and GitHub are still signed out in this
+> profile, which blocks Show HN, the dev.to story, the AlternativeTo listing and
+> LibHunt's GitHub OAuth. The Uneed form has one trap worth remembering: the
+> Tagline field is a `<textarea name="description">` capped at 80 characters, so the
+> 158-char short blurb pasted there silently fails validation and leaves the
+> schedule button disabled.
 
 ### 10.3 Directory listings
 
@@ -1600,6 +1609,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.4 | completed | Implementation Agent | First karma comment posted at https://www.reddit.com/r/digitalminimalism/comments/1xna3d1/tips_to_reduce_screen_time/19s442g96y3hg/ — answers the actual question (email pushes, a rule that closes the app instead of asking, counting background audio as zero), discloses that Sober is mine, and carries no link so it does not look like a drop. The new UI's Comment button renders at 0×0 inside `comment-composer-host` and cannot be clicked; `old.reddit.com` still serves a plain form, which is where this and any future comment should be posted |
 | 2026-11-04 | P10.5 | completed | Implementation Agent | Two awesome-list PRs opened from the same GitHub session, no new accounts: https://github.com/jcanfield/awesome-digital-wellbeing/pull/14 (Android section of a digital-wellbeing list, MIT, active, merges app PRs weekly) and https://github.com/fiedri/awesome-android-apps/pull/22 (Productivity row in a 548-app FOSS Android list; its issue tracker is disabled, so the PR is the only route — ran `scripts/build.py`, then restored the two Recently Added rows the build had dropped so the diff is Sober only). OpenAlternative was checked and does need a login, so the gate table in `docs/LISTINGS.md` was corrected |
 | 2026-11-04 | P10.6 | completed | Implementation Agent | Product Hunt launch built and scheduled for 2026-11-05 (Thu, 12:01am PT) through the Playwright MCP, draft `VIINBI3LAKFSTBKIDOP6P3ZUBZPEIKTU34`. The `github.com/rishabhx29/Sober` URL seeded the draft; added the tagline, description, 1024px logo, Productivity + Tech tags, "I made this", links, Free pricing and the first comment. PH's gallery wants 1270×760 and every still in `promo/` is vertical, so `promo/ph/gallery.html` was added and rendered at exactly that size with the two phone captures inside it. Uploads had to be staged under the MCP's allowed root — the server refuses any path outside it. The draft reports "All 7 required items done" |
+| 2026-11-04 | P10.7 | completed | Implementation Agent | Uneed submission finished at https://www.uneed.best/edit/waiting-line/70003. The disabled "Schedule your launch" button was not a missing field as the checklist implied ("❌ Tagline" with no empty input): Uneed renders the tagline as `<textarea name="description">`, so the 158-char short blurb pasted earlier had overflowed its 80-character budget and the checklist marked it failed. Replacing the value with the 46-char tagline enabled both schedule buttons. Uneed then offers a free line (2027-06-13), $14.99 fast-track (~14 days), $39.99 exact date and $249 directory blast; no spend was authorised, so the free line was taken and the toast confirmed "Launch scheduled!". Documented in `docs/LISTINGS.md` §16 with the queue table, and the stale AlternativeTo submit URL (404 as of today) was flagged in the gate table. Hacker News, dev.to, AlternativeTo and GitHub all resolve to their sign-in pages in this profile, so those four remain blocked on accounts |
 
 ---
 
