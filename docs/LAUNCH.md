@@ -83,6 +83,9 @@ a red flag.
 
 ## 3. Channel plan
 
+Directory submissions, with the copy and the account gate for each, are in
+[`LISTINGS.md`](LISTINGS.md).
+
 Post in this order. One community per day, never the same text twice.
 
 | # | Where | What to post | Why it is worth it | Risk |

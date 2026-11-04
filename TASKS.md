@@ -1338,8 +1338,17 @@ promise: no feature here needs internet permission.
 - [ ] r/androidapps (self-promotion megathread)
 - [ ] r/digitalminimalism, r/nosurf
 - [ ] Product Hunt
-- [ ] AlternativeTo, Slant, LibHunt listings
+- [ ] AlternativeTo, Slant, LibHunt, OpenAlternative listings
 - [ ] dev.to build story
+
+### 10.3 Directory listings
+
+> Copy and gates for every entry live in `docs/LISTINGS.md`.
+
+- [ ] IzzyOnDroid inclusion request (Codeberg account)
+- [ ] F-Droid RFP, only after IzzyOnDroid accepts
+- [ ] offa/android-foss entry, on hold until six months of history exist
+- [ ] Mastodon and Lemmy posts
 
 ---
 
@@ -1572,6 +1581,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P9.3 | completed | Implementation Agent | Seven SFX cues placed from measured peaks rather than by eye: both riser clips peak 2.5 s into their own file, so their starts are set so the first peak lands on the "draws the line" headline and the closing peak on the wordmark; a soft click lands with the row highlight at 7.5 s so the three-second apps beat is not silent. Rendered at 1080x1920 / 30 fps / 25.000 s, H.264 + AAC 48 kHz stereo, 8.9 MB, −15.3 LUFS integrated and −2.0 dBTP measured on the file. SFX only: no licensed music source was available, so the gap is recorded rather than filled with synthesised music |
 | 2026-11-04 | P10.1 | completed | Implementation Agent | GitHub release `v1.6` published from `main` with both assets: `Sober-1.6.apk` (3,774,696 bytes, `SHA-256 ac0858e3…8f2d`, certificate `f9fc8e71…6c64` — unchanged since 1.0) and `sober-promo.mp4` (9,377,803 bytes). `releases/latest` resolves to `v1.6`, so every link in the launch copy lands on the right download. Repo topics, description and homepage were already set. README gained a film section that uses `promo/stills/cover.png` as the poster and links the MP4 asset directly. The film could not be embedded as a player: GitHub strips `<video>` from Markdown, so it is a click-through still |
 | 2026-11-04 | P10.2 | in progress | Implementation Agent | X is live from `@RishabhTri8805`: the 25 s film posted at https://x.com/RishabhTri8805/status/2117845866484752498 with the no-internet-permission copy, and one reply carrying the GitHub link plus the `aapt dump permissions` check. The Google sign-in route failed on a Google video-verification page, so the session was made with username and password. Reddit, Product Hunt, dev.to and the listings still need a session; posting more than one subreddit on the same day is what the spam filters in §5 of the launch kit are built to catch, so the remaining subs go out one per day. A second X reply now carries the call to action at https://x.com/RishabhTri8805/status/2117850680132342184 (the main post was kept rather than deleted). r/SideProject went up at https://www.reddit.com/r/SideProject/comments/1xnfxe3/ and was removed within five minutes by Reddit's own spam filter, not by a mod: u/rishabh_t106 is new and has no karma, and the body carried two GitHub links. The content is intact, only its visibility is gone, so the fix is a modmail appeal or building karma with real comments first. Next is r/fossdroid, one community per day |
+| 2026-11-04 | P10.3 | started | Implementation Agent | Wrote `docs/LISTINGS.md` with the copy and the gate for every directory that matters: Product Hunt, AlternativeTo, Slant, LibHunt, OpenAlternative, IzzyOnDroid, F-Droid RFP, Show HN, dev.to, Mastodon, Lemmy, and the offa/android-foss list. The modmail to r/SideProject is drafted but its Send button sits behind reCAPTCHA, which this new account cannot pass from an automated browser, so it needs one human click. offa/android-foss requires six months of history and cannot be filed until about 2027-05 |
 
 ---
 
