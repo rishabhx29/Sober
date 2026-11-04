@@ -44,14 +44,14 @@ pick a paid tier.
 | # | Where | Link | Gate | Status |
 |---|---|---|---|---|
 | 1 | Product Hunt | producthunt.com | account, and a scheduled 12:01am PT day | scheduled 2026-11-05 |
-| 2 | AlternativeTo | alternativeto.net (submit form is behind sign-in; `/manage/submit/` 404s as of 2026-11-04) | account, free signup | not started |
+| 2 | AlternativeTo | alternativeto.net (submit form is behind sign-in; `/manage/submit/` 404s as of 2026-11-04) | account, free signup | Google sign-in done, blocked on e-mail confirmation |
 | 3 | Slant | slant.co | account | not started |
 | 4 | LibHunt | libhunt.com | GitHub OAuth | not started |
 | 5 | OpenAlternative | openalternative.co/submit | login required; free listings go live one per weekday | not started |
 | 6 | IzzyOnDroid | codeberg.org/IzzyOnDroid/repo/issues | Codeberg account | not started |
 | 7 | F-Droid (RFP) | gitlab.com/fdroid/rfp/-/issues | GitLab account | not started |
 | 8 | offa/android-foss | github.com/offa/android-foss | GitHub PR | blocked: 6-month rule |
-| 9 | Show HN | news.ycombinator.com/submit | HN account | not started |
+| 9 | Show HN | news.ycombinator.com/submit | HN account | blocked by HN's Show HN restriction for new accounts |
 | 10 | dev.to | dev.to/new | account | not started |
 | 11 | Mastodon (fosstodon.org) | fosstodon.org | account | not started |
 | 12 | Lemmy (!android@lemmy.ml) | lemmy.ml | account | not started |
@@ -165,11 +165,30 @@ in alphabetical order:
 
 ### 9. Show HN
 
-The single biggest shot at GitHub stars, and the one place where the
-no-INTERNET-permission angle is the story rather than a footnote.
+**Blocked by HN on 2026-11-04.** `u/rishabhjtripath` (1 karma, created that day) filled
+the submit form with the title below and the repo URL; the button returned
+`/showlim`, which reads:
 
-- Title: `Show HN: A screen-time blocker with no internet permission`
-- First comment, posted by you immediately after:
+> We're temporarily restricting Show HNs because of a massive influx, mostly by
+> users who aren't yet familiar with the site or its culture.
+
+`/submitted?id=rishabhjtripath` stayed empty, so nothing was posted and nothing was
+lost. There is no workaround worth having: submitting the same link under a title
+that does not start with `Show HN` is the exact dodge the restriction exists to
+stop, and a 1-karma account's self-link tends to die in /new anyway.
+
+The way in is the one HN names — read, comment, be useful for a few weeks, then
+post. Practically: comment on threads about Android battery, accessibility
+services, or digital wellbeing without mentioning Sober; the account needs history
+before it can carry a self-post.
+
+Once the account can post:
+
+- Title: `Show HN: Sober – Android screen-time blocker with no internet permission`
+  (72 chars, tested against the field)
+- URL: `https://github.com/rishabhx29/Sober`
+- Text field: empty. Post the first comment immediately after.
+- First comment:
 ```
 The reason for no INTERNET permission is simple: I did not want a screen-time app
 that could send usage anywhere, so I removed the ability instead of promising not to.

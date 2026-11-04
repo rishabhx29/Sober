@@ -1334,7 +1334,7 @@ promise: no feature here needs internet permission.
 - [x] X post with the vertical film
 - [!] r/SideProject (posted, removed by Reddit's spam filter; appeal sent 2026-11-04, waiting on mods)
 - [ ] r/fossdroid
-- [ ] Show HN
+- [ ] Show HN (blocked: HN restricts Show HNs from new accounts, redirects to /showlim)
 - [ ] r/androidapps (self-promotion megathread)
 - [x] r/digitalminimalism karma comment (one, disclosed, no link)
 - [ ] r/digitalminimalism, r/nosurf posts
@@ -1358,9 +1358,13 @@ promise: no feature here needs internet permission.
 > product page. Uneed accepted the submission but its free queue runs to
 > 2027-06-13; the paid alternatives are $14.99 fast-track, $39.99 exact-date and
 > $249 directory blast, so the free line was taken and the site is not a launch
-> lever. Hacker News, dev.to, AlternativeTo and GitHub are still signed out in this
-> profile, which blocks Show HN, the dev.to story, the AlternativeTo listing and
-> LibHunt's GitHub OAuth. The Uneed form has one trap worth remembering: the
+> lever. Show HN was attempted and refused: `u/rishabhjtripath` is brand new, and
+> submitting redirected to `/showlim`, "we're temporarily restricting Show HNs
+> because of a massive influx, mostly by users who aren't yet familiar with the
+> site". Nothing posted. AlternativeTo's Google sign-in worked but the account is
+> waiting on e-mail confirmation, and dev.to plus GitHub are still signed out, which
+> keeps the dev.to story and LibHunt's OAuth closed. The Uneed form has one trap
+> worth remembering: the
 > Tagline field is a `<textarea name="description">` capped at 80 characters, so the
 > 158-char short blurb pasted there silently fails validation and leaves the
 > schedule button disabled.
@@ -1613,6 +1617,7 @@ promise: no feature here needs internet permission.
 | 2026-11-04 | P10.6 | completed | Implementation Agent | Product Hunt launch built and scheduled for 2026-11-05 (Thu, 12:01am PT) through the Playwright MCP, draft `VIINBI3LAKFSTBKIDOP6P3ZUBZPEIKTU34`. The `github.com/rishabhx29/Sober` URL seeded the draft; added the tagline, description, 1024px logo, Productivity + Tech tags, "I made this", links, Free pricing and the first comment. PH's gallery wants 1270×760 and every still in `promo/` is vertical, so `promo/ph/gallery.html` was added and rendered at exactly that size with the two phone captures inside it. Uploads had to be staged under the MCP's allowed root — the server refuses any path outside it. The draft reports "All 7 required items done" |
 | 2026-11-04 | P10.7 | completed | Implementation Agent | Uneed submission finished at https://www.uneed.best/edit/waiting-line/70003. The disabled "Schedule your launch" button was not a missing field as the checklist implied ("❌ Tagline" with no empty input): Uneed renders the tagline as `<textarea name="description">`, so the 158-char short blurb pasted earlier had overflowed its 80-character budget and the checklist marked it failed. Replacing the value with the 46-char tagline enabled both schedule buttons. Uneed then offers a free line (2027-06-13), $14.99 fast-track (~14 days), $39.99 exact date and $249 directory blast; no spend was authorised, so the free line was taken and the toast confirmed "Launch scheduled!". Documented in `docs/LISTINGS.md` §16 with the queue table, and the stale AlternativeTo submit URL (404 as of today) was flagged in the gate table. Hacker News, dev.to, AlternativeTo and GitHub all resolve to their sign-in pages in this profile, so those four remain blocked on accounts |
 | 2026-11-04 | P10.8 | completed | Implementation Agent | r/SideProject mod appeal sent, which retires the "one human click for reCAPTCHA" claim: `old.reddit.com` redirects modmail to the new composer, whose hidden `g-recaptcha-response` textarea fills itself, and the Send mutation `SendMessageToSubreddit` returned `{"errors":null,"ok":true}` in the network log. The reason it looked impossible is the feedback: the form clears, no toast appears, and `/message/sent.json` stays empty because modmail is a separate system from PMs — so the sent folder is not a way to verify this, and the GraphQL body is. Two earlier clicks were made before the log was in place and cleared identically, so duplicates are possible; there is no sent copy to count them. `docs/LISTINGS.md` §13 now carries the working procedure and the caveat |
+| 2026-11-04 | P10.9 | blocked | Implementation Agent | Show HN attempted as `u/rishabhjtripath` (1 karma, created today): title "Show HN: Sober – Android screen-time blocker with no internet permission" (72 chars) with the repo URL and an empty text field. The submit button answered with a redirect to `/showlim` — "We're temporarily restricting Show HNs because of a massive influx, mostly by users who aren't yet familiar with the site or its culture" — and `/submitted?id=rishabhjtripath` stayed empty, so nothing was published. No workaround taken: reposting the link under a non-Show-HN title is the exact circumvention the gate exists to stop, and a 1-karma self-link dies in /new regardless. The account needs weeks of genuine comments first; copy and procedure parked in `docs/LISTINGS.md` §9. AlternativeTo sign-in now completes through Google but stops at e-mail confirmation, recorded in the gate table |
 
 ---
 
