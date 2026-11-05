@@ -43,6 +43,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.sober.core.common.permissions.PermissionUtils
+import com.sober.core.domain.model.AppLimit
 import com.sober.core.domain.model.BrowserCatalog
 import com.sober.core.domain.model.CapturedCandidate
 import com.sober.core.domain.model.CapturedSection
@@ -68,6 +69,13 @@ import com.sober.core.ui.theme.TabularNumberStyle
 
 /** Pause lengths offered in the sheet: long enough to interrupt, short enough to wait. */
 private val PAUSE_DELAYS = listOf(5, 10, 30, 60)
+
+/**
+ * Rest lengths offered under the session timer. They start at a minute so a
+ * short session still has a real gap after it, and stop at an hour because a
+ * longer rest is a schedule, which the app already has.
+ */
+private val SESSION_REST_OPTIONS = listOf(1, 5, 10, 30, 60)
 
 /** "9:40 PM" — the wall-clock time a lock lifts. */
 private fun clockText(epochMillis: Long): String =
@@ -103,6 +111,7 @@ fun AppsScreen(
     var sheetPauseEnabled by remember { mutableStateOf(false) }
     var sheetPauseDelay by remember { mutableIntStateOf(10) }
     var sheetSessionTimerEnabled by remember { mutableStateOf(false) }
+    var sheetSessionRestMinutes by remember { mutableIntStateOf(AppLimit.DEFAULT_SESSION_REST_MINUTES) }
     // Opens fully: the drum picker and the Save button together are taller
     // than the half-expanded height, which would hide the only way to confirm.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -346,8 +355,8 @@ fun AppsScreen(
                         SoberSectionLabel("Session timer")
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Pick a length each time you open it. It then " +
-                                "rests for the same length.",
+                            text = "Pick a length each time you open it. When the " +
+                                "session ends, the app closes for the block time below.",
                             fontSize = 11.sp,
                             color = SoberTheme.colors.textMuted
                         )
@@ -355,6 +364,21 @@ fun AppsScreen(
                     SoberToggleSwitch(
                         checked = sheetSessionTimerEnabled,
                         onCheckedChange = { sheetSessionTimerEnabled = it }
+                    )
+                }
+                if (sheetSessionTimerEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Block time after each session",
+                        fontSize = 11.sp,
+                        color = SoberTheme.colors.textMuted
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SoberFilterChips(
+                        options = SESSION_REST_OPTIONS,
+                        selected = sheetSessionRestMinutes,
+                        onSelect = { sheetSessionRestMinutes = it },
+                        label = { "$it min" }
                     )
                 }
 
@@ -556,7 +580,8 @@ fun AppsScreen(
                             limitMinutes = sheetLimitHours * 60 + sheetLimitMinutes,
                             openLimit = sheetOpenLimit,
                             pauseDelaySeconds = if (sheetPauseEnabled) sheetPauseDelay else null,
-                            sessionTimerEnabled = sheetSessionTimerEnabled
+                            sessionTimerEnabled = sheetSessionTimerEnabled,
+                            sessionRestMinutes = sheetSessionRestMinutes
                         )
                         selectedApp = null
                     },
@@ -741,6 +766,7 @@ fun AppsScreen(
                             sheetPauseEnabled = app.pauseDelaySeconds != null
                             sheetPauseDelay = app.pauseDelaySeconds ?: 10
                             sheetSessionTimerEnabled = app.sessionTimerEnabled
+                            sheetSessionRestMinutes = app.sessionRestMinutes
                             viewModel.loadHistory(app.packageName)
                         },
                         onLimitToggle = { enabled ->

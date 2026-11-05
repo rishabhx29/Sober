@@ -52,7 +52,9 @@ data class InstalledApp(
     /** Null when no pause-before-opening rule is active for this app. */
     val pauseDelaySeconds: Int? = null,
     /** True when every entry starts with the length picker. */
-    val sessionTimerEnabled: Boolean = false
+    val sessionTimerEnabled: Boolean = false,
+    /** Minutes the app stays closed once a session ends. */
+    val sessionRestMinutes: Int = AppLimit.DEFAULT_SESSION_REST_MINUTES
 )
 
 enum class AppFilter {
@@ -370,7 +372,9 @@ class AppsViewModel @Inject constructor(
                         openLimit = limit?.dailyOpenLimit ?: 0,
                         openCount = openCounts[appInfo.packageName] ?: 0,
                         pauseDelaySeconds = pauseByPackage[appInfo.packageName],
-                        sessionTimerEnabled = limit?.sessionTimerEnabled == true
+                        sessionTimerEnabled = limit?.sessionTimerEnabled == true,
+                        sessionRestMinutes = limit?.sessionRestMinutes
+                            ?: AppLimit.DEFAULT_SESSION_REST_MINUTES
                     )
                 }.sortedBy { it.name }
 
@@ -422,11 +426,16 @@ class AppsViewModel @Inject constructor(
         limitMinutes: Int,
         openLimit: Int,
         pauseDelaySeconds: Int?,
-        sessionTimerEnabled: Boolean
+        sessionTimerEnabled: Boolean,
+        sessionRestMinutes: Int
     ) {
         viewModelScope.launch {
             if (isLocked()) return@launch
             val existing = appLimitRepository.getLimit(packageName)
+            val restMinutes = sessionRestMinutes.coerceIn(
+                AppLimit.MIN_SESSION_REST_MINUTES,
+                AppLimit.MAX_SESSION_REST_MINUTES
+            )
             val hasBudget = limitMinutes > 0 || openLimit > 0 || sessionTimerEnabled
             when {
                 !hasBudget && existing != null -> appLimitRepository.deleteLimit(existing)
@@ -435,7 +444,8 @@ class AppsViewModel @Inject constructor(
                         dailyLimitMinutes = limitMinutes,
                         dailyOpenLimit = openLimit,
                         isActive = true,
-                        sessionTimerEnabled = sessionTimerEnabled
+                        sessionTimerEnabled = sessionTimerEnabled,
+                        sessionRestMinutes = restMinutes
                     )
                 )
                 hasBudget -> appLimitRepository.insertLimit(
@@ -444,7 +454,8 @@ class AppsViewModel @Inject constructor(
                         appName = appName,
                         dailyLimitMinutes = limitMinutes,
                         dailyOpenLimit = openLimit,
-                        sessionTimerEnabled = sessionTimerEnabled
+                        sessionTimerEnabled = sessionTimerEnabled,
+                        sessionRestMinutes = restMinutes
                     )
                 )
             }
@@ -468,7 +479,8 @@ class AppsViewModel @Inject constructor(
                         openLimit = openLimit,
                         isLimited = hasBudget,
                         pauseDelaySeconds = pauseDelaySeconds,
-                        sessionTimerEnabled = sessionTimerEnabled
+                        sessionTimerEnabled = sessionTimerEnabled,
+                        sessionRestMinutes = restMinutes
                     )
                 } else app
             }
@@ -492,7 +504,8 @@ class AppsViewModel @Inject constructor(
                         openLimit = 0,
                         isLimited = false,
                         pauseDelaySeconds = null,
-                        sessionTimerEnabled = false
+                        sessionTimerEnabled = false,
+                        sessionRestMinutes = AppLimit.DEFAULT_SESSION_REST_MINUTES
                     )
                 } else app
             }
