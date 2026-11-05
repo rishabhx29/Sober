@@ -1,5 +1,6 @@
 package com.sober.core.data.repository
 
+import androidx.room.withTransaction
 import com.sober.core.data.backup.BackupAllowOnly
 import com.sober.core.data.backup.BackupAppLimit
 import com.sober.core.data.backup.BackupBedtime
@@ -11,6 +12,7 @@ import com.sober.core.data.backup.BackupDocument
 import com.sober.core.data.backup.BackupPauseRule
 import com.sober.core.data.backup.BackupScheduleRule
 import com.sober.core.data.backup.BackupSectionRule
+import com.sober.core.data.local.SoberDatabase
 import com.sober.core.data.local.dao.AppLimitDao
 import com.sober.core.data.local.dao.ScheduleRuleDao
 import com.sober.core.data.local.datastore.SoberPreferences
@@ -30,7 +32,9 @@ import com.sober.core.domain.model.DetectionType
 import com.sober.core.domain.model.ScheduleRule
 import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BackupSummary
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,7 +52,8 @@ import javax.inject.Singleton
 class BackupRepositoryImpl @Inject constructor(
     private val appLimitDao: AppLimitDao,
     private val scheduleRuleDao: ScheduleRuleDao,
-    private val preferences: SoberPreferences
+    private val preferences: SoberPreferences,
+    private val database: SoberDatabase
 ) : BackupRepository {
 
     private val codec = BackupCodec()
@@ -139,7 +144,15 @@ class BackupRepositoryImpl @Inject constructor(
         return codec.encode(document)
     }
 
-    override suspend fun restore(json: String): BackupSummary {
+    override suspend fun restore(json: String): BackupSummary = withContext(Dispatchers.IO) {
+        restoreBlocking(json)
+    }
+
+    /**
+     * Parsing and applying a user-chosen file can take long enough to freeze
+     * the UI, so the caller only ever reaches this on [Dispatchers.IO].
+     */
+    private suspend fun restoreBlocking(json: String): BackupSummary {
         val document = codec.decode(json)
 
         // Build first. Every list below is validated and mapped before the
@@ -239,11 +252,15 @@ class BackupRepositoryImpl @Inject constructor(
         val enabledCustomSectionIds = customSectionRules.filter { it.second }.map { it.first.id }.toSet()
 
         // ---- writes ----
-        appLimitDao.deleteAll()
-        limits.forEach { appLimitDao.insertLimit(it.toEntity()) }
+        // One transaction: a failed insert must not leave the table empty, and
+        // no Flow collector may observe the gap between delete and re-insert.
+        database.withTransaction {
+            appLimitDao.deleteAll()
+            limits.forEach { appLimitDao.insertLimit(it.toEntity()) }
 
-        scheduleRuleDao.deleteAll()
-        schedules.forEach { scheduleRuleDao.insertRule(it.toEntity()) }
+            scheduleRuleDao.deleteAll()
+            schedules.forEach { scheduleRuleDao.insertRule(it.toEntity()) }
+        }
 
         preferences.updateCustomRules { customRules.map(CustomRuleCodec::encode).toSet() }
         preferences.setCustomSectionRules(customSectionRules.map { SectionRuleCodec.encode(it.first) }.toSet())

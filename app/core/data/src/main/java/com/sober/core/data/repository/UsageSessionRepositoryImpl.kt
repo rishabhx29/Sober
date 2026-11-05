@@ -4,6 +4,7 @@ import com.sober.core.data.local.dao.UsageSessionDao
 import com.sober.core.data.local.entity.toEntity
 import com.sober.core.domain.model.UsageSession
 import com.sober.core.domain.repository.UsageSessionRepository
+import com.sober.core.domain.usecase.SyncUsageSessionsUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
@@ -16,21 +17,15 @@ class UsageSessionRepositoryImpl @Inject constructor(
 ) : UsageSessionRepository {
 
     override suspend fun insertOrUpdateSession(session: UsageSession) {
-        // `usage_sessions` uses an auto-generated primary key, and the DAO's
-        // insert uses OnConflictStrategy.REPLACE. Inserting a fresh domain
-        // object (id = 0) every poll would therefore append a new row each
-        // time rather than update the existing one, so the same app/day would
-        // accumulate duplicates and every read would see a stale first match.
-        // Carrying the existing row's id forward keeps exactly one row per
-        // (packageName, date).
-        val existing = dao.getUsageForDate(session.packageName, session.date)
-        dao.insertOrUpdateSession(
-            session.copy(id = existing?.id ?: 0).toEntity()
-        )
+        // `usage_sessions` has a unique (packageName, date) index and the DAO
+        // inserts with REPLACE, so this is one statement: a concurrent writer
+        // cannot slip a second row in between a read and a write. Carrying the
+        // row id is unnecessary now that the conflict target is explicit.
+        dao.insertOrUpdateSession(session.copy(id = 0).toEntity())
     }
 
     override suspend fun getUsageForToday(packageName: String): UsageSession? {
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val today = today()
         return dao.getUsageForDate(packageName, today)?.toDomainModel()
     }
 
@@ -48,7 +43,16 @@ class UsageSessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun resetDailyUsage() {
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        dao.resetDailyUsage(today, System.currentTimeMillis())
+        dao.resetDailyUsage(today(), System.currentTimeMillis())
     }
+
+    /**
+     * The rollup key has to match every other producer, which formats with
+     * [Locale.US]. With a locale default, a Buddhist or Arabic-digit calendar
+     * writes one key and reads another, so limits never see today's usage.
+     */
+    private fun today(): String = SimpleDateFormat(
+        SyncUsageSessionsUseCase.DATE_FORMAT,
+        Locale.US
+    ).format(Date())
 }

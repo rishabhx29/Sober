@@ -54,8 +54,14 @@ object PermissionUtils {
                 context.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             )
+            // The setting is a colon-separated list of flattened component
+            // names. A substring test would also accept a different package
+            // whose name merely contains ours, which would tell the user
+            // protection is on when their service is not.
             if (settingValue != null) {
-                return settingValue.contains(context.packageName)
+                return settingValue.split(':').any { entry ->
+                    entry.substringBefore('/').trim() == context.packageName
+                }
             }
         }
         return false

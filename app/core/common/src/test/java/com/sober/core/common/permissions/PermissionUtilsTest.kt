@@ -79,6 +79,16 @@ class PermissionUtilsTest {
     }
 
     @Test
+    fun `a package whose name contains ours does not count`() {
+        writeAccessibilitySetting(
+            enabled = true,
+            services = "${context.packageName}.clone/${context.packageName}.clone.Service"
+        )
+
+        assertFalse(PermissionUtils.hasAccessibilityPermission(context))
+    }
+
+    @Test
     fun `the enabled flag without a service list stays off`() {
         writeAccessibilitySetting(enabled = true, services = null)
 

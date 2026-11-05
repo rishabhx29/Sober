@@ -28,7 +28,7 @@ import com.sober.core.data.local.util.Converters
         OverrideLogEntity::class,
         AppOpenEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -64,6 +64,39 @@ abstract class SoberDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_app_opens_openedAt` " +
                         "ON `app_opens` (`openedAt`)"
+                )
+            }
+        }
+
+        /**
+         * v3 makes "one row per app per day" and "one limit per app" real
+         * constraints. Both tables could previously hold duplicates, so the
+         * migration keeps the newest row of each pair before creating the
+         * unique index — creating it first would fail on exactly the devices
+         * that hit the race.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "DELETE FROM usage_sessions WHERE id NOT IN (" +
+                        "SELECT MAX(id) FROM usage_sessions GROUP BY packageName, date)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_usage_sessions_packageName_date` " +
+                        "ON `usage_sessions` (`packageName`, `date`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_usage_sessions_date` " +
+                        "ON `usage_sessions` (`date`)"
+                )
+
+                db.execSQL(
+                    "DELETE FROM app_limits WHERE id NOT IN (" +
+                        "SELECT MAX(id) FROM app_limits GROUP BY packageName)"
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_app_limits_packageName` " +
+                        "ON `app_limits` (`packageName`)"
                 )
             }
         }

@@ -1,10 +1,18 @@
 package com.sober.core.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.sober.core.domain.model.AppLimit
 
-@Entity(tableName = "app_limits")
+/**
+ * One limit per package. `packageName` is unique so a double-tapped "Set
+ * limit" cannot leave two rows where every reader takes an arbitrary one.
+ */
+@Entity(
+    tableName = "app_limits",
+    indices = [Index(value = ["packageName"], unique = true)]
+)
 data class AppLimitEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val packageName: String,

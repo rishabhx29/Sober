@@ -29,11 +29,12 @@ Two things can still move data off the phone, and both are your choices:
 - **Export.** "Export usage data" writes a CSV file and opens Android's share
   sheet. You choose the destination; Sober does not know or keep a record of it.
   Exported files sit in the app cache until you share them or Android clears them.
-- **Android system backup.** If you have backup enabled in your Google account
-  settings, Android may copy Sober's preferences and usage records to *your own*
-  backup. That is the operating system acting on your account, not Sober sending
-  data to us — we never receive it. You can turn it off in Android Settings, or
-  turn off backup for Sober specifically.
+- **Your own backup file.** "Back up rules" writes a JSON file you choose the
+  location for; restoring it is the only way those rules reach another device.
+
+Sober opts out of Android's system backup (`allowBackup` is off), so its PIN
+hash, usage history and settings are not copied to your Google account, even if
+backup is on for the rest of the phone.
 
 ## Permissions and what each one is for
 

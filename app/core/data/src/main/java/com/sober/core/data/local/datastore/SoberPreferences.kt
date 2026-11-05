@@ -2,9 +2,11 @@ package com.sober.core.data.local.datastore
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.sober.core.domain.model.AllowOnlyMode
 import com.sober.core.domain.model.AppCategory
@@ -19,17 +21,36 @@ import com.sober.core.domain.repository.StreakRule
 import com.sober.core.domain.repository.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "sober_preferences")
+/**
+ * A corrupt file is replaced rather than rethrown. Without this the default
+ * handler lets every read fail, which turns a bad write into a launch crash
+ * loop the user cannot clear without wiping app data.
+ */
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "sober_preferences",
+    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() }
+)
 
 @Singleton
 class SoberPreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val dataStore = context.dataStore
+
+    /**
+     * Every accessor reads through this. A file that cannot be opened reports
+     * empty preferences rather than terminating the flow: the alternative is
+     * an uncaught IOException inside `collectAsState` at startup.
+     */
+    private val data: Flow<Preferences> = dataStore.data.catch { error ->
+        if (error is IOException) emit(emptyPreferences()) else throw error
+    }
 
     companion object {
         val KEY_IS_ONBOARDING_COMPLETE = booleanPreferencesKey("is_onboarding_complete")
@@ -194,12 +215,12 @@ class SoberPreferences @Inject constructor(
             androidx.datastore.preferences.core.stringPreferencesKey("weekly_report_last_week_start")
     }
 
-    val isOnboardingComplete: Flow<Boolean> = dataStore.data
+    val isOnboardingComplete: Flow<Boolean> = data
         .map { preferences ->
             preferences[KEY_IS_ONBOARDING_COMPLETE] ?: false
         }
 
-    val isUsageAccessGranted: Flow<Boolean> = dataStore.data
+    val isUsageAccessGranted: Flow<Boolean> = data
         .map { preferences ->
             preferences[KEY_IS_USAGE_ACCESS_GRANTED] ?: false
         }
@@ -217,25 +238,25 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val activeSessionId: Flow<Int?> = dataStore.data.map { it[KEY_ACTIVE_SESSION_ID] }
-    val activeSessionStartTime: Flow<Long?> = dataStore.data.map { it[KEY_ACTIVE_SESSION_START_TIME] }
-    val activeSessionDuration: Flow<Long?> = dataStore.data.map { it[KEY_ACTIVE_SESSION_DURATION] }
-    val activeSessionLabel: Flow<String?> = dataStore.data.map { it[KEY_ACTIVE_SESSION_LABEL] }
-    val activeSessionBlockedApps: Flow<String?> = dataStore.data.map { it[KEY_ACTIVE_SESSION_BLOCKED_APPS] }
-    val activeSessionSilenceNotifications: Flow<Boolean> = dataStore.data.map { it[KEY_ACTIVE_SESSION_SILENCE_NOTIFICATIONS] ?: false }
+    val activeSessionId: Flow<Int?> = data.map { it[KEY_ACTIVE_SESSION_ID] }
+    val activeSessionStartTime: Flow<Long?> = data.map { it[KEY_ACTIVE_SESSION_START_TIME] }
+    val activeSessionDuration: Flow<Long?> = data.map { it[KEY_ACTIVE_SESSION_DURATION] }
+    val activeSessionLabel: Flow<String?> = data.map { it[KEY_ACTIVE_SESSION_LABEL] }
+    val activeSessionBlockedApps: Flow<String?> = data.map { it[KEY_ACTIVE_SESSION_BLOCKED_APPS] }
+    val activeSessionSilenceNotifications: Flow<Boolean> = data.map { it[KEY_ACTIVE_SESSION_SILENCE_NOTIFICATIONS] ?: false }
 
-    val lastUsageRolloverDay: Flow<String?> = dataStore.data.map { it[KEY_LAST_USAGE_ROLLOVER_DAY] }
+    val lastUsageRolloverDay: Flow<String?> = data.map { it[KEY_LAST_USAGE_ROLLOVER_DAY] }
 
-    val dailyScreenTimeLimitMinutes: Flow<Int> = dataStore.data.map {
+    val dailyScreenTimeLimitMinutes: Flow<Int> = data.map {
         it[KEY_DAILY_SCREEN_TIME_LIMIT] ?: DEFAULT_DAILY_SCREEN_TIME_LIMIT
     }
 
-    val dailyCapExemptPackages: Flow<Set<String>> = dataStore.data.map {
+    val dailyCapExemptPackages: Flow<Set<String>> = data.map {
         it[KEY_DAILY_CAP_EXEMPT_PACKAGES] ?: emptySet()
     }
 
     /** Off by default: sound is an opt-in, not a surprise in a silent room. */
-    val focusSoundEnabled: Flow<Boolean> = dataStore.data.map {
+    val focusSoundEnabled: Flow<Boolean> = data.map {
         it[KEY_FOCUS_SOUND] ?: false
     }
 
@@ -250,7 +271,7 @@ class SoberPreferences @Inject constructor(
      * unset) instead of throwing, so a downgrade cannot brick notification
      * filtering.
      */
-    val notificationSilenceScope: Flow<NotificationSilenceScope?> = dataStore.data.map { prefs ->
+    val notificationSilenceScope: Flow<NotificationSilenceScope?> = data.map { prefs ->
         prefs[KEY_NOTIFICATION_SILENCE_SCOPE]?.let { raw ->
             runCatching { NotificationSilenceScope.valueOf(raw) }.getOrNull()
         }
@@ -326,12 +347,12 @@ class SoberPreferences @Inject constructor(
      * Day and keys live in one string so a stale key can never be read as
      * belonging to a new day: the day prefix is checked on every read.
      */
-    val usageWarningLog: Flow<UsageWarningLog> = dataStore.data.map { preferences ->
+    val usageWarningLog: Flow<UsageWarningLog> = data.map { preferences ->
         parseWarningLog(preferences[KEY_USAGE_WARNING_LOG])
     }
 
     /** Epoch millis until which all blocking is lifted, or null. */
-    val mealBreakUntil: Flow<Long?> = dataStore.data.map { it[KEY_MEAL_BREAK_UNTIL] }
+    val mealBreakUntil: Flow<Long?> = data.map { it[KEY_MEAL_BREAK_UNTIL] }
 
     suspend fun setMealBreakUntil(until: Long?) {
         dataStore.edit { preferences ->
@@ -344,7 +365,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** The PBKDF2 PIN record, or null when no PIN has been set. */
-    val pinRecord: Flow<String?> = dataStore.data.map { it[KEY_PIN_RECORD] }
+    val pinRecord: Flow<String?> = data.map { it[KEY_PIN_RECORD] }
 
     suspend fun setPinRecord(record: String) {
         dataStore.edit { it[KEY_PIN_RECORD] = record }
@@ -355,7 +376,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** True unless the user explicitly turned this alert off. */
-    fun alertEnabled(kind: AlertKind): Flow<Boolean> = dataStore.data.map { preferences ->
+    fun alertEnabled(kind: AlertKind): Flow<Boolean> = data.map { preferences ->
         preferences[alertKey(kind)] ?: true
     }
 
@@ -377,7 +398,7 @@ class SoberPreferences @Inject constructor(
      * Lenient by design: an unknown stored name falls back to the default rule
      * rather than throwing, so a downgrade cannot make the Home screen crash.
      */
-    val streakRule: Flow<StreakRule> = dataStore.data.map { preferences ->
+    val streakRule: Flow<StreakRule> = data.map { preferences ->
         preferences[KEY_STREAK_RULE]?.let { raw ->
             runCatching { StreakRule.valueOf(raw) }.getOrNull()
         } ?: StreakRule.UNDER_LIMITS
@@ -389,7 +410,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val streakRecord: Flow<StreakRecord> = dataStore.data.map { preferences ->
+    val streakRecord: Flow<StreakRecord> = data.map { preferences ->
         StreakRecord(
             currentStreak = preferences[KEY_STREAK_CURRENT] ?: 0,
             longestStreak = preferences[KEY_STREAK_LONGEST] ?: 0,
@@ -413,7 +434,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** Lenient like the other stored enums: an unknown name means SYSTEM. */
-    val themeMode: Flow<ThemeMode> = dataStore.data.map { preferences ->
+    val themeMode: Flow<ThemeMode> = data.map { preferences ->
         preferences[KEY_THEME_MODE]?.let { raw ->
             runCatching { ThemeMode.valueOf(raw) }.getOrNull()
         } ?: ThemeMode.SYSTEM
@@ -426,7 +447,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** Encoded achievement unlocks; decoding belongs to the repository. */
-    val achievementsRaw: Flow<String?> = dataStore.data.map { it[KEY_ACHIEVEMENTS] }
+    val achievementsRaw: Flow<String?> = data.map { it[KEY_ACHIEVEMENTS] }
 
     suspend fun setAchievementsRaw(value: String) {
         dataStore.edit { preferences ->
@@ -435,10 +456,10 @@ class SoberPreferences @Inject constructor(
     }
 
     /** Encoded active challenge; decoding belongs to the repository. */
-    val activeChallengeRaw: Flow<String?> = dataStore.data.map { it[KEY_ACTIVE_CHALLENGE] }
+    val activeChallengeRaw: Flow<String?> = data.map { it[KEY_ACTIVE_CHALLENGE] }
 
     val completedChallengesRaw: Flow<Set<String>> =
-        dataStore.data.map { it[KEY_COMPLETED_CHALLENGES] ?: emptySet() }
+        data.map { it[KEY_COMPLETED_CHALLENGES] ?: emptySet() }
 
     suspend fun setActiveChallengeRaw(value: String?) {
         dataStore.edit { preferences ->
@@ -463,7 +484,7 @@ class SoberPreferences @Inject constructor(
 
     /** Encoded dismissals; decoding belongs to the repository. */
     val dismissedScheduleSuggestionsRaw: Flow<String?> =
-        dataStore.data.map { it[KEY_DISMISSED_SUGGESTIONS] }
+        data.map { it[KEY_DISMISSED_SUGGESTIONS] }
 
     suspend fun setDismissedScheduleSuggestionsRaw(value: String) {
         dataStore.edit { preferences ->
@@ -471,10 +492,10 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val overrideRequestPackage: Flow<String?> = dataStore.data.map { it[KEY_OVERRIDE_REQUEST_PACKAGE] }
-    val overrideRequestedAt: Flow<Long?> = dataStore.data.map { it[KEY_OVERRIDE_REQUESTED_AT] }
-    val overridePackage: Flow<String?> = dataStore.data.map { it[KEY_OVERRIDE_PACKAGE] }
-    val overrideUntil: Flow<Long?> = dataStore.data.map { it[KEY_OVERRIDE_UNTIL] }
+    val overrideRequestPackage: Flow<String?> = data.map { it[KEY_OVERRIDE_REQUEST_PACKAGE] }
+    val overrideRequestedAt: Flow<Long?> = data.map { it[KEY_OVERRIDE_REQUESTED_AT] }
+    val overridePackage: Flow<String?> = data.map { it[KEY_OVERRIDE_PACKAGE] }
+    val overrideUntil: Flow<Long?> = data.map { it[KEY_OVERRIDE_UNTIL] }
 
     suspend fun setOverrideRequest(packageName: String, requestedAt: Long) {
         dataStore.edit { preferences ->
@@ -523,7 +544,7 @@ class SoberPreferences @Inject constructor(
         return UsageWarningLog(day = day.ifBlank { null }, keys = keys)
     }
 
-    val detectionRulesJson: Flow<String?> = dataStore.data.map { it[KEY_DETECTION_RULES_JSON] }
+    val detectionRulesJson: Flow<String?> = data.map { it[KEY_DETECTION_RULES_JSON] }
 
     suspend fun setDetectionRulesJson(raw: String) {
         dataStore.edit { preferences ->
@@ -531,7 +552,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val enabledSectionRules: Flow<Set<String>> = dataStore.data.map { preferences ->
+    val enabledSectionRules: Flow<Set<String>> = data.map { preferences ->
         preferences[KEY_SECTION_RULES] ?: emptySet()
     }
 
@@ -551,7 +572,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** Encoded user-recorded rules; decoding belongs to the repository. */
-    val customSectionRulesRaw: Flow<Set<String>> = dataStore.data.map { preferences ->
+    val customSectionRulesRaw: Flow<Set<String>> = data.map { preferences ->
         preferences[KEY_CUSTOM_SECTION_RULES] ?: emptySet()
     }
 
@@ -594,10 +615,10 @@ class SoberPreferences @Inject constructor(
     }
 
     val sectionCaptureRequestRaw: Flow<String?> =
-        dataStore.data.map { it[KEY_SECTION_CAPTURE_REQUEST] }
+        data.map { it[KEY_SECTION_CAPTURE_REQUEST] }
 
     val sectionCaptureResultRaw: Flow<String?> =
-        dataStore.data.map { it[KEY_SECTION_CAPTURE_RESULT] }
+        data.map { it[KEY_SECTION_CAPTURE_RESULT] }
 
     /** Passing null ends or clears the recording. */
     suspend fun setSectionCaptureRequest(encoded: String?) {
@@ -614,7 +635,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val customRulesRaw: Flow<Set<String>> = dataStore.data.map { preferences ->
+    val customRulesRaw: Flow<Set<String>> = data.map { preferences ->
         preferences[KEY_CUSTOM_RULES] ?: emptySet()
     }
 
@@ -631,7 +652,7 @@ class SoberPreferences @Inject constructor(
 
     // ---- Pause everything / lock mode --------------------------------
 
-    val pausedUntil: Flow<Long?> = dataStore.data.map { it[KEY_PAUSED_UNTIL] }
+    val pausedUntil: Flow<Long?> = data.map { it[KEY_PAUSED_UNTIL] }
 
     /** Passing null ends the pause early. */
     suspend fun setPausedUntil(until: Long?) {
@@ -641,7 +662,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val lockedUntil: Flow<Long?> = dataStore.data.map { it[KEY_LOCKED_UNTIL] }
+    val lockedUntil: Flow<Long?> = data.map { it[KEY_LOCKED_UNTIL] }
 
     suspend fun setLockedUntil(until: Long?) {
         dataStore.edit { preferences ->
@@ -652,7 +673,7 @@ class SoberPreferences @Inject constructor(
 
     // ---- Your reason --------------------------------------------------
 
-    val yourReason: Flow<String> = dataStore.data.map { it[KEY_YOUR_REASON].orEmpty() }
+    val yourReason: Flow<String> = data.map { it[KEY_YOUR_REASON].orEmpty() }
 
     /** Normalised here so the stored value is always what the overlay renders. */
     suspend fun setYourReason(reason: String) {
@@ -665,7 +686,7 @@ class SoberPreferences @Inject constructor(
 
     // ---- Pause before opening ----------------------------------------
 
-    val appPauseRules: Flow<List<AppPauseRule>> = dataStore.data.map { preferences ->
+    val appPauseRules: Flow<List<AppPauseRule>> = data.map { preferences ->
         preferences[KEY_APP_PAUSE_RULES].orEmpty().mapNotNull(::decodePauseRule)
     }
 
@@ -692,7 +713,7 @@ class SoberPreferences @Inject constructor(
     }
 
     /** packageName -> epoch millis at which the earned pass expires. */
-    val pausePasses: Flow<Map<String, Long>> = dataStore.data.map { preferences ->
+    val pausePasses: Flow<Map<String, Long>> = data.map { preferences ->
         preferences[KEY_PAUSE_PASSES].orEmpty()
             .mapNotNull { entry ->
                 val packageName = entry.substringBefore('|')
@@ -727,7 +748,7 @@ class SoberPreferences @Inject constructor(
 
     // ---- Allow-only, category budgets and bedtime --------------------
 
-    val allowOnly: Flow<AllowOnlyMode> = dataStore.data.map { preferences ->
+    val allowOnly: Flow<AllowOnlyMode> = data.map { preferences ->
         AllowOnlyMode(
             enabled = preferences[KEY_ALLOW_ONLY_ENABLED] ?: false,
             allowedPackages = preferences[KEY_ALLOW_ONLY_PACKAGES].orEmpty()
@@ -741,7 +762,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val categoryLimits: Flow<List<CategoryLimit>> = dataStore.data.map { preferences ->
+    val categoryLimits: Flow<List<CategoryLimit>> = data.map { preferences ->
         preferences[KEY_CATEGORY_LIMITS].orEmpty().mapNotNull { entry ->
             val category = entry.substringBefore('|')
                 .let { runCatching { AppCategory.valueOf(it) }.getOrNull() }
@@ -773,7 +794,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val bedtime: Flow<BedtimeSettings> = dataStore.data.map { preferences ->
+    val bedtime: Flow<BedtimeSettings> = data.map { preferences ->
         BedtimeSettings(
             enabled = preferences[KEY_BEDTIME_ENABLED] ?: false,
             startMinuteOfDay = preferences[KEY_BEDTIME_START] ?: (22 * 60),
@@ -791,7 +812,7 @@ class SoberPreferences @Inject constructor(
         }
     }
 
-    val bedtimeSilenced: Flow<Boolean> = dataStore.data.map {
+    val bedtimeSilenced: Flow<Boolean> = data.map {
         it[KEY_BEDTIME_SILENCED] ?: false
     }
 
@@ -807,7 +828,7 @@ class SoberPreferences @Inject constructor(
      * assuming the user's own filter was "all", keeps bedtime from overriding a
      * Do Not Disturb setting they turned on themselves.
      */
-    val bedtimePreviousFilter: Flow<Int> = dataStore.data.map {
+    val bedtimePreviousFilter: Flow<Int> = data.map {
         it[KEY_BEDTIME_PREVIOUS_FILTER] ?: -1
     }
 
@@ -818,7 +839,7 @@ class SoberPreferences @Inject constructor(
     }
 
     val weeklyReportLastWeekStart: Flow<String?> =
-        dataStore.data.map { it[KEY_WEEKLY_REPORT_LAST] }
+        data.map { it[KEY_WEEKLY_REPORT_LAST] }
 
     suspend fun setWeeklyReportLastWeekStart(weekStart: String) {
         dataStore.edit { preferences ->

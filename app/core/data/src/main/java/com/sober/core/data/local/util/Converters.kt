@@ -18,7 +18,11 @@ class Converters {
 
     @TypeConverter
     fun toStringList(value: String?): List<String>? {
-        return value?.let { stringListAdapter.fromJson(it) }
+        return value?.let { raw ->
+            // A single malformed value must not terminate the Flow that reads
+            // every limit: Room would surface it as "no limits at all".
+            runCatching { stringListAdapter.fromJson(raw) }.getOrNull() ?: emptyList()
+        }
     }
 
     @TypeConverter
@@ -28,6 +32,8 @@ class Converters {
 
     @TypeConverter
     fun toIntList(value: String?): List<Int>? {
-        return value?.let { intListAdapter.fromJson(it) }
+        return value?.let { raw ->
+            runCatching { intListAdapter.fromJson(raw) }.getOrNull() ?: emptyList()
+        }
     }
 }

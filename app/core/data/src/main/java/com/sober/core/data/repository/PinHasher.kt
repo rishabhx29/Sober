@@ -19,6 +19,7 @@ object PinHasher {
     private const val ITERATIONS = 120_000
     private const val KEY_LENGTH_BITS = 256
     private const val SALT_BYTES = 16
+    private const val MAX_ITERATIONS = 1_000_000
 
     fun hash(pin: String, random: SecureRandom = SecureRandom()): String {
         val salt = ByteArray(SALT_BYTES).also(random::nextBytes)
@@ -31,6 +32,10 @@ object PinHasher {
         if (parts.size != 3) return false
 
         val iterations = parts[0].toIntOrNull() ?: return false
+        // The record is untrusted input once a backup file can be edited. An
+        // iteration count of two billion would turn every PIN check into a
+        // multi-minute spin, so only counts this app could have written count.
+        if (iterations !in 1..MAX_ITERATIONS) return false
         val salt = decode(parts[1]) ?: return false
         val expected = decode(parts[2]) ?: return false
 
