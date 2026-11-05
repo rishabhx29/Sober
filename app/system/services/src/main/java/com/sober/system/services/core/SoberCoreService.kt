@@ -499,20 +499,42 @@ class SoberCoreService : Service() {
             return
         }
 
+        // Pause before opening comes first: it is the breath the user asked
+        // for, and nothing else should happen before it is over. A picker on
+        // top would either be covered by it or claim a decision not yet made.
+        if (target != pauseCheckedPackage) {
+            pauseCheckedPackage = target
+            // A previous app's pause window must not survive the switch.
+            if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+
+            val rule = runCatching { pauseRulesRepository.ruleFor(target) }.getOrNull()
+            val pass = runCatching { pauseRulesRepository.passUntil(target) }.getOrNull()
+            val now = System.currentTimeMillis()
+            if (rule != null && rule.delaySeconds > 0 && (pass == null || pass <= now)) {
+                if (currentlyBlocked != null) {
+                    currentlyBlocked = null
+                    overlayController.hide()
+                }
+                pauseOverlayController.show(target, rule.delaySeconds) {
+                    recheckAfterPause(target)
+                }
+                // Not counted yet: backing out at the pause is not an open.
+                return
+            }
+        }
+
+        // The countdown owns the screen while it runs. The engine re-enters
+        // through recheckAfterPause when it ends, so returning here is not a
+        // missed cycle — it is what keeps the picker and the count waiting.
+        if (pauseOverlayController.isShowingFor(target)) return
+
         // Session timer: an app with the rule on asks for a length before it
-        // is used, then rests for the same length when that session ends. The
-        // rest is a block decision above, so only the two other states reach
-        // here: a session already running (nothing to ask) and no session at
-        // all (ask). A running session survives leaving and re-entering the
-        // app, because the clock is wall time, not foreground time.
+        // is used, then rests for the block time set in Apps. The rest is a
+        // block decision above, so only the two other states reach here: a
+        // session already running (nothing to ask) and no session at all.
         when (runCatching { evaluateSessionTimerUseCase(target) }
             .getOrDefault(SessionTimerState.Off)) {
             is SessionTimerState.NeedsSession -> {
-                // The picker is itself the decision, so the pause countdown is
-                // skipped for this app: showing one and then the other would
-                // ask the same question twice.
-                if (pauseOverlayController.isShowing) pauseOverlayController.hide()
-                pauseCheckedPackage = target
                 if (currentlyBlocked != null) {
                     currentlyBlocked = null
                     overlayController.hide()
@@ -532,26 +554,6 @@ class SoberCoreService : Service() {
             }
         }
 
-        // Pause before opening applies once per foreground run.
-        if (target != pauseCheckedPackage) {
-            pauseCheckedPackage = target
-            // A previous app's pause window must not survive the switch.
-            if (pauseOverlayController.isShowing) pauseOverlayController.hide()
-
-            val rule = runCatching { pauseRulesRepository.ruleFor(target) }.getOrNull()
-            val pass = runCatching { pauseRulesRepository.passUntil(target) }.getOrNull()
-            val now = System.currentTimeMillis()
-            if (rule != null && rule.delaySeconds > 0 && (pass == null || pass <= now)) {
-                if (currentlyBlocked != null) {
-                    currentlyBlocked = null
-                    overlayController.hide()
-                }
-                pauseOverlayController.show(target, rule.delaySeconds)
-                // Not counted yet: backing out at the pause is not an open.
-                return
-            }
-        }
-
         // Counting happens on the transition, not on every poll. Going to the
         // launcher clears the marker, so returning to the same app is a new
         // open; a keyboard or dialog never reaches here, so it cannot inflate
@@ -567,6 +569,19 @@ class SoberCoreService : Service() {
             // switched to an allowed app) — clear the overlay.
             currentlyBlocked = null
             overlayController.hide()
+        }
+    }
+
+    /**
+     * Re-enters the policy engine once a pause window has ended.
+     *
+     * The pass is already written by the overlay, so this call sees a clean
+     * state: either the session picker is next in line, or there is nothing
+     * left to show and the app the user was waiting for is simply open.
+     */
+    private fun recheckAfterPause(packageName: String) {
+        scope.launch {
+            policyMutex.withLock { applyPolicy(packageName) }
         }
     }
 
