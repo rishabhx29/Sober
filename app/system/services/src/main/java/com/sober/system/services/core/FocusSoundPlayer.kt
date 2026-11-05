@@ -79,8 +79,16 @@ class FocusSoundPlayer @Inject constructor() {
     private fun stopLocked() {
         running = false
         val sink = track
+        val writer = thread
         track = null
         thread = null
+        // The writer can be inside a blocking write() when the session ends.
+        // Releasing the track underneath it is a crash source, so let the
+        // current buffer drain first. The loop checks `running` every buffer,
+        // so this waits at most one buffer (bounded by the timeout anyway).
+        if (writer != null && writer.isAlive) {
+            runCatching { writer.join(RELEASE_JOIN_TIMEOUT_MS) }
+        }
         if (sink != null) {
             runCatching {
                 sink.pause()
@@ -129,5 +137,8 @@ class FocusSoundPlayer @Inject constructor() {
 
         /** Quiet by design: this is a background, not a track. */
         const val VOLUME = 0.22f
+
+        /** Upper bound on waiting for the writer before releasing the track. */
+        const val RELEASE_JOIN_TIMEOUT_MS = 500L
     }
 }

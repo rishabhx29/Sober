@@ -100,7 +100,7 @@ class SectionBlockOverlayController @Inject constructor(
         mainHandler.post {
             // Content-changed storms re-report the same screen dozens of times a
             // second; rebuilding the window each time would flicker it.
-            if (currentKey == key && overlayView != null) return@post
+            if (currentKey == key && isShowing) return@post
             if (!canDrawOverlays()) return@post
             currentKey = key
             currentOnBack = onBack
@@ -116,7 +116,9 @@ class SectionBlockOverlayController @Inject constructor(
         }
     }
 
-    val isShowing: Boolean get() = overlayView != null
+    /** Attachment, not just the field: the system can detach the window itself. */
+    val isShowing: Boolean
+        get() = overlayView?.let { it.isAttachedToWindow && it.isShown } == true
 
     private fun canDrawOverlays(): Boolean = try {
         android.provider.Settings.canDrawOverlays(context)

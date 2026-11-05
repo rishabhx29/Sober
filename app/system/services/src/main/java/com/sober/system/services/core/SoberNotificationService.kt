@@ -52,41 +52,56 @@ class SoberNotificationService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
 
+        // Nothing here may throw: a listener exception takes down the whole
+        // process, and one unreadable notification is not worth that.
+        scope.launch { runCatching { handlePosted(sbn) } }
+    }
+
+    private suspend fun handlePosted(sbn: StatusBarNotification) {
         val packageName = sbn.packageName
         val key = sbn.key
 
-        scope.launch {
-            if (isHiddenByKeyword(sbn)) {
-                cancelNotification(key)
-                return@launch
-            }
-
-            val activeSessionId = sessionStateRepository.activeSessionId.first() ?: return@launch
-            val scopeSetting = sessionStateRepository.notificationSilenceScope.first() ?: return@launch
-
-            if (scopeSetting == NotificationSilenceScope.NONE) return@launch
-
-            val isBlockedApp = sessionStateRepository.activeSessionBlockedApps.first()
-                ?.split(',')
-                ?.filter { it.isNotBlank() }
-                ?.contains(packageName)
-                ?: false
-
-            val shouldSilence = when (scopeSetting) {
-                NotificationSilenceScope.ALL -> true
-                // "All except calls" is a phone call; on Android these arrive
-                // via the dialer/telecom packages, which we match by role.
-                NotificationSilenceScope.ALL_EXCEPT_CALLS ->
-                    !isLikelyCallNotification(packageName)
-                NotificationSilenceScope.SELECTED_APPS -> isBlockedApp
-                NotificationSilenceScope.NONE -> false
-            }
-
-            // Never silence Sober's own foreground notification.
-            if (shouldSilence && packageName != applicationContext.packageName) {
-                cancelNotification(key)
-            }
+        if (isHiddenByKeyword(sbn)) {
+            cancel(key)
+            return
         }
+
+        val activeSessionId = sessionStateRepository.activeSessionId.first()
+        if (activeSessionId == null) return
+        val scopeSetting = sessionStateRepository.notificationSilenceScope.first() ?: return
+
+        if (scopeSetting == NotificationSilenceScope.NONE) return
+
+        val isBlockedApp = sessionStateRepository.activeSessionBlockedApps.first()
+            ?.split(',')
+            ?.filter { it.isNotBlank() }
+            ?.contains(packageName)
+            ?: false
+
+        val shouldSilence = when (scopeSetting) {
+            NotificationSilenceScope.ALL -> true
+            // "All except calls" is a phone call; on Android these arrive
+            // via the dialer/telecom packages, which we match by role.
+            NotificationSilenceScope.ALL_EXCEPT_CALLS ->
+                !isLikelyCallNotification(packageName)
+            NotificationSilenceScope.SELECTED_APPS -> isBlockedApp
+            NotificationSilenceScope.NONE -> false
+        }
+
+        // Never silence Sober's own foreground notification.
+        if (shouldSilence && packageName != applicationContext.packageName) {
+            cancel(key)
+        }
+    }
+
+    /**
+     * Cancelling races with the app dismissing its own notification and with
+     * Notification Access being revoked; both surface as exceptions from the
+     * system, neither should reach the caller.
+     */
+    private fun cancel(key: String?) {
+        if (key == null) return
+        runCatching { cancelNotification(key) }
     }
 
     /**
@@ -144,12 +159,15 @@ class SoberNotificationService : NotificationListenerService() {
         super.onListenerDisconnected()
 
         scope.launch {
-            val sessionId = sessionStateRepository.activeSessionId.first() ?: return@launch
-            val scopeSetting = sessionStateRepository.notificationSilenceScope.first()
-                ?: NotificationSilenceScope.NONE
-            if (scopeSetting == NotificationSilenceScope.NONE) return@launch
+            runCatching {
+                val sessionId = sessionStateRepository.activeSessionId.first()
+                if (sessionId == null) return@runCatching
+                val scopeSetting = sessionStateRepository.notificationSilenceScope.first()
+                    ?: NotificationSilenceScope.NONE
+                if (scopeSetting == NotificationSilenceScope.NONE) return@runCatching
 
-            alertNotifier.notifyNotificationAccessRevoked()
+                alertNotifier.notifyNotificationAccessRevoked()
+            }
         }
 
         // Re-binding is best-effort: the system may refuse until the user

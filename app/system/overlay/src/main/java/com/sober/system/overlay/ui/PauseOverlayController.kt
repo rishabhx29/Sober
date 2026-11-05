@@ -74,7 +74,9 @@ class PauseOverlayController @Inject constructor(
     @Volatile
     private var themeMode = ThemeMode.SYSTEM
 
-    val isShowing: Boolean get() = overlayView != null
+    /** Attachment, not just the field: the system can detach the window itself. */
+    val isShowing: Boolean
+        get() = overlayView?.let { it.isAttachedToWindow && it.isShown } == true
 
     init {
         scope.launch {

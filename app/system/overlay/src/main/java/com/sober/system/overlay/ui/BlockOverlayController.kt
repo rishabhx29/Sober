@@ -120,8 +120,16 @@ class BlockOverlayController @Inject constructor(
     @Volatile
     private var yourReason: String = ""
 
-    /** True while a window is attached, so the service can re-show after a hide. */
-    val isShowing: Boolean get() = overlayView != null
+    /**
+     * True while a window is attached, so the service can re-show after a hide.
+     *
+     * Attachment is checked, not just the field: the system can remove the
+     * window on its own (overlay permission revoked, display change), and a
+     * stale non-null field would make the engine believe the block is on
+     * screen and skip re-showing it.
+     */
+    val isShowing: Boolean
+        get() = overlayView?.let { it.isAttachedToWindow && it.isShown } == true
 
     init {
         // Kept warm for the process lifetime: the overlay can be requested at

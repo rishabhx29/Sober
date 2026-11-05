@@ -266,6 +266,11 @@ class SoberCoreService : Service() {
                             lastFullCycleAt = now
                             runEnforcementCycle()
                         }
+                    } else if (currentlyBlocked != null || pauseOverlayController.isShowing) {
+                        // Nothing can be in the foreground behind a dark screen,
+                        // and a cover left attached would sit over whatever the
+                        // user unlocks into until the next cycle.
+                        policyMutex.withLock { applyPolicy(null) }
                     }
                     delay(
                         when {
@@ -556,9 +561,13 @@ class SoberCoreService : Service() {
                         return@launch
                     }
 
-                    val minutes = (remainingMs / 1000) / 60
-                    val seconds = (remainingMs / 1000) % 60
-                    String.format("%02d:%02d remaining", minutes, seconds)
+                    // Minute resolution on purpose: the text is also what
+                    // decides whether the notification is re-posted, and a
+                    // seconds field meant one manager.notify per second for
+                    // the whole session. Round up so the last minute still
+                    // reads "1 min" instead of dropping to zero early.
+                    val minutes = (remainingMs + 59_999L) / 60_000L
+                    "$minutes min remaining"
                 }
 
                 if (text != lastText) {
@@ -745,16 +754,22 @@ class SoberCoreService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, SoberCoreService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            // Android 12+ throws ForegroundServiceStartNotAllowedException when
+            // the caller is in the background, instead of silently deferring.
+            // A tile, widget or receiver must not crash because of it; the
+            // watchdog path brings the service back when it can.
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
             }
         }
 
         fun stop(context: Context) {
             val intent = Intent(context, SoberCoreService::class.java)
-            context.stopService(intent)
+            runCatching { context.stopService(intent) }
         }
     }
 }
