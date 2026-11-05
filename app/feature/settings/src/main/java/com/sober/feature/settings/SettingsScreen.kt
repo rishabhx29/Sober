@@ -161,6 +161,12 @@ fun SettingsScreen(
     var backupMessageIsError by remember { mutableStateOf(false) }
     var pendingRestore by remember { mutableStateOf<Uri?>(null) }
     var showRestorePin by remember { mutableStateOf(false) }
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+
+    // Permission probes are binder calls, not observable state: nothing in
+    // Compose recomposes when the user flips a system switch. Bumping this on
+    // resume is what re-reads them after a trip to a Settings screen.
+    var permissionRefresh by remember { mutableStateOf(0) }
 
     fun startRestore(uri: Uri) {
         backupBusy = true
@@ -195,7 +201,11 @@ fun SettingsScreen(
             pendingRestore = uri
             showRestorePin = true
         } else {
-            startRestore(uri)
+            // Restoring replaces every rule on the device. Without a PIN there
+            // is nothing to verify, so the confirmation is the only guard
+            // between a mis-tapped file and a wiped rule set.
+            pendingRestore = uri
+            showRestoreConfirm = true
         }
     }
 
@@ -217,6 +227,7 @@ fun SettingsScreen(
                 batteryExempt =
                     BatteryOptimizationUtils.isIgnoringBatteryOptimizations(context)
                 dndAccess = PermissionUtils.hasDndAccess(context)
+                permissionRefresh++
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -699,23 +710,21 @@ fun SettingsScreen(
                 else ->
                     "Set a PIN first — lock mode is unlocked with it."
             },
-            trailing = {
-                SoberQuietButton(
-                    text = when {
-                        lockState.lockActive -> "Turn off"
-                        hasPin -> "Start"
-                        else -> "Set PIN"
-                    },
-                    onClick = {
-                        when {
+            // When a PIN exists and the lock is off, the duration buttons below
+            // are the action. A second "Start" button here did nothing.
+            trailing = if (hasPin && !lockState.lockActive) {
+                null
+            } else {
+                {
+                    SoberQuietButton(
+                        text = if (lockState.lockActive) "Turn off" else "Set PIN",
+                        onClick = {
                             // Reaching "Turn off" means the PIN gate above was
                             // already passed, so this is the authorised path.
-                            lockState.lockActive -> viewModel.clearLock()
-                            hasPin -> Unit
-                            else -> showPinDialog = true
+                            if (lockState.lockActive) viewModel.clearLock() else showPinDialog = true
                         }
-                    }
-                )
+                    )
+                }
             }
         )
         if (hasPin && !lockState.lockActive) {
@@ -772,22 +781,28 @@ fun SettingsScreen(
 
         SoberSectionHeader(title = "Permission status", index = "09")
 
-        val permissions = listOf(
-            Triple("Usage access", PermissionUtils.hasUsageStatsPermission(context), true),
-            Triple("Display over other apps", PermissionUtils.hasOverlayPermission(context), true),
-            Triple(
-                "Notifications",
-                PermissionUtils.hasPostNotificationsPermission(context),
-                true
-            ),
-            Triple("Do Not Disturb access", dndAccess, false),
-            Triple(
-                "Notification access",
-                PermissionUtils.hasNotificationListenerPermission(context),
-                false
-            ),
-            Triple("Accessibility", PermissionUtils.hasAccessibilityPermission(context), false)
-        )
+        val permissions = remember(permissionRefresh, dndAccess) {
+            listOf(
+                Triple("Usage access", PermissionUtils.hasUsageStatsPermission(context), true),
+                Triple(
+                    "Display over other apps",
+                    PermissionUtils.hasOverlayPermission(context),
+                    true
+                ),
+                Triple(
+                    "Notifications",
+                    PermissionUtils.hasPostNotificationsPermission(context),
+                    true
+                ),
+                Triple("Do Not Disturb access", dndAccess, false),
+                Triple(
+                    "Notification access",
+                    PermissionUtils.hasNotificationListenerPermission(context),
+                    false
+                ),
+                Triple("Accessibility", PermissionUtils.hasAccessibilityPermission(context), false)
+            )
+        }
 
         Column(modifier = Modifier.padding(top = 4.dp)) {
             permissions.forEachIndexed { index, (label, granted, required) ->
@@ -1066,6 +1081,57 @@ fun SettingsScreen(
                 showRestorePin = false
                 pendingRestore?.let { startRestore(it) }
                 pendingRestore = null
+            }
+        )
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = {
+                showRestoreConfirm = false
+                pendingRestore = null
+            },
+            containerColor = colors.surface,
+            title = {
+                Text(
+                    text = "Replace your rules?",
+                    color = colors.primary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    text = "The file's limits, schedules, custom rules and category budgets " +
+                        "replace the ones on this device. This cannot be undone.",
+                    color = colors.textSecondary,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirm = false
+                        pendingRestore?.let { startRestore(it) }
+                        pendingRestore = null
+                    }
+                ) {
+                    Text(
+                        text = "Restore",
+                        color = colors.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirm = false
+                        pendingRestore = null
+                    }
+                ) {
+                    Text(text = "Cancel", color = colors.textSecondary)
+                }
             }
         )
     }

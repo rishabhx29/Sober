@@ -117,6 +117,12 @@ fun SoberHoldToCancelButton(
 
                                 if (isRegretTimerActive) {
                                     onCancelConfirmed()
+                                    // A refusal (lock mode, or a session that
+                                    // already ended) leaves the timer showing
+                                    // "0s" with no way back to the button.
+                                    // Reset so the control is usable again.
+                                    isRegretTimerActive = false
+                                    regretSecondsRemaining = REGRET_SECONDS
                                 }
                             }
                             tryAwaitRelease()

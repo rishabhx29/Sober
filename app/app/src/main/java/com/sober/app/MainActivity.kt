@@ -24,8 +24,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // A shortcut launched while the process was dead arrives here; one
         // launched from Recents arrives in onNewIntent, because the activity
-        // is reused rather than recreated.
-        shortcutViewModel.handleIntent(intent)
+        // is reused rather than recreated. A configuration change replays the
+        // same intent through onCreate, so only a fresh start may act on it —
+        // otherwise rotating the phone restarts the preset and jumps tabs.
+        if (savedInstanceState == null) {
+            shortcutViewModel.handleIntent(intent)
+        }
         enableEdgeToEdge()
         setContent {
             SoberApp()

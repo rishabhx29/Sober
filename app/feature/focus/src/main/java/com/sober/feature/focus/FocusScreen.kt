@@ -212,7 +212,11 @@ fun FocusScreen(
 
                     SoberHoldToCancelButton(
                         onCancelConfirmed = {
-                            viewModel.cancelSession(activeSessionId!!)
+                            // The session can end between composition and the
+                            // tap (the service ticker completes it), which
+                            // would turn `!!` into a crash on a finished session.
+                            val id = activeSessionId
+                            if (id != null) viewModel.cancelSession(id)
                         }
                     )
                     }

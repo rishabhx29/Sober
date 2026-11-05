@@ -145,7 +145,14 @@ fun OnboardingScreen(
                 2 -> PermissionPage(
                     title = "Usage Access",
                     description = "Sober needs to know which apps you're using to enforce limits.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getUsageStatsIntent()) }
+                    onGrantClick = { context.startActivity(PermissionUtils.getUsageStatsIntent()) },
+                    // Paging is locked, so a page without a way forward traps
+                    // the user. Every settings-based grant can also be made
+                    // later from Settings, so skipping is always available.
+                    isOptional = true,
+                    onSkip = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(3) }
+                    }
                 )
                 3 -> PermissionPage(
                     title = "Accessibility",
@@ -170,12 +177,20 @@ fun OnboardingScreen(
                 4 -> PermissionPage(
                     title = "Notifications",
                     description = "Sober suppresses notifications from blocked apps during Focus Sessions.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getNotificationListenerIntent()) }
+                    onGrantClick = { context.startActivity(PermissionUtils.getNotificationListenerIntent()) },
+                    isOptional = true,
+                    onSkip = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(5) }
+                    }
                 )
                 5 -> PermissionPage(
                     title = "Display Over Other Apps",
                     description = "This allows us to show the block screen over the apps you've restricted.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getOverlayIntent(context)) }
+                    onGrantClick = { context.startActivity(PermissionUtils.getOverlayIntent(context)) },
+                    isOptional = true,
+                    onSkip = {
+                        coroutineScope.launch { pagerState.animateScrollToPage(6) }
+                    }
                 )
                 6 -> BatteryOptimizationPage(
                     isExempt = batteryExempt,
