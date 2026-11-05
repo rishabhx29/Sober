@@ -15,6 +15,8 @@ import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.sober.core.common.runtime.ServiceLiveness
 import com.sober.core.data.local.datastore.SoberPreferences
+import com.sober.core.domain.model.SessionTimerState
+import com.sober.core.domain.repository.AppSessionRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.PauseRulesRepository
 import com.sober.core.domain.repository.ProtectionSettingsRepository
@@ -24,6 +26,7 @@ import com.sober.core.domain.usecase.CheckBedtimeWarningUseCase
 import com.sober.core.domain.usecase.CheckStreakNotificationsUseCase
 import com.sober.core.domain.usecase.CheckUsageWarningsUseCase
 import com.sober.core.domain.usecase.EvaluateBlockDecisionUseCase
+import com.sober.core.domain.usecase.EvaluateSessionTimerUseCase
 import com.sober.core.domain.usecase.GetDailyScreenTimeUseCase
 import com.sober.core.domain.usecase.ManageEmergencyOverrideUseCase
 import com.sober.core.domain.usecase.ManageFocusSessionUseCase
@@ -33,6 +36,7 @@ import com.sober.core.domain.usecase.SyncUsageSessionsUseCase
 import com.sober.core.domain.repository.UsageStatsRepository
 import com.sober.system.overlay.ui.BlockOverlayController
 import com.sober.system.overlay.ui.PauseOverlayController
+import com.sober.system.overlay.ui.SessionTimerOverlayController
 import com.sober.system.services.foreground.ForegroundSignal
 import com.sober.system.services.widget.WidgetRefresh
 import dagger.hilt.android.AndroidEntryPoint
@@ -111,6 +115,15 @@ class SoberCoreService : Service() {
 
     @Inject
     lateinit var pauseOverlayController: PauseOverlayController
+
+    @Inject
+    lateinit var sessionTimerOverlayController: SessionTimerOverlayController
+
+    @Inject
+    lateinit var evaluateSessionTimerUseCase: EvaluateSessionTimerUseCase
+
+    @Inject
+    lateinit var appSessionRepository: AppSessionRepository
 
     @Inject
     lateinit var pauseRulesRepository: PauseRulesRepository
@@ -424,6 +437,9 @@ class SoberCoreService : Service() {
         if (day != lastOpenPruneDay) {
             lastOpenPruneDay = day
             runCatching { recordAppOpenUseCase.prune() }
+            // A concluded session changes nothing any more (the next entry
+            // asks for a length), so an old record is only dead weight.
+            runCatching { appSessionRepository.clearConcluded() }
         }
 
         // 3. Foreground app from event transitions (not lastTimeUsed).
@@ -459,6 +475,7 @@ class SoberCoreService : Service() {
             lastCountedPackage = null
             pauseCheckedPackage = null
             if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+            if (sessionTimerOverlayController.isShowing) sessionTimerOverlayController.hide()
             if (currentlyBlocked != null) {
                 currentlyBlocked = null
                 overlayController.hide()
@@ -472,12 +489,47 @@ class SoberCoreService : Service() {
         // incremented itself. Otherwise a budget of one blocks the first open.
         val decision = evaluateBlockDecisionUseCase(target)
         if (decision != null) {
-            // A block outranks a pause: the app is not usable either way, and
-            // the block screen is the truthful explanation.
+            // A block outranks a pause and the session picker: the app is not
+            // usable either way, and the block screen is the truthful
+            // explanation. Nothing should stack on top of it.
             if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+            if (sessionTimerOverlayController.isShowing) sessionTimerOverlayController.hide()
             pauseCheckedPackage = target
             showBlock(decision)
             return
+        }
+
+        // Session timer: an app with the rule on asks for a length before it
+        // is used, then rests for the same length when that session ends. The
+        // rest is a block decision above, so only the two other states reach
+        // here: a session already running (nothing to ask) and no session at
+        // all (ask). A running session survives leaving and re-entering the
+        // app, because the clock is wall time, not foreground time.
+        when (runCatching { evaluateSessionTimerUseCase(target) }
+            .getOrDefault(SessionTimerState.Off)) {
+            is SessionTimerState.NeedsSession -> {
+                // The picker is itself the decision, so the pause countdown is
+                // skipped for this app: showing one and then the other would
+                // ask the same question twice.
+                if (pauseOverlayController.isShowing) pauseOverlayController.hide()
+                pauseCheckedPackage = target
+                if (currentlyBlocked != null) {
+                    currentlyBlocked = null
+                    overlayController.hide()
+                }
+                sessionTimerOverlayController.show(target)
+                // Not counted yet: backing out at the picker is not an open,
+                // and the session that starts is the one worth counting.
+                return
+            }
+
+            else -> {
+                // Running, or the rule is off. A rest cannot get here (it is
+                // blocked above), so clearing the picker is all that is left.
+                if (sessionTimerOverlayController.isShowing) {
+                    sessionTimerOverlayController.hide()
+                }
+            }
         }
 
         // Pause before opening applies once per foreground run.

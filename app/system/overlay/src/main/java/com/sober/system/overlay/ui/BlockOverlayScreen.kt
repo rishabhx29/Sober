@@ -107,7 +107,10 @@ fun BlockOverlayScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = SoberTheme.colors
-    val isSessionBlock = decision.reason == BlockReason.FOCUS_SESSION
+    // A session timer's rest is a session-shaped clock too: it ticks in
+    // minutes, not toward midnight, and its ring counts the rest down.
+    val isSessionBlock = decision.reason == BlockReason.FOCUS_SESSION ||
+        decision.reason == BlockReason.SESSION_TIMER
 
     // A ticking clock drives both countdown styles. Session blocks tick at
     // second resolution because their window is minutes, not hours.
@@ -199,6 +202,7 @@ private fun BlockBody(
     val colors = SoberTheme.colors
 
     val countdownLabel = when {
+        decision.reason == BlockReason.SESSION_TIMER -> "Rest ends"
         isSessionBlock ->
             decision.sessionLabel?.takeIf { it.isNotBlank() } ?: "Focus session"
         decision.reason == BlockReason.SCHEDULE ->
@@ -207,6 +211,9 @@ private fun BlockBody(
         else -> "Back at midnight"
     }
     val countdownText = when {
+        decision.reason == BlockReason.SESSION_TIMER ->
+            sessionRemainingText(decision.sessionEndsAt, now)
+
         isSessionBlock ->
             // No end time means an open-ended session (PRD 2.6); "--:--" would
             // read as a broken timer where the truth is "until you decide".
@@ -1136,6 +1143,7 @@ private fun headlineFor(decision: BlockDecision, appLabel: String): String {
         BlockReason.APP_OPEN_LIMIT -> "You've opened $appLabel enough today."
         BlockReason.CATEGORY_LIMIT ->
             "That's your ${categoryLabel(decision)} time for today."
+        BlockReason.SESSION_TIMER -> "Your $appLabel session is over."
         else -> "You've had enough $appLabel for today."
     }
 }
@@ -1173,6 +1181,11 @@ private fun reasonFor(decision: BlockDecision): String = when (decision.reason) 
         "Allow-only mode is on, so only the apps you picked can open right now."
     BlockReason.BEDTIME ->
         "Bedtime blocks distracting apps until morning."
+    // The timer's promise is symmetric: the rest is exactly as long as the
+    // session the user chose, so the number they picked explains the block.
+    BlockReason.SESSION_TIMER ->
+        "You gave it ${decision.usedMinutes} min, so it rests for the same before " +
+            "asking again."
 }
 
 /** Display name for the category behind a category-limit block. */

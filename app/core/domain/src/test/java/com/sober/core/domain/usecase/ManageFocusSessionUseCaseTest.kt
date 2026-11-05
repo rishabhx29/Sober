@@ -54,7 +54,8 @@ class ManageFocusSessionUseCaseTest {
         blockableAppsRepository = FakeBlockableAppsRepository(),
         protectionSettingsRepository = FakeProtectionSettingsRepository(),
         appOpenRepository = FakeAppOpenRepository(),
-        appCategoryRepository = FakeAppCategoryRepository()
+        appCategoryRepository = FakeAppCategoryRepository(),
+        appSessionRepository = FakeAppSessionRepository()
     )
 
     @Test

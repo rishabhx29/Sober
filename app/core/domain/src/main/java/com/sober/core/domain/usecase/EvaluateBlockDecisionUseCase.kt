@@ -2,10 +2,12 @@ package com.sober.core.domain.usecase
 
 import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.CustomRuleType
+import com.sober.core.domain.model.SessionTimerState
 import com.sober.core.domain.repository.AccessibilityStateRepository
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
+import com.sober.core.domain.repository.AppSessionRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
@@ -83,7 +85,13 @@ enum class BlockReason {
     ALLOW_ONLY,
 
     /** The bedtime window is open and this app is not on its allowed list. */
-    BEDTIME
+    BEDTIME,
+
+    /**
+     * The app's chosen session ran out, and the matching rest is still running.
+     * The rest lasts as long as the session the user picked.
+     */
+    SESSION_TIMER
 }
 
 /**
@@ -96,8 +104,8 @@ enum class BlockReason {
  *
  * Precedence is deliberate: meal break lifts everything, an emergency override
  * lifts one app, then an active focus session, then an open schedule window,
- * then the user's own block list, then a section rule with no running
- * detector, then daily limits. The session is the stricter, more explicit
+ * then the user's own block list, then a session timer's rest, then a section
+ * rule with no running detector, then daily limits. The session is the stricter, more explicit
  * promise the user made and its overlay copy is what they expect to see; a
  * schedule follows because it too has a known end the overlay can name.
  */
@@ -115,7 +123,8 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
     private val blockableAppsRepository: BlockableAppsRepository,
     private val protectionSettingsRepository: ProtectionSettingsRepository,
     private val appOpenRepository: AppOpenRepository,
-    private val appCategoryRepository: AppCategoryRepository
+    private val appCategoryRepository: AppCategoryRepository,
+    private val appSessionRepository: AppSessionRepository
 ) {
     suspend operator fun invoke(foregroundPackage: String?): BlockDecision? {
         if (foregroundPackage.isNullOrBlank()) return null
@@ -256,6 +265,37 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             )
         }
 
+        // 1b5. The per-app session timer's rest. The user named a length, used
+        //      it, and the app now rests for the same length. It sits with the
+        //      other rules that have a known end, above plain daily limits,
+        //      because the overlay copy can say when it lifts and a limit could
+        //      otherwise claim credit for the same block. A running or absent
+        //      session does not block: the picker handles the absent case, and
+        //      the service decides when to show it.
+        //
+        //      The limit row is read once here and reused by the day budgets
+        //      below, so this extra check costs one DataStore read only.
+        val limit = appLimitRepository.getLimit(foregroundPackage)
+        if (limit != null && limit.isActive && limit.sessionTimerEnabled) {
+            val session = appSessionRepository.sessionFor(foregroundPackage)
+            val timerState = SessionTimerState.of(session, now)
+            if (timerState is SessionTimerState.Resting) {
+                val minutes = (timerState.session.durationMillis / 60_000L)
+                    .toInt()
+                    .coerceAtLeast(1)
+                return BlockDecision(
+                    packageName = foregroundPackage,
+                    reason = BlockReason.SESSION_TIMER,
+                    usedMinutes = minutes,
+                    limitMinutes = minutes,
+                    // The ring depletes across the rest, so its window starts
+                    // at the instant the session ended, not when it began.
+                    sessionStartedAt = timerState.session.endsAt,
+                    sessionEndsAt = timerState.session.restEndsAt
+                )
+            }
+        }
+
         // 1c. A section rule whose detector is not running. The user asked for
         //     "Reels is blocked"; without Accessibility we cannot tell Reels
         //     from the feed, so letting the app through would silently void
@@ -284,7 +324,6 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         // 2. The app's own daily limit. Zero minutes means there is no time
         //    budget (an opens-only rule), not a limit of zero — without the
         //    guard every app with an open budget would block on its first use.
-        val limit = appLimitRepository.getLimit(foregroundPackage)
         if (limit != null && limit.isActive && limit.dailyLimitMinutes > 0 &&
             usedMinutes >= limit.dailyLimitMinutes
         ) {

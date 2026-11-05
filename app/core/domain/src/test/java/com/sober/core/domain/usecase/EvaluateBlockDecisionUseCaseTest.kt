@@ -1,5 +1,7 @@
 package com.sober.core.domain.usecase
 
+import com.sober.core.domain.model.AppLimit
+import com.sober.core.domain.model.AppSession
 import com.sober.core.domain.model.AppUsage
 import com.sober.core.domain.model.CustomRule
 import com.sober.core.domain.model.CustomRuleType
@@ -26,7 +28,8 @@ class EvaluateBlockDecisionUseCaseTest {
         blockableApps: FakeBlockableAppsRepository = FakeBlockableAppsRepository(),
         protection: FakeProtectionSettingsRepository = FakeProtectionSettingsRepository(),
         opens: FakeAppOpenRepository = FakeAppOpenRepository(),
-        categories: FakeAppCategoryRepository = FakeAppCategoryRepository()
+        categories: FakeAppCategoryRepository = FakeAppCategoryRepository(),
+        sessions: FakeAppSessionRepository = FakeAppSessionRepository()
     ) = EvaluateBlockDecisionUseCase(
         appLimitRepository = limits,
         usageSessionRepository = FakeUsageSessionRepository(),
@@ -45,7 +48,8 @@ class EvaluateBlockDecisionUseCaseTest {
         blockableAppsRepository = blockableApps,
         protectionSettingsRepository = protection,
         appOpenRepository = opens,
-        appCategoryRepository = categories
+        appCategoryRepository = categories,
+        appSessionRepository = sessions
     )
 
     private fun activeSession(vararg blocked: String) = FakeSessionStateRepository().apply {
@@ -777,6 +781,81 @@ class EvaluateBlockDecisionUseCaseTest {
                 categories = categories,
                 usage = usageOf("com.google.android.youtube" to 60)
             )("com.google.android.youtube")
+        )
+    }
+
+    // ---- Session timer ----------------------------------------------
+
+    private fun sessionTimerLimit(enabled: Boolean = true) = FakeAppLimitRepository(
+        listOf(
+            AppLimit(
+                packageName = "com.instagram.android",
+                appName = "Instagram",
+                dailyLimitMinutes = 0,
+                sessionTimerEnabled = enabled
+            )
+        )
+    )
+
+    private fun session(startedMsAgo: Long, endsInMs: Long, now: Long) = AppSession(
+        packageName = "com.instagram.android",
+        startedAt = now - startedMsAgo,
+        endsAt = now + endsInMs
+    )
+
+    @Test
+    fun `an ended session blocks for as long as it lasted`() = runTest {
+        val now = System.currentTimeMillis()
+        // Ten minutes of session, ended five minutes ago: the rest runs to now+5.
+        val sessions = FakeAppSessionRepository(
+            listOf(session(startedMsAgo = 15 * 60_000L, endsInMs = -5 * 60_000L, now = now))
+        )
+
+        val decision = useCase(limits = sessionTimerLimit(), sessions = sessions)(
+            "com.instagram.android"
+        )
+
+        assertEquals(BlockReason.SESSION_TIMER, decision?.reason)
+        assertEquals(10, decision?.usedMinutes)
+        assertEquals(now + 5 * 60_000L, decision?.sessionEndsAt)
+        assertEquals(now - 5 * 60_000L, decision?.sessionStartedAt)
+    }
+
+    @Test
+    fun `a running session does not block`() = runTest {
+        val now = System.currentTimeMillis()
+        val sessions = FakeAppSessionRepository(
+            listOf(session(startedMsAgo = 60_000L, endsInMs = 9 * 60_000L, now = now))
+        )
+
+        assertNull(
+            useCase(limits = sessionTimerLimit(), sessions = sessions)("com.instagram.android")
+        )
+    }
+
+    @Test
+    fun `a finished rest asks for a new length instead of blocking`() = runTest {
+        val now = System.currentTimeMillis()
+        val sessions = FakeAppSessionRepository(
+            listOf(session(startedMsAgo = 30 * 60_000L, endsInMs = -20 * 60_000L, now = now))
+        )
+
+        assertNull(
+            useCase(limits = sessionTimerLimit(), sessions = sessions)("com.instagram.android")
+        )
+    }
+
+    @Test
+    fun `a session timer switched off does not block its stored rest`() = runTest {
+        val now = System.currentTimeMillis()
+        val sessions = FakeAppSessionRepository(
+            listOf(session(startedMsAgo = 20 * 60_000L, endsInMs = -10 * 60_000L, now = now))
+        )
+
+        assertNull(
+            useCase(limits = sessionTimerLimit(enabled = false), sessions = sessions)(
+                "com.instagram.android"
+            )
         )
     }
 }
