@@ -30,10 +30,12 @@ data class BackupDocument(
         const val FORMAT = "sober-backup"
 
         /**
-         * 2 added user-recorded section rules. The reader still accepts 1, where
-         * that list is simply absent and the shipped toggles are all there is.
+         * 2 added user-recorded section rules, 3 added the per-app session
+         * timer flag. The reader still accepts older files, where the absent
+         * fields simply mean "off"; writing a newer version keeps an older
+         * build from restoring a file while silently dropping a rule.
          */
-        const val CURRENT_VERSION = 2
+        const val CURRENT_VERSION = 3
     }
 }
 
@@ -44,7 +46,8 @@ data class BackupAppLimit(
     val isActive: Boolean = true,
     val blockedSections: List<String> = emptyList(),
     val createdAt: Long = 0L,
-    val dailyOpenLimit: Int = 0
+    val dailyOpenLimit: Int = 0,
+    val sessionTimerEnabled: Boolean = false
 )
 
 data class BackupScheduleRule(
@@ -209,6 +212,7 @@ class BackupCodec {
         writeStringList(writer, value.blockedSections)
         writer.name("createdAt").value(value.createdAt)
         writer.name("dailyOpenLimit").value(value.dailyOpenLimit)
+        writer.name("sessionTimerEnabled").value(value.sessionTimerEnabled)
         writer.endObject()
     }
 
@@ -357,6 +361,7 @@ class BackupCodec {
         var blockedSections: List<String> = emptyList()
         var createdAt = 0L
         var dailyOpenLimit = 0
+        var sessionTimerEnabled = false
 
         readObject(reader) { key ->
             when (key) {
@@ -367,6 +372,7 @@ class BackupCodec {
                 "blockedSections" -> blockedSections = readStringList(reader)
                 "createdAt" -> createdAt = reader.nextLong()
                 "dailyOpenLimit" -> dailyOpenLimit = reader.nextInt()
+                "sessionTimerEnabled" -> sessionTimerEnabled = reader.nextBoolean()
                 else -> return@readObject false
             }
             true
@@ -379,7 +385,8 @@ class BackupCodec {
             isActive = isActive,
             blockedSections = blockedSections,
             createdAt = createdAt,
-            dailyOpenLimit = dailyOpenLimit
+            dailyOpenLimit = dailyOpenLimit,
+            sessionTimerEnabled = sessionTimerEnabled
         )
     }
 

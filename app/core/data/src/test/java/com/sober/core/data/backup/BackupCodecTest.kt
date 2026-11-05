@@ -18,7 +18,8 @@ class BackupCodecTest {
                     appName = "Instagram",
                     dailyLimitMinutes = 30,
                     blockedSections = listOf("reels"),
-                    dailyOpenLimit = 3
+                    dailyOpenLimit = 3,
+                    sessionTimerEnabled = true
                 )
             ),
             scheduleRules = listOf(
@@ -91,7 +92,7 @@ class BackupCodecTest {
             """{"format":"sober-backup","version":1,"sectionRules":["instagram_reels"]}"""
         )
 
-        assertEquals(2, BackupDocument.CURRENT_VERSION)
+        assertEquals(3, BackupDocument.CURRENT_VERSION)
         assertEquals(listOf("instagram_reels"), decoded.sectionRules)
         assertTrue(decoded.customSectionRules.isEmpty())
     }
@@ -103,7 +104,7 @@ class BackupCodecTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `a file from a newer version is rejected`() {
-        codec.decode("""{"format":"sober-backup","version":3}""")
+        codec.decode("""{"format":"sober-backup","version":4}""")
     }
 
     @Test(expected = IllegalArgumentException::class)

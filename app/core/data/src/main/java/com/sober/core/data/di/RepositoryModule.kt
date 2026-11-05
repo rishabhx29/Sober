@@ -5,6 +5,7 @@ import com.sober.core.data.repository.AchievementRepositoryImpl
 import com.sober.core.data.repository.AppCategoryRepositoryImpl
 import com.sober.core.data.repository.AppLimitRepositoryImpl
 import com.sober.core.data.repository.AppOpenRepositoryImpl
+import com.sober.core.data.repository.AppSessionRepositoryImpl
 import com.sober.core.data.repository.BackupRepositoryImpl
 import com.sober.core.data.repository.BlockableAppsRepositoryImpl
 import com.sober.core.data.repository.ChallengeRepositoryImpl
@@ -28,6 +29,7 @@ import com.sober.core.domain.repository.AchievementRepository
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
+import com.sober.core.domain.repository.AppSessionRepository
 import com.sober.core.domain.repository.BackupRepository
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.ChallengeRepository
@@ -69,6 +71,12 @@ abstract class RepositoryModule {
     abstract fun bindAppLimitRepository(
         impl: AppLimitRepositoryImpl
     ): AppLimitRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAppSessionRepository(
+        impl: AppSessionRepositoryImpl
+    ): AppSessionRepository
 
     @Binds
     @Singleton

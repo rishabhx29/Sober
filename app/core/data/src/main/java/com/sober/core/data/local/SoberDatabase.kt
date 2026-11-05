@@ -28,7 +28,7 @@ import com.sober.core.data.local.util.Converters
         OverrideLogEntity::class,
         AppOpenEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -97,6 +97,18 @@ abstract class SoberDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_app_limits_packageName` " +
                         "ON `app_limits` (`packageName`)"
+                )
+            }
+        }
+
+        /**
+         * v4 adds the per-app session timer flag. Additive with an "off"
+         * default, so every existing limit keeps behaving exactly as it did.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE app_limits ADD COLUMN sessionTimerEnabled INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

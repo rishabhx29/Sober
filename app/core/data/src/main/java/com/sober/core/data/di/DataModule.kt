@@ -28,7 +28,11 @@ object DataModule {
             SoberDatabase::class.java,
             "sober_database"
         )
-            .addMigrations(SoberDatabase.MIGRATION_1_2, SoberDatabase.MIGRATION_2_3)
+            .addMigrations(
+                SoberDatabase.MIGRATION_1_2,
+                SoberDatabase.MIGRATION_2_3,
+                SoberDatabase.MIGRATION_3_4
+            )
             .build()
     }
 

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.sober.core.domain.model.AllowOnlyMode
 import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.AppPauseRule
+import com.sober.core.domain.model.AppSession
 import com.sober.core.domain.model.BedtimeSettings
 import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.NotificationSilenceScope
@@ -182,6 +183,11 @@ class SoberPreferences @Inject constructor(
             androidx.datastore.preferences.core.stringSetPreferencesKey("app_pause_rules")
         val KEY_PAUSE_PASSES =
             androidx.datastore.preferences.core.stringSetPreferencesKey("pause_passes")
+
+        // Session timer: "package|startedAt|endsAt" per app. One entry per
+        // package, replaced when the user picks a new length.
+        val KEY_APP_SESSIONS =
+            androidx.datastore.preferences.core.stringSetPreferencesKey("app_sessions")
 
         // Allow-only mode and the apps it permits.
         val KEY_ALLOW_ONLY_ENABLED =
@@ -744,6 +750,58 @@ class SoberPreferences @Inject constructor(
             }
             if (live.size != current.size) preferences[KEY_PAUSE_PASSES] = live.toSet()
         }
+    }
+
+    // ---- Session timer -------------------------------------------------
+
+    val appSessions: Flow<Map<String, AppSession>> = data.map { preferences ->
+        preferences[KEY_APP_SESSIONS].orEmpty()
+            .mapNotNull(::decodeAppSession)
+            .associateBy { it.packageName }
+    }
+
+    /** Replaces the record for the session's package; one entry per app. */
+    suspend fun setAppSession(session: AppSession) {
+        dataStore.edit { preferences ->
+            val others = preferences[KEY_APP_SESSIONS].orEmpty()
+                .filterNot { it.substringBefore('|') == session.packageName }
+            preferences[KEY_APP_SESSIONS] = (others + encodeAppSession(session)).toSet()
+        }
+    }
+
+    suspend fun clearAppSession(packageName: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_APP_SESSIONS].orEmpty()
+            val kept = current.filterNot { it.substringBefore('|') == packageName }
+            if (kept.size != current.size) preferences[KEY_APP_SESSIONS] = kept.toSet()
+        }
+    }
+
+    /**
+     * Removes records whose rest has ended. A malformed entry is dropped too:
+     * it can never match a package again, so keeping it only grows the set.
+     */
+    suspend fun clearConcludedAppSessions(now: Long) {
+        dataStore.edit { preferences ->
+            val current = preferences[KEY_APP_SESSIONS].orEmpty()
+            val live = current.filter { entry ->
+                val session = decodeAppSession(entry)
+                session != null && !session.isConcluded(now)
+            }
+            if (live.size != current.size) preferences[KEY_APP_SESSIONS] = live.toSet()
+        }
+    }
+
+    private fun encodeAppSession(session: AppSession): String =
+        "${session.packageName}|${session.startedAt}|${session.endsAt}"
+
+    private fun decodeAppSession(entry: String): AppSession? {
+        val parts = entry.split('|')
+        if (parts.size != 3) return null
+        val startedAt = parts[1].toLongOrNull() ?: return null
+        val endsAt = parts[2].toLongOrNull() ?: return null
+        if (parts[0].isBlank() || endsAt <= startedAt) return null
+        return AppSession(packageName = parts[0], startedAt = startedAt, endsAt = endsAt)
     }
 
     // ---- Allow-only, category budgets and bedtime --------------------

@@ -5,6 +5,7 @@ import com.sober.core.domain.model.ActiveChallenge
 import com.sober.core.domain.model.AllowOnlyMode
 import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.AppPauseRule
+import com.sober.core.domain.model.AppSession
 import com.sober.core.domain.model.BedtimeSettings
 import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.CustomRule
@@ -30,6 +31,7 @@ import com.sober.core.domain.repository.AlertNotifier
 import com.sober.core.domain.repository.AppCategoryRepository
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
+import com.sober.core.domain.repository.AppSessionRepository
 import com.sober.core.domain.repository.BlockableApp
 import com.sober.core.domain.repository.BlockableAppsRepository
 import com.sober.core.domain.repository.ChallengeRepository
@@ -539,6 +541,30 @@ class FakePauseRulesRepository : PauseRulesRepository {
 
     override suspend fun clearExpiredPasses(now: Long) {
         passes.value = passes.value.filterValues { it > now }
+    }
+}
+
+class FakeAppSessionRepository(
+    initial: List<AppSession> = emptyList()
+) : AppSessionRepository {
+    val stored = initial.associateBy { it.packageName }.toMutableMap()
+
+    override val sessions: Flow<Map<String, AppSession>> =
+        MutableStateFlow(stored.toMap())
+
+    override suspend fun sessionFor(packageName: String): AppSession? =
+        stored[packageName]
+
+    override suspend fun start(session: AppSession) {
+        stored[session.packageName] = session
+    }
+
+    override suspend fun clear(packageName: String) {
+        stored.remove(packageName)
+    }
+
+    override suspend fun clearConcluded(now: Long) {
+        stored.entries.removeAll { it.value.isConcluded(now) }
     }
 }
 
