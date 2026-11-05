@@ -24,6 +24,9 @@ import javax.inject.Inject
  *     nearest whole bucket, so asking for "today at 6am" can return hours that
  *     were used yesterday. Events carry timestamps, so clipping them to the
  *     range gives a total that cannot exceed the time elapsed today.
+ *     Only time with the screen interactive counts, and a resume that arrives
+ *     while the screen is off is ignored: that event comes from a background
+ *     activity, and crediting it is how an app nobody opened reports hours.
  *
  *  2. **Foreground detection** (`getForegroundPackage`) — which app is on
  *     screen *right now*. This must **not** be derived from
@@ -89,6 +92,10 @@ class UsageStatsRepositoryImpl @Inject constructor(
     private var cachedLastApp: String? = null
     private var cacheInitialized = false
 
+    /** Day start [screenInteractiveAtProbe] was measured for, or -1 before the first probe. */
+    private var screenStateProbedAt = -1L
+    private var screenInteractiveAtProbe = true
+
     override fun getUsageStatsForToday(): List<AppUsage> {
         val startTime = startOfToday()
         val endTime = System.currentTimeMillis()
@@ -97,12 +104,41 @@ class UsageStatsRepositoryImpl @Inject constructor(
         // better than inventing totals from a coarser source.
         val events = readEvents(startTime, endTime) ?: return emptyList()
 
-        return aggregateUsageByPackage(events, startTime, endTime).map { (packageName, usage) ->
-            AppUsage(
-                packageName = packageName,
-                totalTimeInForeground = usage.millis,
-                lastTimeUsed = usage.lastResumedAt
-            )
+        return aggregateUsageByPackage(events, startTime, endTime, initialScreenState(startTime))
+            .map { (packageName, usage) ->
+                AppUsage(
+                    packageName = packageName,
+                    totalTimeInForeground = usage.millis,
+                    lastTimeUsed = usage.lastResumedAt
+                )
+            }
+    }
+
+    /** Whether the screen was interactive at [atMillis], judged from earlier events. */
+    private fun screenInteractiveAt(events: List<ForegroundEvent>, atMillis: Long): Boolean =
+        events.asSequence()
+            .filter { it.timestampMillis < atMillis }
+            .fold(true) { interactive, event ->
+                when (event.kind) {
+                    ForegroundEventKind.SCREEN_OFF -> false
+                    ForegroundEventKind.SCREEN_ON -> true
+                    else -> interactive
+                }
+            }
+
+    /**
+     * The screen state at the start of the day, probed once and cached.
+     *
+     * `getUsageStatsForToday` runs on every enforcement poll, so the look-back
+     * for the last screen event before midnight must not be part of that query.
+     * It is asked for once per day and reused for the rest of it.
+     */
+    private fun initialScreenState(atMillis: Long): Boolean {
+        if (atMillis == screenStateProbedAt) return screenInteractiveAtProbe
+        val probe = readEvents(atMillis - SCREEN_STATE_PROBE_MS, atMillis) ?: return true
+        return screenInteractiveAt(probe, atMillis).also { interactive ->
+            screenStateProbedAt = atMillis
+            screenInteractiveAtProbe = interactive
         }
     }
 
@@ -178,9 +214,18 @@ class UsageStatsRepositoryImpl @Inject constructor(
             val kind = when {
                 event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND -> ForegroundEventKind.RESUMED
                 event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND -> ForegroundEventKind.PAUSED
+                // An activity that is stopped without a delivered pause still
+                // left the screen. Treating it as a close stops one missing
+                // pause from crediting an app until the next unrelated resume.
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    event.eventType == UsageEvents.Event.ACTIVITY_STOPPED ->
+                    ForegroundEventKind.PAUSED
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
                     event.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE ->
                     ForegroundEventKind.SCREEN_OFF
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                    event.eventType == UsageEvents.Event.SCREEN_INTERACTIVE ->
+                    ForegroundEventKind.SCREEN_ON
                 else -> continue
             }
             transitions += ForegroundEvent(
@@ -211,11 +256,10 @@ class UsageStatsRepositoryImpl @Inject constructor(
     override fun getForegroundIntervals(fromMillis: Long, toMillis: Long): List<UsageInterval> {
         if (toMillis <= fromMillis) return emptyList()
 
-        val events = try {
-            usageStatsManager.queryEvents(fromMillis, toMillis) ?: return emptyList()
-        } catch (e: SecurityException) {
-            return emptyList()
-        }
+        // The probe only supplies the screen state at [fromMillis]; its events
+        // are not replayed, so a session opened before the range stays out.
+        val events = readEvents(fromMillis - SCREEN_STATE_PROBE_MS, toMillis) ?: return emptyList()
+        var interactive = screenInteractiveAt(events, fromMillis)
 
         val intervals = ArrayList<UsageInterval>()
         var currentPackage: String? = null
@@ -234,38 +278,31 @@ class UsageStatsRepositoryImpl @Inject constructor(
             currentStart = 0L
         }
 
-        val event = UsageEvents.Event()
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val timestamp = event.timeStamp.coerceIn(fromMillis, toMillis)
+        events.forEach { event ->
+            if (event.timestampMillis < fromMillis) return@forEach
+            val timestamp = event.timestampMillis.coerceIn(fromMillis, toMillis)
 
-            when (event.eventType) {
-                UsageEvents.Event.MOVE_TO_FOREGROUND -> {
-                    // A new resume implicitly ends whatever was before it, even
-                    // if that app's pause event was never delivered.
+            when (event.kind) {
+                // A resume while the screen is off belongs to a background
+                // activity, not to a person looking at the app. Opening a
+                // session there is how an untouched app collects hours.
+                ForegroundEventKind.RESUMED -> {
                     closeCurrent(timestamp)
-                    currentPackage = event.packageName
-                    currentStart = timestamp
-                }
-
-                UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                    if (event.packageName == currentPackage) {
-                        closeCurrent(timestamp)
+                    if (interactive && event.packageName.isNotEmpty()) {
+                        currentPackage = event.packageName
+                        currentStart = timestamp
                     }
                 }
 
-                // SCREEN_NON_INTERACTIVE is API 28+, so it is matched behind a
-                // version guard instead of as a branch label. Below 28 a screen
-                // that turns off while an app is open leaves that interval open
-                // until the next app switch; the alternative is guessing from a
-                // keyguard event that also does not exist on 26–27.
-                else -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                        event.eventType == UsageEvents.Event.SCREEN_NON_INTERACTIVE
-                    ) {
-                        closeCurrent(timestamp)
-                    }
+                ForegroundEventKind.PAUSED ->
+                    if (event.packageName == currentPackage) closeCurrent(timestamp)
+
+                ForegroundEventKind.SCREEN_OFF -> {
+                    closeCurrent(timestamp)
+                    interactive = false
                 }
+
+                ForegroundEventKind.SCREEN_ON -> interactive = true
             }
         }
 
@@ -320,10 +357,17 @@ class UsageStatsRepositoryImpl @Inject constructor(
          * midnight and still open now.
          */
         private const val INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000L
+
+        /**
+         * How far before a queried range to look for the last screen on/off
+         * event. A day covers the last event before midnight even on a phone
+         * that slept all evening, and the result is cached per day.
+         */
+        private const val SCREEN_STATE_PROBE_MS = 24 * 60 * 60 * 1000L
     }
 }
 
-internal enum class ForegroundEventKind { RESUMED, PAUSED, SCREEN_OFF }
+internal enum class ForegroundEventKind { RESUMED, PAUSED, SCREEN_OFF, SCREEN_ON }
 
 internal data class ForegroundEvent(
     val kind: ForegroundEventKind,
@@ -390,6 +434,9 @@ internal fun replayForegroundState(
                 foreground = null
                 lastApp = null
             }
+            // Turning the screen on resumes nothing by itself: the keyguard is
+            // up, and the app underneath stays unknown until it resumes.
+            ForegroundEventKind.SCREEN_ON -> Unit
         }
     }
     return ForegroundReplay(foreground = foreground, lastApp = lastApp)
@@ -419,6 +466,11 @@ internal data class PackageUsage(val millis: Long, val lastResumedAt: Long)
  * on screen right now counts. Intervals are clipped to the range, so the sum
  * can never exceed the time elapsed in it.
  *
+ * Time is only credited while the screen is interactive. A resume can arrive
+ * with the screen off — an activity started from a service or a broadcast — and
+ * without this gate that app keeps the screen until some other app happens to
+ * resume, which is how an app nobody opened reports hours.
+ *
  * An app already on screen at [fromMillis] has no resume inside the range and
  * therefore starts counting at its next resume; the rollup in
  * `UsageSessionRepository` covers the stretch before that. Under-counting is
@@ -427,41 +479,48 @@ internal data class PackageUsage(val millis: Long, val lastResumedAt: Long)
 internal fun aggregateUsageByPackage(
     events: List<ForegroundEvent>,
     fromMillis: Long,
-    toMillis: Long
+    toMillis: Long,
+    initiallyInteractive: Boolean = true
 ): Map<String, PackageUsage> {
     if (toMillis <= fromMillis) return emptyMap()
 
     val totals = HashMap<String, Long>()
     val lastResumed = HashMap<String, Long>()
     var currentPackage: String? = null
-    var currentStart = 0L
+    var interactive = initiallyInteractive
+    var segmentStart = fromMillis
 
-    fun closeCurrent(at: Long) {
-        val pkg = currentPackage ?: return
-        val start = currentStart.coerceAtLeast(fromMillis)
-        val end = at.coerceAtMost(toMillis)
-        if (end > start) totals[pkg] = (totals[pkg] ?: 0L) + (end - start)
-        currentPackage = null
-        currentStart = 0L
+    /** Credits the segment ending at [at] if the screen was on, then moves on. */
+    fun account(at: Long) {
+        val pkg = currentPackage
+        val end = at.coerceIn(fromMillis, toMillis)
+        if (pkg != null && interactive && end > segmentStart) {
+            totals[pkg] = (totals[pkg] ?: 0L) + (end - segmentStart)
+        }
+        segmentStart = maxOf(segmentStart, end)
     }
 
     events.forEach { event ->
         val timestamp = event.timestampMillis.coerceIn(fromMillis, toMillis)
+        account(timestamp)
         when (event.kind) {
-            ForegroundEventKind.RESUMED -> {
-                closeCurrent(timestamp)
-                if (event.packageName.isNotEmpty()) {
+            ForegroundEventKind.RESUMED ->
+                // A resume while the screen is off belongs to a background
+                // activity, not to the person holding the phone.
+                if (event.packageName.isNotEmpty() && interactive) {
                     currentPackage = event.packageName
-                    currentStart = timestamp
                     lastResumed[event.packageName] = timestamp
                 }
-            }
             ForegroundEventKind.PAUSED ->
-                if (event.packageName == currentPackage) closeCurrent(timestamp)
-            ForegroundEventKind.SCREEN_OFF -> closeCurrent(timestamp)
+                if (event.packageName == currentPackage) currentPackage = null
+            ForegroundEventKind.SCREEN_OFF -> {
+                currentPackage = null
+                interactive = false
+            }
+            ForegroundEventKind.SCREEN_ON -> interactive = true
         }
     }
-    closeCurrent(toMillis)
+    account(toMillis)
 
     return totals.mapValues { (packageName, millis) ->
         PackageUsage(millis = millis, lastResumedAt = lastResumed[packageName] ?: 0L)

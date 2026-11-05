@@ -3,6 +3,7 @@ package com.sober.core.domain.usecase
 import com.sober.core.domain.model.UsageSession
 import com.sober.core.domain.repository.UsageSessionRepository
 import com.sober.core.domain.repository.UsageStatsRepository
+import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,6 +46,25 @@ class SyncUsageSessionsUseCase @Inject constructor(
                     usedMinutes = usedMinutes
                 )
             )
+        }
+
+        // The live query is authoritative for today when it returns anything:
+        // a row it does not mention is stale. Leaving it would keep the larger
+        // of `stored` and `live` on Stats and in the daily cap, so an app that
+        // was once credited hours — a background resume counted as screen time
+        // — would keep that figure for the rest of the day.
+        //
+        // An empty result is not that signal: a revoked usage-access grant
+        // reads as "nothing used", and deleting on it would erase real totals
+        // that the stored rows exist to preserve.
+        if (usage.isNotEmpty()) {
+            val livePackages = usage
+                .filterNot { it.packageName in usageStatsRepository.excludedPackages }
+                .map { it.packageName }
+                .toSet()
+            usageSessionRepository.getAllUsageForDate(today).first()
+                .filterNot { it.packageName in livePackages }
+                .forEach { usageSessionRepository.deleteSession(it.packageName, today) }
         }
     }
 

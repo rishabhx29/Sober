@@ -14,6 +14,7 @@ class UsageAggregationTest {
 
     private val midnight = 1_000_000L
     private val now = midnight + 60 * 60_000L // one hour into the day
+    private val later = midnight + 9 * 60 * 60_000L // enough room for a night and a morning
 
     private fun resumed(pkg: String, at: Long) =
         ForegroundEvent(ForegroundEventKind.RESUMED, pkg, at)
@@ -23,6 +24,9 @@ class UsageAggregationTest {
 
     private fun screenOff(at: Long) =
         ForegroundEvent(ForegroundEventKind.SCREEN_OFF, "", at)
+
+    private fun screenOn(at: Long) =
+        ForegroundEvent(ForegroundEventKind.SCREEN_ON, "", at)
 
     @Test
     fun `a session still open is counted up to now`() {
@@ -101,6 +105,9 @@ class UsageAggregationTest {
             listOf(
                 resumed("com.chrome", midnight + 10 * 60_000L),
                 screenOff(midnight + 20 * 60_000L),
+                // Waking the phone is what lets the next resume count; without
+                // it that resume is a background start and stays uncounted.
+                screenOn(midnight + 45 * 60_000L),
                 resumed("com.chrome", midnight + 50 * 60_000L)
             ),
             midnight,
@@ -155,5 +162,74 @@ class UsageAggregationTest {
     @Test
     fun `an empty range yields nothing`() {
         assertTrue(aggregateUsageByPackage(emptyList(), now, now).isEmpty())
+    }
+
+    @Test
+    fun `a resume while the screen is off earns no time`() {
+        // The reported bug: a background activity resumes at 3am, the phone is
+        // asleep, and the app keeps the screen until someone else resumes.
+        val usage = aggregateUsageByPackage(
+            listOf(
+                screenOff(midnight + 1 * 60_000L),
+                resumed("com.photos", midnight + 3 * 60 * 60_000L),
+                screenOn(midnight + 7 * 60 * 60_000L),
+                resumed("com.chrome", midnight + 8 * 60 * 60_000L)
+            ),
+            midnight,
+            later,
+            initiallyInteractive = true
+        )
+
+        assertTrue("com.photos" !in usage)
+        assertEquals(60 * 60_000L, usage.getValue("com.chrome").millis)
+    }
+
+    @Test
+    fun `a resume between midnight and the first screen-on is still ignored`() {
+        // The day starts with the screen off, as it does when the phone slept
+        // through midnight; a resume at 2am is a background start, not a person.
+        val usage = aggregateUsageByPackage(
+            listOf(
+                resumed("com.photos", midnight + 2 * 60 * 60_000L),
+                screenOn(midnight + 7 * 60 * 60_000L),
+                resumed("com.chrome", midnight + 8 * 60 * 60_000L)
+            ),
+            midnight,
+            later,
+            initiallyInteractive = false
+        )
+
+        assertTrue("com.photos" !in usage)
+        assertEquals(60 * 60_000L, usage.getValue("com.chrome").millis)
+    }
+
+    @Test
+    fun `waking the screen does not credit the app underneath`() {
+        val usage = aggregateUsageByPackage(
+            listOf(
+                resumed("com.photos", midnight + 2 * 60 * 60_000L),
+                screenOn(midnight + 7 * 60 * 60_000L)
+            ),
+            midnight,
+            later,
+            initiallyInteractive = false
+        )
+
+        assertTrue(usage.isEmpty())
+    }
+
+    @Test
+    fun `time asleep inside a session is not counted`() {
+        val usage = aggregateUsageByPackage(
+            listOf(
+                resumed("com.chrome", midnight + 10 * 60_000L),
+                screenOff(midnight + 20 * 60_000L),
+                screenOn(midnight + 50 * 60_000L)
+            ),
+            midnight,
+            later
+        )
+
+        assertEquals(10 * 60_000L, usage.getValue("com.chrome").millis)
     }
 }

@@ -43,6 +43,10 @@ class UsageSessionRepositoryImpl @Inject constructor(
         return dao.getUsageForDates(dates).map { it.toDomainModel() }
     }
 
+    override suspend fun deleteSession(packageName: String, date: String) {
+        dao.deleteSession(packageName, date)
+    }
+
     override suspend fun resetDailyUsage() {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         dao.resetDailyUsage(today, System.currentTimeMillis())

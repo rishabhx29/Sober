@@ -21,6 +21,9 @@ interface UsageSessionDao {
     @Query("SELECT * FROM usage_sessions WHERE date IN (:dates)")
     suspend fun getUsageForDates(dates: List<String>): List<UsageSessionEntity>
 
+    @Query("DELETE FROM usage_sessions WHERE packageName = :packageName AND date = :date")
+    suspend fun deleteSession(packageName: String, date: String)
+
     @Query("UPDATE usage_sessions SET usedMinutes = 0, lastUpdated = :timestamp WHERE date = :date")
     suspend fun resetDailyUsage(date: String, timestamp: Long)
 }

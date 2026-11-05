@@ -81,6 +81,10 @@ class FakeUsageSessionRepository(
     override suspend fun getUsageForDates(dates: List<String>): List<UsageSession> =
         sessions.filter { it.date in dates }
 
+    override suspend fun deleteSession(packageName: String, date: String) {
+        sessions.removeAll { it.packageName == packageName && it.date == date }
+    }
+
     override suspend fun resetDailyUsage() {
         val index = sessions.indices.filter { sessions[it].date == today() }
         index.forEach { i ->

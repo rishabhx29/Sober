@@ -8,5 +8,6 @@ interface UsageSessionRepository {
     suspend fun getUsageForToday(packageName: String): UsageSession?
     fun getAllUsageForDate(date: String): Flow<List<UsageSession>>
     suspend fun getUsageForDates(dates: List<String>): List<UsageSession>
+    suspend fun deleteSession(packageName: String, date: String)
     suspend fun resetDailyUsage() // Zeroes out for midnight
 }
