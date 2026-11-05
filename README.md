@@ -7,8 +7,8 @@
 <p align="center">
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.8%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
-  <img src="https://img.shields.io/badge/version-1.6-B3432F?style=flat-square" alt="Version 1.6">
-  <img src="https://img.shields.io/badge/tests-527%20passing-4C7A5C?style=flat-square" alt="527 unit tests passing">
+  <img src="https://img.shields.io/badge/version-1.7-B3432F?style=flat-square" alt="Version 1.7">
+  <img src="https://img.shields.io/badge/tests-545%20passing-4C7A5C?style=flat-square" alt="545 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -111,7 +111,7 @@ APK because it is signed with a different key.
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
-   and download `Sober-1.6.apk`.
+   and download `Sober-1.7.apk`.
 2. Open your **Downloads** notification, or the **Files** app, and tap the APK.
 3. Android will say the source is not allowed to install unknown apps. Tap
    **Settings**, enable **Allow from this source**, then go back and tap
@@ -168,7 +168,7 @@ the phone is idle.
 ### Install over ADB (optional)
 
 ```bash
-adb install -r Sober-1.6.apk
+adb install -r Sober-1.7.apk
 ```
 
 ADB skips the unknown-source prompt, but Play Protect can still show its
@@ -176,16 +176,16 @@ warning.
 
 ### Verify the download
 
-Release 1.6's APK has these properties:
+Release 1.7's APK has these properties:
 
 ```text
-SHA-256 (file):  ac0858e36996f95bf9cd1db0c2c77c064ef2db82615a525e41cc68d75f660f2d
+SHA-256 (file):  e604f940bb4d4ccddd84b9173310a2012c193ee6e11e80dfa906b19ae8d75800
 SHA-256 (cert):  f9fc8e710485179fbad428689d72d949dea925129ff3ea5ddbef9fac63836c64
 Signer:          CN=Sober, O=Sober, C=IN
 ```
 
 ```bash
-sha256sum Sober-1.6.apk     # macOS: shasum -a 256
+sha256sum Sober-1.7.apk     # macOS: shasum -a 256
 ```
 
 ---
@@ -350,7 +350,7 @@ spacing are defined.
 
 ## Testing
 
-The repository currently has **527 JVM tests across 63 test classes**, including
+The repository currently has **545 JVM tests across 64 test classes**, including
 Robolectric tests for Compose behaviour and the design system.
 
 ```bash
