@@ -28,7 +28,12 @@ class ResetDailyUsageUseCase @Inject constructor(
         val today = SimpleDateFormat(DATE_FORMAT, Locale.US).format(Date())
         val lastRollover = sessionStateRepository.lastUsageRolloverDay.first()
 
-        if (lastRollover == today) return false
+        // Equal means the rollover already ran today. Later means the marker
+        // is ahead of the calendar (the clock was moved backwards, or a
+        // timezone change landed on the other side of midnight); resetting
+        // then would zero rows the user still sees as today's. Leave the
+        // marker alone and let the real date catch up.
+        if (lastRollover != null && lastRollover >= today) return false
 
         // Only zero rows that are not already today's. `resetDailyUsage()`
         // clears for today's date, so guard against wiping fresh data when

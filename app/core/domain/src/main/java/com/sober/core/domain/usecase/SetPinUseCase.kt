@@ -22,5 +22,8 @@ class SetPinUseCase @Inject constructor(
 
     fun isValid(pin: String): Boolean =
         pin.length in PinRepository.MIN_LENGTH..PinRepository.MAX_LENGTH &&
-            pin.all { it.isDigit() }
+            // ASCII only: `Char.isDigit()` also accepts non-Latin numerals
+            // (Arabic-Indic, Devanagari, fullwidth), which a NumberPassword
+            // field cannot display — the user would set a PIN they cannot type.
+            pin.all { it in '0'..'9' }
 }

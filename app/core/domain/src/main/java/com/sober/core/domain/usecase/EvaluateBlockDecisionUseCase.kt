@@ -126,11 +126,15 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         //     trap the user inside Sober.
         if (!blockableAppsRepository.isBlockable(foregroundPackage)) return null
 
+        // One clock read for the whole decision: every window below is compared
+        // against the same instant, so a decision cannot straddle a boundary.
+        val now = System.currentTimeMillis()
+
         // 0. A meal break lifts every block, including an active focus
         //    session's, for its twenty minutes. The window expires on its own;
         //    a stale value simply stops matching.
         val mealBreakUntil = sessionStateRepository.mealBreakUntil.first()
-        if (mealBreakUntil != null && System.currentTimeMillis() < mealBreakUntil) {
+        if (mealBreakUntil != null && now < mealBreakUntil) {
             return null
         }
 
@@ -145,24 +149,39 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         //     enforcement; unlike a meal break it is not tied to a session and
         //     the user can end it early from Home.
         val pausedUntil = protectionSettingsRepository.pausedUntil.first()
-        if (pausedUntil != null && System.currentTimeMillis() < pausedUntil) {
+        if (pausedUntil != null && now < pausedUntil) {
             return null
         }
 
         // 1. Active focus session: enforce its block list.
         val sessionId = sessionStateRepository.activeSessionId.first()
         if (sessionId != null) {
+            // The overlay needs the session window so it can count down to
+            // session end instead of to midnight. Read once here rather than
+            // in the renderer: policy values belong to this use case.
+            val sessionStart = sessionStateRepository.activeSessionStartTime.first()
+            val sessionDuration = sessionStateRepository.activeSessionDuration.first()
+            // A duration of 0 marks an open-ended session, so there is no end
+            // to count down to; the overlay shows that instead of a bogus 00:00.
+            val sessionEndsAt = if (sessionStart != null && sessionDuration != null &&
+                sessionDuration > 0
+            ) {
+                sessionStart + sessionDuration
+            } else {
+                null
+            }
+            // A session whose stored state outlived its own countdown must not
+            // keep an app shut. The service clears the state on its next tick,
+            // but until then the user would see a block with 00:00 left that
+            // nothing on screen can end.
+            val sessionRunning = sessionEndsAt == null || now < sessionEndsAt
+
             val blocked = sessionStateRepository.activeSessionBlockedApps.first()
                 ?.split(',')
                 ?.filter { it.isNotBlank() }
                 ?: emptyList()
 
-            if (foregroundPackage in blocked) {
-                // The overlay needs the session window so it can count down to
-                // session end instead of to midnight. Read once here rather
-                // than in the renderer: policy values belong to this use case.
-                val sessionStart = sessionStateRepository.activeSessionStartTime.first()
-                val sessionDuration = sessionStateRepository.activeSessionDuration.first()
+            if (sessionRunning && foregroundPackage in blocked) {
                 val sessionLabel = sessionStateRepository.activeSessionLabel.first()
 
                 return BlockDecision(
@@ -172,16 +191,7 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
                     limitMinutes = 0,
                     sessionLabel = sessionLabel,
                     sessionStartedAt = sessionStart,
-                    // A duration of 0 marks an open-ended session, so there is
-                    // no end to count down to; the overlay shows that instead
-                    // of a bogus 00:00.
-                    sessionEndsAt = if (sessionStart != null && sessionDuration != null &&
-                        sessionDuration > 0
-                    ) {
-                        sessionStart + sessionDuration
-                    } else {
-                        null
-                    }
+                    sessionEndsAt = sessionEndsAt
                 )
             }
         }
@@ -232,7 +242,6 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         // 1b4. Bedtime: an overnight window with its own short allowlist. It is
         //      checked before usage limits because "it is bedtime" is the true
         //      reason at 23:00 regardless of how much budget is left.
-        val now = System.currentTimeMillis()
         val bedtime = protectionSettingsRepository.bedtime.first()
         if (bedtime.isActive(minuteOfDay(now)) &&
             foregroundPackage !in bedtime.allowedPackages

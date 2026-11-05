@@ -51,6 +51,17 @@ class SetPinUseCaseTest {
     }
 
     @Test
+    fun `rejects digits the password field cannot type back`() = runTest {
+        val (setPin, repo) = useCase()
+
+        // `Char.isDigit()` accepts these, but NumberPassword and the keypad
+        // only produce ASCII, so the user could set a PIN they cannot enter.
+        assertFalse(setPin("\u0661\u0662\u0663\u0664"))
+        assertFalse(setPin("\uFF11\uFF12\uFF13\uFF14"))
+        assertFalse(repo.hasPin.first())
+    }
+
+    @Test
     fun `replaces an existing pin`() = runTest {
         val (setPin, repo) = useCase()
 

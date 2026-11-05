@@ -1,7 +1,11 @@
 package com.sober.core.domain.usecase
 
+import com.sober.core.domain.model.AllowOnlyMode
+import com.sober.core.domain.model.AppCategory
 import com.sober.core.domain.model.AppLimit
 import com.sober.core.domain.model.AppUsage
+import com.sober.core.domain.model.BedtimeSettings
+import com.sober.core.domain.model.CategoryLimit
 import com.sober.core.domain.model.CustomRuleType
 import com.sober.core.domain.model.ScheduleRule
 import com.sober.core.domain.model.UsageSession
@@ -28,14 +32,18 @@ class IsBlockingInForceUseCaseTest {
         stats: FakeUsageStatsRepository = FakeUsageStatsRepository(),
         usage: FakeUsageSessionRepository = FakeUsageSessionRepository(),
         custom: FakeCustomRuleRepository = FakeCustomRuleRepository(),
-        schedules: FakeScheduleRuleRepository = FakeScheduleRuleRepository()
+        schedules: FakeScheduleRuleRepository = FakeScheduleRuleRepository(),
+        protection: FakeProtectionSettingsRepository = FakeProtectionSettingsRepository(),
+        categories: FakeAppCategoryRepository = FakeAppCategoryRepository()
     ) = IsBlockingInForceUseCase(
         sessionStateRepository = state,
         appLimitRepository = limits,
         usageStatsRepository = stats,
         usageSessionRepository = usage,
         customRuleRepository = custom,
-        scheduleRuleRepository = schedules
+        scheduleRuleRepository = schedules,
+        protectionSettingsRepository = protection,
+        appCategoryRepository = categories
     )
 
     @Test
@@ -80,6 +88,89 @@ class IsBlockingInForceUseCaseTest {
         }
 
         assertEquals(BlockInForceReason.FOCUS_SESSION, useCase(state = state)(now))
+    }
+
+    @Test
+    fun `a session that outlived its duration is no longer in force`() = runTest {
+        val state = FakeSessionStateRepository().apply {
+            withActiveSession(
+                startTime = now - 30 * 60_000L,
+                durationMs = 25 * 60_000L,
+                blockedApps = listOf(INSTAGRAM)
+            )
+        }
+
+        assertNull(useCase(state = state)(now))
+    }
+
+    @Test
+    fun `pause everything lifts every reason`() = runTest {
+        val state = FakeSessionStateRepository().apply { activeSessionId.value = 7 }
+        val protection = FakeProtectionSettingsRepository().apply {
+            pausedUntil.value = now + 60_000L
+        }
+
+        assertNull(useCase(state = state, protection = protection)(now))
+    }
+
+    @Test
+    fun `allow only mode is in force`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            allowOnly.value = AllowOnlyMode(enabled = true, allowedPackages = setOf("com.example.notes"))
+        }
+
+        assertEquals(BlockInForceReason.ALLOW_ONLY, useCase(protection = protection)(now))
+    }
+
+    @Test
+    fun `the bedtime window is in force`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            bedtime.value = BedtimeSettings(
+                enabled = true,
+                startMinuteOfDay = 0,
+                endMinuteOfDay = 23 * 60 + 58,
+                allowedPackages = setOf("com.example.alarm")
+            )
+        }
+
+        assertEquals(BlockInForceReason.BEDTIME, useCase(protection = protection)(now))
+    }
+
+    @Test
+    fun `a used-up category budget is in force`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            categoryLimits.value = listOf(
+                CategoryLimit(category = AppCategory.SOCIAL, dailyLimitMinutes = 30)
+            )
+        }
+        val categories = FakeAppCategoryRepository(
+            categories = mapOf(INSTAGRAM to AppCategory.SOCIAL)
+        )
+        val stats = FakeUsageStatsRepository(
+            listOf(AppUsage(INSTAGRAM, totalTimeInForeground = 31 * 60_000L, lastTimeUsed = now))
+        )
+
+        assertEquals(
+            BlockInForceReason.CATEGORY_LIMIT,
+            useCase(protection = protection, categories = categories, stats = stats)(now)
+        )
+    }
+
+    @Test
+    fun `a category budget under its cap is not in force`() = runTest {
+        val protection = FakeProtectionSettingsRepository().apply {
+            categoryLimits.value = listOf(
+                CategoryLimit(category = AppCategory.SOCIAL, dailyLimitMinutes = 30)
+            )
+        }
+        val categories = FakeAppCategoryRepository(
+            categories = mapOf(INSTAGRAM to AppCategory.SOCIAL)
+        )
+        val stats = FakeUsageStatsRepository(
+            listOf(AppUsage(INSTAGRAM, totalTimeInForeground = 29 * 60_000L, lastTimeUsed = now))
+        )
+
+        assertNull(useCase(protection = protection, categories = categories, stats = stats)(now))
     }
 
     @Test

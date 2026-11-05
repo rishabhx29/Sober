@@ -69,6 +69,12 @@ class AccessibilitySettingsGuard @Inject constructor(
             "A schedule is blocking apps right now. It lifts on its own."
         BlockInForceReason.CUSTOM_APP ->
             "An app you blocked by hand is on the list. Undo that in Sober first."
+        BlockInForceReason.ALLOW_ONLY ->
+            "Only your allowed apps can open right now. Change that in Sober."
+        BlockInForceReason.BEDTIME ->
+            "Bedtime is on, so only your allowed apps can open. It lifts on its own."
+        BlockInForceReason.CATEGORY_LIMIT ->
+            "A category budget is used up. Go back to Sober to change it."
     }
 
     private companion object {

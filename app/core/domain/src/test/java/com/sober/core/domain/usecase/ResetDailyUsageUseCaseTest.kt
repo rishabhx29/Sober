@@ -23,6 +23,14 @@ class ResetDailyUsageUseCaseTest {
             }.time
         )
 
+    private fun tomorrow(): String = SimpleDateFormat(SyncUsageSessionsUseCase.DATE_FORMAT, Locale.US)
+        .format(
+            Calendar.getInstance().apply {
+                time = Date()
+                add(Calendar.DAY_OF_YEAR, 1)
+            }.time
+        )
+
     @Test
     fun `first run records the day without wiping fresh counters`() = runTest {
         val usage = FakeUsageSessionRepository(
@@ -65,5 +73,22 @@ class ResetDailyUsageUseCaseTest {
         assertEquals(true, didRollover)
         assertEquals(0, usage.sessions.single().usedMinutes)
         assertEquals(today(), state.lastUsageRolloverDay.first())
+    }
+
+    @Test
+    fun `a marker ahead of the calendar does not wipe today`() = runTest {
+        // The clock was moved backwards (or a timezone change crossed midnight):
+        // resetting now would zero rows the user still sees as today's, and
+        // moving the marker to today would replay the same wipe tomorrow.
+        val usage = FakeUsageSessionRepository(
+            listOf(UsageSession(packageName = "com.example", date = today(), usedMinutes = 12))
+        )
+        val state = FakeSessionStateRepository()
+        state.setLastUsageRolloverDay(tomorrow())
+        val useCase = ResetDailyUsageUseCase(usage, state)
+
+        assertEquals(false, useCase())
+        assertEquals(12, usage.sessions.single().usedMinutes)
+        assertEquals(tomorrow(), state.lastUsageRolloverDay.first())
     }
 }

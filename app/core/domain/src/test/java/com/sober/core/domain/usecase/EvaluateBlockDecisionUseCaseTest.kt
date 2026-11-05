@@ -130,6 +130,21 @@ class EvaluateBlockDecisionUseCaseTest {
     }
 
     @Test
+    fun `a session that outlived its duration stops blocking`() = runTest {
+        // State can lag the countdown: the service clears it on its next tick.
+        // Until then the app must open instead of showing a block at 00:00.
+        val state = FakeSessionStateRepository().apply {
+            withActiveSession(
+                startTime = System.currentTimeMillis() - 30 * 60_000L,
+                durationMs = 25 * 60_000L,
+                blockedApps = listOf("com.instagram.android")
+            )
+        }
+
+        assertNull(useCase(state = state)("com.instagram.android"))
+    }
+
+    @Test
     fun `an active override lifts the block for that app only`() = runTest {
         val state = activeSession("com.instagram.android", "com.example.other")
         val overrides = FakeOverrideStateRepository().apply {
