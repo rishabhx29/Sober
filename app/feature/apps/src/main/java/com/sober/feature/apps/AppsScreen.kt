@@ -102,6 +102,7 @@ fun AppsScreen(
     var sheetOpenLimit by remember { mutableIntStateOf(0) }
     var sheetPauseEnabled by remember { mutableStateOf(false) }
     var sheetPauseDelay by remember { mutableIntStateOf(10) }
+    var sheetSessionTimerEnabled by remember { mutableStateOf(false) }
     // Opens fully: the drum picker and the Save button together are taller
     // than the half-expanded height, which would hide the only way to confirm.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -336,6 +337,29 @@ fun AppsScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Session timer. The length is chosen at the moment of opening,
+                // not here, because "how long do I need it now" is the question
+                // the feature exists to ask. When it is on it replaces the pause
+                // for this app: the picker is already an explicit decision.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        SoberSectionLabel("Session timer")
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Pick a length each time you open it. It then " +
+                                "rests for the same length.",
+                            fontSize = 11.sp,
+                            color = SoberTheme.colors.textMuted
+                        )
+                    }
+                    SoberToggleSwitch(
+                        checked = sheetSessionTimerEnabled,
+                        onCheckedChange = { sheetSessionTimerEnabled = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 // 7-day usage chart for this app.
                 if (appHistory.isNotEmpty()) {
                     SoberSectionLabel("Last 7 days")
@@ -531,17 +555,21 @@ fun AppsScreen(
                             appName = app.name,
                             limitMinutes = sheetLimitHours * 60 + sheetLimitMinutes,
                             openLimit = sheetOpenLimit,
-                            pauseDelaySeconds = if (sheetPauseEnabled) sheetPauseDelay else null
+                            pauseDelaySeconds = if (sheetPauseEnabled) sheetPauseDelay else null,
+                            sessionTimerEnabled = sheetSessionTimerEnabled
                         )
                         selectedApp = null
                     },
                     enabled = !rulesLocked &&
                         (sheetLimitHours * 60 + sheetLimitMinutes > 0 ||
                             sheetOpenLimit > 0 ||
-                            sheetPauseEnabled)
+                            sheetPauseEnabled ||
+                            sheetSessionTimerEnabled)
                 )
 
-                if ((app.isLimited || app.pauseDelaySeconds != null) && !rulesLocked) {
+                if ((app.isLimited || app.pauseDelaySeconds != null || app.sessionTimerEnabled) &&
+                    !rulesLocked
+                ) {
                     Spacer(modifier = Modifier.height(12.dp))
                     TextButton(
                         onClick = {
@@ -702,11 +730,17 @@ fun AppsScreen(
                         app = app,
                         onClick = {
                             selectedApp = app
-                            sheetLimitHours = (app.limitMinutes ?: 60) / 60
-                            sheetLimitMinutes = (app.limitMinutes ?: 60) % 60
+                            // A row can exist with no minutes at all (session
+                            // timer only), and the picker must show that as 0,
+                            // not as the 60 that a brand-new row starts on.
+                            val seedMinutes = app.limitMinutes
+                                ?: if (app.isLimited) 0 else 60
+                            sheetLimitHours = seedMinutes / 60
+                            sheetLimitMinutes = seedMinutes % 60
                             sheetOpenLimit = app.openLimit
                             sheetPauseEnabled = app.pauseDelaySeconds != null
                             sheetPauseDelay = app.pauseDelaySeconds ?: 10
+                            sheetSessionTimerEnabled = app.sessionTimerEnabled
                             viewModel.loadHistory(app.packageName)
                         },
                         onLimitToggle = { enabled ->
@@ -838,7 +872,7 @@ internal fun AppRow(
                 // Without a limit there is no switch to show; the row still
                 // opens the sheet, so this is the affordance that says so.
                 Text(
-                    text = "Set limit",
+                    text = if (app.sessionTimerEnabled) "Session timer" else "Set limit",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = colors.textMuted

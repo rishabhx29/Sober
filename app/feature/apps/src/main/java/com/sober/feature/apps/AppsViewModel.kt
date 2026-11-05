@@ -19,6 +19,7 @@ import com.sober.core.domain.model.SectionCaptureRequest
 import com.sober.core.domain.model.WebsiteAddress
 import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.AppOpenRepository
+import com.sober.core.domain.repository.AppSessionRepository
 import com.sober.core.domain.repository.CustomRuleRepository
 import com.sober.core.domain.repository.CustomSectionRuleRepository
 import com.sober.core.domain.repository.DetectionRuleCatalog
@@ -49,7 +50,9 @@ data class InstalledApp(
     val openLimit: Int = 0,
     val openCount: Int = 0,
     /** Null when no pause-before-opening rule is active for this app. */
-    val pauseDelaySeconds: Int? = null
+    val pauseDelaySeconds: Int? = null,
+    /** True when every entry starts with the length picker. */
+    val sessionTimerEnabled: Boolean = false
 )
 
 enum class AppFilter {
@@ -73,6 +76,7 @@ class AppsViewModel @Inject constructor(
     private val customRuleRepository: CustomRuleRepository,
     private val pauseRulesRepository: PauseRulesRepository,
     private val appOpenRepository: AppOpenRepository,
+    private val appSessionRepository: AppSessionRepository,
     private val protectionSettingsRepository: ProtectionSettingsRepository
 ) : ViewModel() {
 
@@ -365,7 +369,8 @@ class AppsViewModel @Inject constructor(
                         isLimited = limit != null && limit.isActive,
                         openLimit = limit?.dailyOpenLimit ?: 0,
                         openCount = openCounts[appInfo.packageName] ?: 0,
-                        pauseDelaySeconds = pauseByPackage[appInfo.packageName]
+                        pauseDelaySeconds = pauseByPackage[appInfo.packageName],
+                        sessionTimerEnabled = limit?.sessionTimerEnabled == true
                     )
                 }.sortedBy { it.name }
 
@@ -404,28 +409,33 @@ class AppsViewModel @Inject constructor(
      *
      * Minutes and opens are separate budgets but one row, because a user may
      * want either alone: ten opens with no time cap is a valid rule, and so is
-     * an hour with no opens cap. A row with neither is deleted rather than kept
-     * at zero, which enforcement would have to special-case forever. The pause
-     * rule lives in its own store because it outlives the limit.
+     * an hour with no opens cap. The session timer is a third, independent
+     * rule on the same row: it needs no minutes or opens of its own, so the
+     * "has any rule" test includes it. A row with nothing at all is deleted
+     * rather than kept at zero, which enforcement would have to special-case
+     * forever. The pause rule lives in its own store because it outlives the
+     * limit.
      */
     fun saveAppRules(
         packageName: String,
         appName: String,
         limitMinutes: Int,
         openLimit: Int,
-        pauseDelaySeconds: Int?
+        pauseDelaySeconds: Int?,
+        sessionTimerEnabled: Boolean
     ) {
         viewModelScope.launch {
             if (isLocked()) return@launch
             val existing = appLimitRepository.getLimit(packageName)
-            val hasBudget = limitMinutes > 0 || openLimit > 0
+            val hasBudget = limitMinutes > 0 || openLimit > 0 || sessionTimerEnabled
             when {
                 !hasBudget && existing != null -> appLimitRepository.deleteLimit(existing)
                 hasBudget && existing != null -> appLimitRepository.updateLimit(
                     existing.copy(
                         dailyLimitMinutes = limitMinutes,
                         dailyOpenLimit = openLimit,
-                        isActive = true
+                        isActive = true,
+                        sessionTimerEnabled = sessionTimerEnabled
                     )
                 )
                 hasBudget -> appLimitRepository.insertLimit(
@@ -433,9 +443,17 @@ class AppsViewModel @Inject constructor(
                         packageName = packageName,
                         appName = appName,
                         dailyLimitMinutes = limitMinutes,
-                        dailyOpenLimit = openLimit
+                        dailyOpenLimit = openLimit,
+                        sessionTimerEnabled = sessionTimerEnabled
                     )
                 )
+            }
+
+            // Switching the timer off must also end the current session: a
+            // stored record would otherwise restart the rule the moment it is
+            // switched back on, at a length the user never picked for today.
+            if (!sessionTimerEnabled) {
+                appSessionRepository.clear(packageName)
             }
 
             pauseRulesRepository.setRule(
@@ -449,7 +467,8 @@ class AppsViewModel @Inject constructor(
                         limitMinutes = limitMinutes.takeIf { it > 0 },
                         openLimit = openLimit,
                         isLimited = hasBudget,
-                        pauseDelaySeconds = pauseDelaySeconds
+                        pauseDelaySeconds = pauseDelaySeconds,
+                        sessionTimerEnabled = sessionTimerEnabled
                     )
                 } else app
             }
@@ -465,13 +484,15 @@ class AppsViewModel @Inject constructor(
                 appLimitRepository.deleteLimit(existing)
             }
             pauseRulesRepository.setRule(packageName, null)
+            appSessionRepository.clear(packageName)
             _apps.value = _apps.value.map { app ->
                 if (app.packageName == packageName) {
                     app.copy(
                         limitMinutes = null,
                         openLimit = 0,
                         isLimited = false,
-                        pauseDelaySeconds = null
+                        pauseDelaySeconds = null,
+                        sessionTimerEnabled = false
                     )
                 } else app
             }
