@@ -73,6 +73,18 @@ class ManageFocusSessionUseCaseTest {
     }
 
     @Test
+    fun `a start while one runs reuses the running session`() = runTest {
+        val (case, sessions, _) = useCase()
+
+        val first = case.startSession("Deep Work", 25, listOf("com.instagram.android")).toInt()
+        val second = case.startSession("Something else", 5, listOf("com.youtube.android")).toInt()
+
+        assertEquals(first, second)
+        assertEquals(1, sessions.sessions.size)
+        assertEquals("ACTIVE", sessions.getSessionById(first)!!.status.name)
+    }
+
+    @Test
     fun `completing a session marks it completed and clears active state`() = runTest {
         val state = FakeSessionStateRepository()
         val (case, sessions, _) = useCase(state = state)

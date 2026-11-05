@@ -9,6 +9,8 @@ import com.sober.core.domain.repository.NotificationPreferencesRepository
 import com.sober.core.domain.repository.ProtectionSettingsRepository
 import com.sober.core.domain.repository.SessionStateRepository
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -30,7 +32,14 @@ class ManageFocusSessionUseCase @Inject constructor(
         blockedApps: List<String>,
         silenceScope: com.sober.core.domain.model.NotificationSilenceScope =
             com.sober.core.domain.model.NotificationSilenceScope.SELECTED_APPS
-    ): Long {
+    ): Long = startMutex.withLock {
+        // The Focus screen hides the form while a session runs, but a double
+        // tap can still reach here twice before the first write lands, and a
+        // shortcut can race the UI. Reusing the session that is already
+        // running keeps history and enforcement pointed at the same row
+        // instead of leaving an orphaned ACTIVE session behind.
+        sessionStateRepository.activeSessionId.first()?.let { return@withLock it.toLong() }
+
         val session = FocusSession(
             label = label,
             durationMinutes = durationMinutes,
@@ -52,7 +61,7 @@ class ManageFocusSessionUseCase @Inject constructor(
             notificationSilenceScope = silenceScope
         )
 
-        return id.toLong()
+        id.toLong()
     }
 
     suspend fun completeSession(sessionId: Int) {
@@ -117,5 +126,12 @@ class ManageFocusSessionUseCase @Inject constructor(
 
     companion object {
         const val CANCELLATIONS_BEFORE_WARNING = 3
+
+        /**
+         * Serialises starts across every use-case instance. Hilt hands each
+         * ViewModel its own instance, so an instance field would let two
+         * screens race each other into creating two ACTIVE rows.
+         */
+        private val startMutex = Mutex()
     }
 }
