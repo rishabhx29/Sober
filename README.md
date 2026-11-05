@@ -31,7 +31,7 @@ analytics, and the app does not request the internet permission at all.
 | Capability | What it does |
 |---|---|
 | **Per-app daily limits** | Set a limit for any installed app. A minute-by-minute drum picker, a seven-day bar chart of your usage, and a one-tap switch to pause a limit without deleting it. |
-| **Session timer** | Turn it on for an app and every open asks how long you need this time. When the session ends the app is blocked for a rest of the same length, then the picker comes back. The timer works on its own, without a daily limit. |
+| **Session timer** | Turn it on for an app and every open asks how long you need this time. When the session ends the app is blocked for the rest you choose under the timer, then the picker comes back. The timer works on its own, without a daily limit. |
 | **Overall daily cap** | One budget for the whole phone, on top of individual limits. When it runs out, Sober blocks the apps you have not left out. A **Choose apps** picker in Settings decides what the cap covers, and Home, Settings, System UI and the keyboard are never blocked. |
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
