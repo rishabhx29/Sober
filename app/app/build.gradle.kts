@@ -15,8 +15,8 @@ android {
         applicationId = "com.sober.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
