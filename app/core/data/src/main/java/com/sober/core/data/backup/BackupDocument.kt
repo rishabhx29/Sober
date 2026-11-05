@@ -31,11 +31,12 @@ data class BackupDocument(
 
         /**
          * 2 added user-recorded section rules, 3 added the per-app session
-         * timer flag. The reader still accepts older files, where the absent
-         * fields simply mean "off"; writing a newer version keeps an older
-         * build from restoring a file while silently dropping a rule.
+         * timer flag, 4 added the rest time that follows a session. The reader
+         * still accepts older files, where the absent fields simply mean "off";
+         * writing a newer version keeps an older build from restoring a file
+         * while silently dropping a rule.
          */
-        const val CURRENT_VERSION = 3
+        const val CURRENT_VERSION = 4
     }
 }
 
@@ -47,8 +48,14 @@ data class BackupAppLimit(
     val blockedSections: List<String> = emptyList(),
     val createdAt: Long = 0L,
     val dailyOpenLimit: Int = 0,
-    val sessionTimerEnabled: Boolean = false
-)
+    val sessionTimerEnabled: Boolean = false,
+    val sessionRestMinutes: Int = DEFAULT_SESSION_REST_MINUTES
+) {
+    companion object {
+        /** Matches the database default for a rule written before v5. */
+        const val DEFAULT_SESSION_REST_MINUTES = 5
+    }
+}
 
 data class BackupScheduleRule(
     val ruleName: String,
@@ -213,6 +220,7 @@ class BackupCodec {
         writer.name("createdAt").value(value.createdAt)
         writer.name("dailyOpenLimit").value(value.dailyOpenLimit)
         writer.name("sessionTimerEnabled").value(value.sessionTimerEnabled)
+        writer.name("sessionRestMinutes").value(value.sessionRestMinutes)
         writer.endObject()
     }
 
@@ -362,6 +370,7 @@ class BackupCodec {
         var createdAt = 0L
         var dailyOpenLimit = 0
         var sessionTimerEnabled = false
+        var sessionRestMinutes = BackupAppLimit.DEFAULT_SESSION_REST_MINUTES
 
         readObject(reader) { key ->
             when (key) {
@@ -373,6 +382,7 @@ class BackupCodec {
                 "createdAt" -> createdAt = reader.nextLong()
                 "dailyOpenLimit" -> dailyOpenLimit = reader.nextInt()
                 "sessionTimerEnabled" -> sessionTimerEnabled = reader.nextBoolean()
+                "sessionRestMinutes" -> sessionRestMinutes = reader.nextInt()
                 else -> return@readObject false
             }
             true
@@ -386,7 +396,8 @@ class BackupCodec {
             blockedSections = blockedSections,
             createdAt = createdAt,
             dailyOpenLimit = dailyOpenLimit,
-            sessionTimerEnabled = sessionTimerEnabled
+            sessionTimerEnabled = sessionTimerEnabled,
+            sessionRestMinutes = sessionRestMinutes
         )
     }
 

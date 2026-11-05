@@ -81,7 +81,8 @@ class BackupRepositoryImpl @Inject constructor(
                     blockedSections = it.blockedSections,
                     createdAt = it.createdAt,
                     dailyOpenLimit = it.dailyOpenLimit,
-                    sessionTimerEnabled = it.sessionTimerEnabled
+                    sessionTimerEnabled = it.sessionTimerEnabled,
+                    sessionRestMinutes = it.sessionRestMinutes
                 )
             },
             scheduleRules = schedules.map {
@@ -169,7 +170,11 @@ class BackupRepositoryImpl @Inject constructor(
                     blockedSections = it.blockedSections,
                     createdAt = it.createdAt,
                     dailyOpenLimit = it.dailyOpenLimit.coerceAtLeast(0),
-                    sessionTimerEnabled = it.sessionTimerEnabled
+                    sessionTimerEnabled = it.sessionTimerEnabled,
+                    sessionRestMinutes = it.sessionRestMinutes.coerceIn(
+                        AppLimit.MIN_SESSION_REST_MINUTES,
+                        AppLimit.MAX_SESSION_REST_MINUTES
+                    )
                 )
             }
 

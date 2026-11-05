@@ -22,7 +22,8 @@ data class AppLimitEntity(
     val blockedSections: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val dailyOpenLimit: Int = 0,
-    val sessionTimerEnabled: Boolean = false
+    val sessionTimerEnabled: Boolean = false,
+    val sessionRestMinutes: Int = AppLimit.DEFAULT_SESSION_REST_MINUTES
 ) {
     fun toDomainModel() = AppLimit(
         id = id,
@@ -33,7 +34,8 @@ data class AppLimitEntity(
         blockedSections = blockedSections,
         createdAt = createdAt,
         dailyOpenLimit = dailyOpenLimit,
-        sessionTimerEnabled = sessionTimerEnabled
+        sessionTimerEnabled = sessionTimerEnabled,
+        sessionRestMinutes = sessionRestMinutes
     )
 }
 
@@ -46,5 +48,6 @@ fun AppLimit.toEntity() = AppLimitEntity(
     blockedSections = blockedSections,
     createdAt = createdAt,
     dailyOpenLimit = dailyOpenLimit,
-    sessionTimerEnabled = sessionTimerEnabled
+    sessionTimerEnabled = sessionTimerEnabled,
+    sessionRestMinutes = sessionRestMinutes
 )

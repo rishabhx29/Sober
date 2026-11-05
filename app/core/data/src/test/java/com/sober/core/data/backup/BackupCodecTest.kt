@@ -19,7 +19,8 @@ class BackupCodecTest {
                     dailyLimitMinutes = 30,
                     blockedSections = listOf("reels"),
                     dailyOpenLimit = 3,
-                    sessionTimerEnabled = true
+                    sessionTimerEnabled = true,
+                    sessionRestMinutes = 15
                 )
             ),
             scheduleRules = listOf(
@@ -92,9 +93,21 @@ class BackupCodecTest {
             """{"format":"sober-backup","version":1,"sectionRules":["instagram_reels"]}"""
         )
 
-        assertEquals(3, BackupDocument.CURRENT_VERSION)
+        assertEquals(4, BackupDocument.CURRENT_VERSION)
         assertEquals(listOf("instagram_reels"), decoded.sectionRules)
         assertTrue(decoded.customSectionRules.isEmpty())
+    }
+
+    @Test
+    fun `a file from before the block time uses the default rest`() {
+        val decoded = codec.decode(
+            """{"format":"sober-backup","version":3,"appLimits":[{"packageName":"com.instagram.android","appName":"Instagram","dailyLimitMinutes":30,"sessionTimerEnabled":true}]}"""
+        )
+
+        assertEquals(
+            BackupAppLimit.DEFAULT_SESSION_REST_MINUTES,
+            decoded.appLimits.single().sessionRestMinutes
+        )
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -104,7 +117,7 @@ class BackupCodecTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun `a file from a newer version is rejected`() {
-        codec.decode("""{"format":"sober-backup","version":4}""")
+        codec.decode("""{"format":"sober-backup","version":5}""")
     }
 
     @Test(expected = IllegalArgumentException::class)

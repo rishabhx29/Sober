@@ -31,7 +31,8 @@ object DataModule {
             .addMigrations(
                 SoberDatabase.MIGRATION_1_2,
                 SoberDatabase.MIGRATION_2_3,
-                SoberDatabase.MIGRATION_3_4
+                SoberDatabase.MIGRATION_3_4,
+                SoberDatabase.MIGRATION_4_5
             )
             .build()
     }

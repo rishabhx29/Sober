@@ -793,15 +793,28 @@ class SoberPreferences @Inject constructor(
     }
 
     private fun encodeAppSession(session: AppSession): String =
-        "${session.packageName}|${session.startedAt}|${session.endsAt}"
+        "${session.packageName}|${session.startedAt}|${session.endsAt}|${session.restMinutes}"
 
     private fun decodeAppSession(entry: String): AppSession? {
         val parts = entry.split('|')
-        if (parts.size != 3) return null
+        if (parts.size != 3 && parts.size != 4) return null
         val startedAt = parts[1].toLongOrNull() ?: return null
         val endsAt = parts[2].toLongOrNull() ?: return null
         if (parts[0].isBlank() || endsAt <= startedAt) return null
-        return AppSession(packageName = parts[0], startedAt = startedAt, endsAt = endsAt)
+        // Three-part records predate the block-time setting; they rested for
+        // the session's own length, which is what they keep doing until the
+        // next session is started under the new rule.
+        val restMinutes = if (parts.size == 4) {
+            parts[3].toIntOrNull() ?: return null
+        } else {
+            ((endsAt - startedAt) / 60_000L).toInt()
+        }
+        return AppSession(
+            packageName = parts[0],
+            startedAt = startedAt,
+            endsAt = endsAt,
+            restMinutes = restMinutes
+        )
     }
 
     // ---- Allow-only, category budgets and bedtime --------------------

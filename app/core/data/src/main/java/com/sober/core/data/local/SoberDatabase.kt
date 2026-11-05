@@ -28,7 +28,7 @@ import com.sober.core.data.local.util.Converters
         OverrideLogEntity::class,
         AppOpenEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -109,6 +109,19 @@ abstract class SoberDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "ALTER TABLE app_limits ADD COLUMN sessionTimerEnabled INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /**
+         * v5 adds the rest time that follows a session. Five minutes is the
+         * same rest the old build gave a five-minute session, and it is the
+         * value the app shows as the default for every new limit.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE app_limits ADD COLUMN sessionRestMinutes INTEGER NOT NULL DEFAULT 5"
                 )
             }
         }
