@@ -266,12 +266,12 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
         }
 
         // 1b5. The per-app session timer's rest. The user named a length, used
-        //      it, and the app now rests for the same length. It sits with the
-        //      other rules that have a known end, above plain daily limits,
-        //      because the overlay copy can say when it lifts and a limit could
-        //      otherwise claim credit for the same block. A running or absent
-        //      session does not block: the picker handles the absent case, and
-        //      the service decides when to show it.
+        //      it, and the app now rests for the block time they set in the
+        //      Apps sheet. It sits with the other rules that have a known end,
+        //      above plain daily limits, because the overlay copy can say when
+        //      it lifts and a limit could otherwise claim credit for the same
+        //      block. A running or absent session does not block: the picker
+        //      handles the absent case, and the service decides when to show it.
         //
         //      The limit row is read once here and reused by the day budgets
         //      below, so this extra check costs one DataStore read only.
@@ -280,14 +280,16 @@ class EvaluateBlockDecisionUseCase @Inject constructor(
             val session = appSessionRepository.sessionFor(foregroundPackage)
             val timerState = SessionTimerState.of(session, now)
             if (timerState is SessionTimerState.Resting) {
-                val minutes = (timerState.session.durationMillis / 60_000L)
+                val sessionMinutes = (timerState.session.durationMillis / 60_000L)
                     .toInt()
                     .coerceAtLeast(1)
                 return BlockDecision(
                     packageName = foregroundPackage,
                     reason = BlockReason.SESSION_TIMER,
-                    usedMinutes = minutes,
-                    limitMinutes = minutes,
+                    usedMinutes = sessionMinutes,
+                    // The rest is its own number now, so the copy must not
+                    // imply it mirrors the session the user picked.
+                    limitMinutes = timerState.session.restMinutes.coerceAtLeast(1),
                     // The ring depletes across the rest, so its window starts
                     // at the instant the session ended, not when it began.
                     sessionStartedAt = timerState.session.endsAt,

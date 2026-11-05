@@ -33,10 +33,15 @@ class EvaluateSessionTimerUseCaseTest {
         )
     )
 
-    private fun session(startedMsAgo: Long, endsInMs: Long) = AppSession(
+    private fun session(
+        startedMsAgo: Long,
+        endsInMs: Long,
+        restMinutes: Int = 10
+    ) = AppSession(
         packageName = packageName,
         startedAt = now - startedMsAgo,
-        endsAt = now + endsInMs
+        endsAt = now + endsInMs,
+        restMinutes = restMinutes
     )
 
     @Test
@@ -94,6 +99,16 @@ class EvaluateSessionTimerUseCaseTest {
     @Test
     fun `a concluded session asks for a new length`() = runTest {
         val stored = session(startedMsAgo = 30 * 60_000L, endsInMs = -20 * 60_000L)
+
+        assertEquals(
+            SessionTimerState.NeedsSession,
+            useCase(sessions = FakeAppSessionRepository(listOf(stored)))(packageName, now)
+        )
+    }
+
+    @Test
+    fun `a zero-minute rest concludes as soon as the session ends`() = runTest {
+        val stored = session(startedMsAgo = 10 * 60_000L, endsInMs = -1_000L, restMinutes = 0)
 
         assertEquals(
             SessionTimerState.NeedsSession,

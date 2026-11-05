@@ -797,16 +797,23 @@ class EvaluateBlockDecisionUseCaseTest {
         )
     )
 
-    private fun session(startedMsAgo: Long, endsInMs: Long, now: Long) = AppSession(
+    private fun session(
+        startedMsAgo: Long,
+        endsInMs: Long,
+        now: Long,
+        restMinutes: Int = 10
+    ) = AppSession(
         packageName = "com.instagram.android",
         startedAt = now - startedMsAgo,
-        endsAt = now + endsInMs
+        endsAt = now + endsInMs,
+        restMinutes = restMinutes
     )
 
     @Test
-    fun `an ended session blocks for as long as it lasted`() = runTest {
+    fun `an ended session blocks for its configured rest`() = runTest {
         val now = System.currentTimeMillis()
-        // Ten minutes of session, ended five minutes ago: the rest runs to now+5.
+        // Ten minutes of session, ended five minutes ago: a ten-minute rest
+        // runs to now+5, which is what the overlay should count down.
         val sessions = FakeAppSessionRepository(
             listOf(session(startedMsAgo = 15 * 60_000L, endsInMs = -5 * 60_000L, now = now))
         )
@@ -817,8 +824,34 @@ class EvaluateBlockDecisionUseCaseTest {
 
         assertEquals(BlockReason.SESSION_TIMER, decision?.reason)
         assertEquals(10, decision?.usedMinutes)
+        assertEquals(10, decision?.limitMinutes)
         assertEquals(now + 5 * 60_000L, decision?.sessionEndsAt)
         assertEquals(now - 5 * 60_000L, decision?.sessionStartedAt)
+    }
+
+    @Test
+    fun `the rest does not mirror the session length`() = runTest {
+        val now = System.currentTimeMillis()
+        // A two-minute session ended a minute ago, with a two-minute rest.
+        val sessions = FakeAppSessionRepository(
+            listOf(
+                session(
+                    startedMsAgo = 3 * 60_000L,
+                    endsInMs = -60_000L,
+                    now = now,
+                    restMinutes = 2
+                )
+            )
+        )
+
+        val decision = useCase(limits = sessionTimerLimit(), sessions = sessions)(
+            "com.instagram.android"
+        )
+
+        assertEquals(BlockReason.SESSION_TIMER, decision?.reason)
+        assertEquals(2, decision?.usedMinutes)
+        assertEquals(2, decision?.limitMinutes)
+        assertEquals(now + 60_000L, decision?.sessionEndsAt)
     }
 
     @Test
