@@ -1,5 +1,6 @@
 package com.sober.system.services.tile
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
@@ -124,7 +125,11 @@ class SoberTileService : TileService() {
                 PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
             )
         } else {
+            // The Intent overload is the only one that exists below API 34,
+            // which is the only place this branch runs; lint cannot see the
+            // version guard and flags the deprecation as an error.
             @Suppress("DEPRECATION")
+            @SuppressLint("StartActivityAndCollapseDeprecated")
             startActivityAndCollapse(intent)
         }
     }
