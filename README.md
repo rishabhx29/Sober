@@ -8,7 +8,7 @@
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.8%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
   <img src="https://img.shields.io/badge/version-1.2-B3432F?style=flat-square" alt="Version 1.2">
-  <img src="https://img.shields.io/badge/tests-559%20passing-4C7A5C?style=flat-square" alt="559 unit tests passing">
+  <img src="https://img.shields.io/badge/tests-565%20passing-4C7A5C?style=flat-square" alt="565 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
@@ -352,7 +352,7 @@ spacing are defined.
 
 ## Testing
 
-The repository currently has **559 JVM tests across 66 test classes**, including
+The repository currently has **565 JVM tests across 66 test classes**, including
 Robolectric tests for Compose behaviour and the design system.
 
 ```bash
