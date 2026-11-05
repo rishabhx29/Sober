@@ -213,8 +213,13 @@ class SoberAccessibilityService : AccessibilityService() {
             if (isAccessibilitySettings(target, packageName)) {
                 clearBlock()
                 scope.launch {
-                    accessibilitySettingsGuard.onAccessibilitySettingsShown {
-                        performGlobalAction(GLOBAL_ACTION_BACK)
+                    // The guard reads stored rules and usage totals; a failure
+                    // there must not take the accessibility service down, or
+                    // every section rule would stop with it.
+                    runCatching {
+                        accessibilitySettingsGuard.onAccessibilitySettingsShown {
+                            performGlobalAction(GLOBAL_ACTION_BACK)
+                        }
                     }
                 }
                 return
@@ -357,7 +362,7 @@ class SoberAccessibilityService : AccessibilityService() {
             return
         }
         lastCaptured = captured
-        scope.launch { sectionCaptureRepository.record(captured) }
+        scope.launch { runCatching { sectionCaptureRepository.record(captured) } }
     }
 
     /**

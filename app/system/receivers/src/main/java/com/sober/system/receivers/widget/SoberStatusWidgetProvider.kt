@@ -32,6 +32,9 @@ class SoberStatusWidgetProvider : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 renderer.render(context)
+            } catch (e: Exception) {
+                // A widget that cannot read its state must not take the
+                // process down; the next update or refresh tries again.
             } finally {
                 pending.finish()
             }

@@ -1041,7 +1041,12 @@ private fun NotificationAccessNotice(silenceScope: NotificationSilenceScope?) {
                 fontSize = 12.sp
             )
             TextButton(
-                onClick = { context.startActivity(PermissionUtils.getNotificationListenerIntent()) },
+                onClick = {
+                    PermissionUtils.openSettings(
+                        context,
+                        PermissionUtils.getNotificationListenerIntent()
+                    )
+                },
                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)
             ) {
                 Text(

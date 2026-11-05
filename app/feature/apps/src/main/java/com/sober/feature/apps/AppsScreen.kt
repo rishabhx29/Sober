@@ -378,7 +378,7 @@ fun AppsScreen(
                         TextButton(
                             onClick = {
                                 runCatching {
-                                    context.startActivity(PermissionUtils.getAccessibilityIntent())
+                                    PermissionUtils.openSettings(context, PermissionUtils.getAccessibilityIntent())
                                 }
                             },
                             contentPadding = PaddingValues(0.dp)
@@ -465,7 +465,7 @@ fun AppsScreen(
                         TextButton(
                             onClick = {
                                 runCatching {
-                                    context.startActivity(PermissionUtils.getAccessibilityIntent())
+                                    PermissionUtils.openSettings(context, PermissionUtils.getAccessibilityIntent())
                                 }
                             },
                             contentPadding = PaddingValues(0.dp)

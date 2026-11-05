@@ -177,7 +177,11 @@ fun HealthCheckScreen(
             status = if (statuses.usageAccess) "Granted" else "Not granted",
             positive = statuses.usageAccess,
             action = if (statuses.usageAccess) null else {
-                { OpenLink("Open usage access") { context.startActivity(PermissionUtils.getUsageStatsIntent()) } }
+                {
+                    OpenLink("Open usage access") {
+                        PermissionUtils.openSettings(context, PermissionUtils.getUsageStatsIntent())
+                    }
+                }
             }
         )
         StatusLine(
@@ -185,7 +189,14 @@ fun HealthCheckScreen(
             status = if (statuses.overlay) "Granted" else "Not granted",
             positive = statuses.overlay,
             action = if (statuses.overlay) null else {
-                { OpenLink("Open overlay access") { context.startActivity(PermissionUtils.getOverlayIntent(context)) } }
+                {
+                    OpenLink("Open overlay access") {
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getOverlayIntent(context)
+                        )
+                    }
+                }
             }
         )
         StatusLine(
@@ -195,7 +206,10 @@ fun HealthCheckScreen(
             action = if (statuses.notifications) null else {
                 {
                     OpenLink("Open notification settings") {
-                        context.startActivity(PermissionUtils.getAppNotificationSettingsIntent(context))
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getAppNotificationSettingsIntent(context)
+                        )
                     }
                 }
             }
@@ -222,7 +236,10 @@ fun HealthCheckScreen(
             positive = statuses.accessibilityEnabled && accessibilityConnected,
             action = {
                 OpenLink("Open accessibility settings") {
-                    context.startActivity(PermissionUtils.getAccessibilityIntent())
+                    PermissionUtils.openSettings(
+                        context,
+                        PermissionUtils.getAccessibilityIntent()
+                    )
                 }
             },
             trailingDivider = false
@@ -278,7 +295,11 @@ fun HealthCheckScreen(
             text = "Battery settings",
             icon = Icons.Rounded.OpenInNew,
             onClick = {
-                context.startActivity(BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent())
+                runCatching {
+                    context.startActivity(
+                        BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
+                    )
+                }
             }
         )
         statuses.oemBatteryIntent?.let { intent ->
@@ -308,7 +329,11 @@ fun HealthCheckScreen(
             status = if (statuses.dnd) "Granted" else "Not granted",
             positive = statuses.dnd,
             action = if (statuses.dnd) null else {
-                { OpenLink("Open Do Not Disturb access") { context.startActivity(PermissionUtils.getDndAccessIntent()) } }
+                {
+                    OpenLink("Open Do Not Disturb access") {
+                        PermissionUtils.openSettings(context, PermissionUtils.getDndAccessIntent())
+                    }
+                }
             }
         )
         StatusLine(
@@ -318,8 +343,12 @@ fun HealthCheckScreen(
             action = if (statuses.deviceAdmin) null else {
                 {
                     OpenLink("Open device admin") {
-                        context.startActivity(
-                            PermissionUtils.getDeviceAdminIntent(context, SoberDeviceAdminReceiver::class.java)
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getDeviceAdminIntent(
+                                context,
+                                SoberDeviceAdminReceiver::class.java
+                            )
                         )
                     }
                 }

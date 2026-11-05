@@ -506,7 +506,11 @@ private fun WeeklyReportCard(
                                 putExtra(Intent.EXTRA_STREAM, uri)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-                            context.startActivity(Intent.createChooser(send, "Share your week"))
+                            runCatching {
+                                context.startActivity(
+                                    Intent.createChooser(send, "Share your week")
+                                )
+                            }
                         } else {
                             Toast.makeText(
                                 context,

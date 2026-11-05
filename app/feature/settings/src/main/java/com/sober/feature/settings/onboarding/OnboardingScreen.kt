@@ -136,7 +136,10 @@ fun OnboardingScreen(
                         }
                     },
                     onOpenSettings = {
-                        context.startActivity(PermissionUtils.getAppNotificationSettingsIntent(context))
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getAppNotificationSettingsIntent(context)
+                        )
                     },
                     onContinue = {
                         coroutineScope.launch { pagerState.animateScrollToPage(2) }
@@ -145,7 +148,9 @@ fun OnboardingScreen(
                 2 -> PermissionPage(
                     title = "Usage Access",
                     description = "Sober needs to know which apps you're using to enforce limits.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getUsageStatsIntent()) },
+                    onGrantClick = {
+                        PermissionUtils.openSettings(context, PermissionUtils.getUsageStatsIntent())
+                    },
                     // Paging is locked, so a page without a way forward traps
                     // the user. Every settings-based grant can also be made
                     // later from Settings, so skipping is always available.
@@ -168,7 +173,12 @@ fun OnboardingScreen(
                         "device — Sober has no internet permission.\n\n" +
                         "You can switch Accessibility off at any time in Android Settings. " +
                         "Sober then falls back to blocking whole apps instead of sections.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getAccessibilityIntent()) },
+                    onGrantClick = {
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getAccessibilityIntent()
+                        )
+                    },
                     isOptional = true,
                     onSkip = {
                         coroutineScope.launch { pagerState.animateScrollToPage(4) }
@@ -177,7 +187,12 @@ fun OnboardingScreen(
                 4 -> PermissionPage(
                     title = "Notifications",
                     description = "Sober suppresses notifications from blocked apps during Focus Sessions.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getNotificationListenerIntent()) },
+                    onGrantClick = {
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getNotificationListenerIntent()
+                        )
+                    },
                     isOptional = true,
                     onSkip = {
                         coroutineScope.launch { pagerState.animateScrollToPage(5) }
@@ -186,7 +201,9 @@ fun OnboardingScreen(
                 5 -> PermissionPage(
                     title = "Display Over Other Apps",
                     description = "This allows us to show the block screen over the apps you've restricted.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getOverlayIntent(context)) },
+                    onGrantClick = {
+                        PermissionUtils.openSettings(context, PermissionUtils.getOverlayIntent(context))
+                    },
                     isOptional = true,
                     onSkip = {
                         coroutineScope.launch { pagerState.animateScrollToPage(6) }
@@ -196,9 +213,11 @@ fun OnboardingScreen(
                     isExempt = batteryExempt,
                     oemLabel = BatteryOptimizationUtils.manufacturerLabel(),
                     onOpenSystemSettings = {
-                        context.startActivity(
-                            BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
-                        )
+                        runCatching {
+                            context.startActivity(
+                                BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
+                            )
+                        }
                     },
                     onOpenOemSettings = oemBatteryIntent?.let { intent ->
                         { runCatching { context.startActivity(intent) } }
@@ -210,7 +229,15 @@ fun OnboardingScreen(
                 7 -> PermissionPage(
                     title = "Device Admin (Optional)",
                     description = "Prevents you from uninstalling Sober in a moment of weakness.",
-                    onGrantClick = { context.startActivity(PermissionUtils.getDeviceAdminIntent(context, SoberDeviceAdminReceiver::class.java)) },
+                    onGrantClick = {
+                        PermissionUtils.openSettings(
+                            context,
+                            PermissionUtils.getDeviceAdminIntent(
+                                context,
+                                SoberDeviceAdminReceiver::class.java
+                            )
+                        )
+                    },
                     isOptional = true,
                     onSkip = finishOnboarding
                 )

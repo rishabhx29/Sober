@@ -77,6 +77,9 @@ class ShortcutViewModel @Inject constructor(
                     blockedApps = plan.blockedPackages
                 )
                 _openFocus.value = true
+            } catch (e: Exception) {
+                // A shortcut that cannot resolve or start its preset must
+                // still open the app rather than crash on launch.
             } finally {
                 handling = false
             }

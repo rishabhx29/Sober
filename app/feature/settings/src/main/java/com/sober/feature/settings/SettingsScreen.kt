@@ -760,15 +760,19 @@ fun SettingsScreen(
                             // The system's removal dialog is not part of the public
                             // SDK surface any more; fall back to Security settings
                             // rather than crashing if it does not resolve.
-                            runCatching {
-                                context.startActivity(
-                                    PermissionUtils.getRemoveDeviceAdminIntent(context, SOBER_ADMIN)
+                            val removed = PermissionUtils.openSettings(
+                                context,
+                                PermissionUtils.getRemoveDeviceAdminIntent(context, SOBER_ADMIN)
+                            )
+                            if (!removed) {
+                                PermissionUtils.openSettings(
+                                    context,
+                                    PermissionUtils.getDeviceAdminSettingsIntent()
                                 )
-                            }.onFailure {
-                                context.startActivity(PermissionUtils.getDeviceAdminSettingsIntent())
                             }
                         } else {
-                            context.startActivity(
+                            PermissionUtils.openSettings(
+                                context,
                                 PermissionUtils.getDeviceAdminIntent(context, SOBER_ADMIN)
                             )
                         }
@@ -861,9 +865,11 @@ fun SettingsScreen(
                 onClick = {
                     // The list screen needs no permission, unlike the direct
                     // exemption dialog, which is restricted on Play.
-                    context.startActivity(
-                        BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
-                    )
+                    runCatching {
+                        context.startActivity(
+                            BatteryOptimizationUtils.getBatteryOptimizationSettingsIntent()
+                        )
+                    }
                 }
             )
             BatteryOptimizationUtils.getOemBatterySettingsIntent(context)?.let { intent ->
@@ -959,7 +965,11 @@ fun SettingsScreen(
                                 putExtra(Intent.EXTRA_SUBJECT, "Sober usage export")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-                            context.startActivity(Intent.createChooser(send, "Export usage data"))
+                            runCatching {
+                                context.startActivity(
+                                    Intent.createChooser(send, "Export usage data")
+                                )
+                            }
                         }
                     }
                 )

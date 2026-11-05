@@ -37,6 +37,9 @@ class SoberWidgetActionReceiver : BroadcastReceiver() {
                     WidgetActions.RESUME -> resume(context)
                 }
                 renderer.render(context)
+            } catch (e: Exception) {
+                // A failed tap leaves the widget as it was; it must not crash
+                // the process.
             } finally {
                 pending.finish()
             }

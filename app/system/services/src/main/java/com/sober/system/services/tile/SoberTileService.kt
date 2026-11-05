@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -49,6 +50,7 @@ class SoberTileService : TileService() {
                 protectionSettingsRepository.pausedUntil,
                 protectionSettingsRepository.lockedUntil
             ) { pausedUntil, lockedUntil -> pausedUntil to lockedUntil }
+                .catch { }
                 .collect { (pausedUntil, lockedUntil) -> render(pausedUntil, lockedUntil) }
         }
     }
@@ -62,20 +64,22 @@ class SoberTileService : TileService() {
     override fun onClick() {
         super.onClick()
         scope.launch {
-            val now = System.currentTimeMillis()
-            val lockedUntil = protectionSettingsRepository.lockedUntil.first()
-            if (lockedUntil != null && lockedUntil > now) {
-                openApp()
-                return@launch
-            }
+            runCatching {
+                val now = System.currentTimeMillis()
+                val lockedUntil = protectionSettingsRepository.lockedUntil.first()
+                if (lockedUntil != null && lockedUntil > now) {
+                    openApp()
+                    return@runCatching
+                }
 
-            val pausedUntil = protectionSettingsRepository.pausedUntil.first()
-            val paused = pausedUntil != null && pausedUntil > now
-            protectionSettingsRepository.setPausedUntil(
-                if (paused) null else now + PAUSE_MINUTES * 60_000L
-            )
-            SoberCoreService.start(this@SoberTileService)
-            WidgetRefresh.request(this@SoberTileService)
+                val pausedUntil = protectionSettingsRepository.pausedUntil.first()
+                val paused = pausedUntil != null && pausedUntil > now
+                protectionSettingsRepository.setPausedUntil(
+                    if (paused) null else now + PAUSE_MINUTES * 60_000L
+                )
+                SoberCoreService.start(this@SoberTileService)
+                WidgetRefresh.request(this@SoberTileService)
+            }
         }
     }
 

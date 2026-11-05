@@ -181,4 +181,14 @@ object PermissionUtils {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
     }
+
+    /**
+     * Opens a system screen, tolerating builds that do not expose it.
+     *
+     * Every intent above is best-effort: some OEM builds lack an activity for
+     * notification listener access or Do Not Disturb policy, and a missing
+     * screen must leave the user on Sober instead of crashing it.
+     */
+    fun openSettings(context: Context, intent: Intent): Boolean =
+        runCatching { context.startActivity(intent) }.isSuccess
 }
