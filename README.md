@@ -7,18 +7,18 @@
 <p align="center">
   <a href="https://github.com/rishabhx29/Sober/releases/latest"><img src="https://img.shields.io/badge/download-APK%20%C2%B7%203.8%20MB-1A1A2E?style=flat-square" alt="Download the APK"></a>
   <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
-  <img src="https://img.shields.io/badge/version-1.7-B3432F?style=flat-square" alt="Version 1.7">
-  <img src="https://img.shields.io/badge/tests-545%20passing-4C7A5C?style=flat-square" alt="545 unit tests passing">
+  <img src="https://img.shields.io/badge/version-1.2-B3432F?style=flat-square" alt="Version 1.2">
+  <img src="https://img.shields.io/badge/tests-559%20passing-4C7A5C?style=flat-square" alt="559 unit tests passing">
   <img src="https://img.shields.io/badge/built%20with-Kotlin%20%2B%20Compose-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin and Jetpack Compose">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/rishabhx29/Sober?style=flat-square" alt="MIT license"></a>
 </p>
 
 **Sober is a calm, on-device screen-time blocker for Android.** It gives you a daily
-ceiling for each app, a ceiling for the whole phone, timed focus sessions, and a
-way to block the parts of an app that actually waste your time — Reels, Shorts,
-the For You feed — instead of the app itself. Everything runs on your phone. There
-is no account, no cloud, no analytics, and the app does not request the internet
-permission at all.
+ceiling for each app, a ceiling for the whole phone, timed focus sessions, a session
+timer for the apps that pull you in, and a way to block the parts of an app that
+actually waste your time — Reels, Shorts, the For You feed — instead of the app
+itself. Everything runs on your phone. There is no account, no cloud, no
+analytics, and the app does not request the internet permission at all.
 
 > **Your phone is not the problem. The apps are.** Sober is built on the idea that
 > the answer is not a guilt dashboard but a small, firm limit that holds when you
@@ -31,6 +31,7 @@ permission at all.
 | Capability | What it does |
 |---|---|
 | **Per-app daily limits** | Set a limit for any installed app. A minute-by-minute drum picker, a seven-day bar chart of your usage, and a one-tap switch to pause a limit without deleting it. |
+| **Session timer** | Turn it on for an app and every open asks how long you need this time. When the session ends the app is blocked for a rest of the same length, then the picker comes back. The timer works on its own, without a daily limit. |
 | **Overall daily cap** | One budget for the whole phone, on top of individual limits. When it runs out, Sober blocks the apps you have not left out. A **Choose apps** picker in Settings decides what the cap covers, and Home, Settings, System UI and the keyboard are never blocked. |
 | **Focus sessions** | 15 m to 2 h, a custom duration, or open-ended. Choose the apps to block and optionally silence their notifications. Sessions survive screen-off and reboot through a foreground service. |
 | **Regret timer** | If you end a session early, Sober waits before the apps unlock — long enough for the impulse to pass. Cancellations are counted, not shamed. |
@@ -81,12 +82,12 @@ permission at all.
 ## The 25-second film
 
 <p align="center">
-  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.6/sober-promo.mp4">
+  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.2/sober-promo.mp4">
     <img src="assets/cover.png" width="300" alt="Sober launch film — play the 25-second vertical video">
   </a>
 </p>
 <p align="center">
-  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.6/sober-promo.mp4">Watch it (MP4, 25s, sound on)</a>
+  <a href="https://github.com/rishabhx29/Sober/releases/download/v1.2/sober-promo.mp4">Watch it (MP4, 25s, sound on)</a>
 </p>
 
 Every screen in it is the app running on a device. Nothing is a mockup, and no
@@ -111,7 +112,7 @@ APK because it is signed with a different key.
 
 1. On your phone, open
    **[the latest release](https://github.com/rishabhx29/Sober/releases/latest)**
-   and download `Sober-1.7.apk`.
+   and download `Sober-1.2.apk`.
 2. Open your **Downloads** notification, or the **Files** app, and tap the APK.
 3. Android will say the source is not allowed to install unknown apps. Tap
    **Settings**, enable **Allow from this source**, then go back and tap
@@ -168,7 +169,7 @@ the phone is idle.
 ### Install over ADB (optional)
 
 ```bash
-adb install -r Sober-1.7.apk
+adb install -r Sober-1.2.apk
 ```
 
 ADB skips the unknown-source prompt, but Play Protect can still show its
@@ -176,16 +177,17 @@ warning.
 
 ### Verify the download
 
-Release 1.7's APK has these properties:
+Release 1.2's APK has these properties:
 
 ```text
-SHA-256 (file):  e604f940bb4d4ccddd84b9173310a2012c193ee6e11e80dfa906b19ae8d75800
+Size:            3,791,056 bytes
+SHA-256 (file):  fb126b7c07f67491242622db17a6e73360701b0dfe7d7a5fb69207f684be866d
 SHA-256 (cert):  f9fc8e710485179fbad428689d72d949dea925129ff3ea5ddbef9fac63836c64
 Signer:          CN=Sober, O=Sober, C=IN
 ```
 
 ```bash
-sha256sum Sober-1.7.apk     # macOS: shasum -a 256
+sha256sum Sober-1.2.apk     # macOS: shasum -a 256
 ```
 
 ---
@@ -350,7 +352,7 @@ spacing are defined.
 
 ## Testing
 
-The repository currently has **545 JVM tests across 64 test classes**, including
+The repository currently has **559 JVM tests across 66 test classes**, including
 Robolectric tests for Compose behaviour and the design system.
 
 ```bash
