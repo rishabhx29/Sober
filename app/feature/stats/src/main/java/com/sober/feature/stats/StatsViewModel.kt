@@ -53,6 +53,8 @@ data class AppUsageDisplay(
     val usageMinutes: Int,
     /** This app's own limit, or null when it has none. */
     val limitMinutes: Int? = null,
+    /** True when the app has an active session timer but no minutes cap. */
+    val sessionTimerEnabled: Boolean = false,
     val icon: Drawable? = null
 )
 
@@ -322,11 +324,14 @@ class StatsViewModel @Inject constructor(
                 selectedTotals.map { it.totalMinutes }
             }
 
-            val limits = runCatching {
+            val rules = runCatching {
                 appLimitRepository.getAllLimits().first()
             }.getOrDefault(emptyList())
-                .filter { it.isActive && it.dailyLimitMinutes > 0 }
-                .associate { it.packageName to it.dailyLimitMinutes }
+                .filter { it.isActive }
+                .associateBy { it.packageName }
+            val limits = rules
+                .mapValues { (_, rule) -> rule.dailyLimitMinutes }
+                .filterValues { it > 0 }
 
             val now = System.currentTimeMillis()
             val rangeStart = GetUsageHeatmapUseCase.startOfDaysAgo(timeframe.days)
@@ -379,6 +384,8 @@ class StatsViewModel @Inject constructor(
                             packageName = packageName,
                             usageMinutes = minutes,
                             limitMinutes = limits[packageName],
+                            sessionTimerEnabled = limits[packageName] == null &&
+                                rules[packageName]?.sessionTimerEnabled == true,
                             icon = appIcon(packageName)
                         )
                     },

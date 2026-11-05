@@ -179,6 +179,7 @@ fun HomeScreen(
                     appName = app.appName,
                     usageMinutes = app.usageMinutes,
                     limitMinutes = app.limitMinutes,
+                    sessionTimerEnabled = app.sessionTimerEnabled,
                     progress = app.progress,
                     isAtLimit = app.isAtLimit,
                     icon = app.icon
@@ -569,6 +570,7 @@ private fun TopAppRow(
     appName: String,
     usageMinutes: Int,
     limitMinutes: Int?,
+    sessionTimerEnabled: Boolean,
     progress: Float?,
     isAtLimit: Boolean,
     icon: Drawable?
@@ -578,6 +580,7 @@ private fun TopAppRow(
         isAtLimit -> "Limit reached"
         limitMinutes != null && progress != null ->
             "${(progress * 100).roundToInt()}% of ${limitLabel(limitMinutes)} limit"
+        sessionTimerEnabled -> "Session timer"
         else -> "No limit set"
     }
 

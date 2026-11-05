@@ -278,10 +278,11 @@ fun StatsScreen(
                             maxLines = 1
                         )
                         Text(
-                            text = if (app.limitMinutes != null) {
-                                "Limit ${formatMinutes(app.limitMinutes)}"
-                            } else {
-                                "No limit set"
+                            text = when {
+                                app.limitMinutes != null ->
+                                    "Limit ${formatMinutes(app.limitMinutes)}"
+                                app.sessionTimerEnabled -> "Session timer"
+                                else -> "No limit set"
                             },
                             fontSize = 11.sp,
                             color = SoberTheme.colors.textMuted

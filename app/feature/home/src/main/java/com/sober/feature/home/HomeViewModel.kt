@@ -40,6 +40,8 @@ data class TopAppInfo(
     val appName: String,
     val usageMinutes: Int,
     val limitMinutes: Int? = null,
+    /** True when the app has an active session timer but no minutes cap. */
+    val sessionTimerEnabled: Boolean = false,
     val icon: Drawable? = null
 ) {
     val isAtLimit: Boolean
@@ -228,22 +230,25 @@ class HomeViewModel @Inject constructor(
                     .sortedByDescending { it.totalTimeInForeground }
                     .take(TOP_APP_COUNT)
                     .map { usage ->
-                        val limit = try {
+                        val rule = try {
+                            // A switched-off limit is no limit: the engine
+                            // does not block on it, so the card must not
+                            // draw a bar or a lock for it either.
                             appLimitRepository.getLimit(usage.packageName)
-                                // A switched-off limit is no limit: the engine
-                                // does not block on it, so the card must not
-                                // draw a bar or a lock for it either.
                                 ?.takeIf { it.isActive }
-                                ?.dailyLimitMinutes
-                                ?.takeIf { it > 0 }
                         } catch (e: Exception) {
                             null
                         }
+                        val limit = rule?.dailyLimitMinutes?.takeIf { it > 0 }
                         TopAppInfo(
                             packageName = usage.packageName,
                             appName = appLabelFor(usage.packageName),
                             usageMinutes = (usage.totalTimeInForeground / 60000).toInt(),
                             limitMinutes = limit,
+                            // Only worth naming when there is no minutes cap;
+                            // with both, the cap is the more concrete number.
+                            sessionTimerEnabled = limit == null &&
+                                rule?.sessionTimerEnabled == true,
                             icon = appIconFor(usage.packageName)
                         )
                     }
