@@ -60,6 +60,7 @@ import com.sober.core.ui.theme.SoberTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -1120,7 +1121,7 @@ internal fun quoteOfTheDay(nowMillis: Long): Quote {
 internal fun waitRemainingText(readyAt: Long?, nowMillis: Long): String {
     if (readyAt == null) return "--:--"
     val totalSeconds = ((readyAt - nowMillis) / 1_000L).coerceAtLeast(0)
-    return String.format("%02d:%02d", totalSeconds / 60, totalSeconds % 60)
+    return String.format(Locale.US, "%02d:%02d", totalSeconds / 60, totalSeconds % 60)
 }
 
 private fun headlineFor(decision: BlockDecision, appLabel: String): String {
@@ -1195,14 +1196,14 @@ private fun timeOfDayText(epochMillis: Long): String {
         else -> h
     }
     val suffix = if (hour24 < 12) "AM" else "PM"
-    return String.format("%d:%02d %s", hour12, at.get(Calendar.MINUTE), suffix)
+    return String.format(Locale.US, "%d:%02d %s", hour12, at.get(Calendar.MINUTE), suffix)
 }
 
 /** HH:MM left in a schedule window, floored at zero. */
 private fun minutesUntilText(endsAt: Long?, nowMillis: Long): String {
     if (endsAt == null) return "--:--"
     val totalMinutes = ((endsAt - nowMillis) / 60_000L).coerceAtLeast(0)
-    return String.format("%02d:%02d", totalMinutes / 60, totalMinutes % 60)
+    return String.format(Locale.US, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 }
 
 /** Formats the countdown to the next midnight as HH:MM. */
@@ -1216,7 +1217,7 @@ private fun timeUntilMidnight(nowMillis: Long): String {
         set(Calendar.MILLISECOND, 0)
     }
     val totalMinutes = ((midnight.timeInMillis - now.timeInMillis) / 60_000L).coerceAtLeast(0)
-    return String.format("%02d:%02d", totalMinutes / 60, totalMinutes % 60)
+    return String.format(Locale.US, "%02d:%02d", totalMinutes / 60, totalMinutes % 60)
 }
 
 /** MM:SS under an hour, H:MM:SS above it — a session timer is read to the second. */
@@ -1227,9 +1228,9 @@ internal fun sessionRemainingText(endsAt: Long?, nowMillis: Long): String {
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, seconds)
+        String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
     } else {
-        String.format("%02d:%02d", minutes, seconds)
+        String.format(Locale.US, "%02d:%02d", minutes, seconds)
     }
 }
 

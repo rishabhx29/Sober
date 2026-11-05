@@ -84,6 +84,7 @@ import com.sober.core.domain.repository.StreakRule
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.feature.settings.admin.SoberDeviceAdminReceiver
 import java.time.LocalDate
+import java.util.Locale
 
 /**
  * Settings.
@@ -1922,7 +1923,7 @@ private fun minuteOfDayText(minuteOfDay: Int): String {
         else -> h
     }
     val suffix = if (hour24 < 12) "AM" else "PM"
-    return String.format("%d:%02d %s", hour12, normalized % 60, suffix)
+    return String.format(Locale.US, "%d:%02d %s", hour12, normalized % 60, suffix)
 }
 
 /** "9:40 PM" — the wall-clock time a lock lifts. */
@@ -1934,7 +1935,7 @@ private fun clockText(epochMillis: Long): String {
         else -> h
     }
     val suffix = if (hour24 < 12) "AM" else "PM"
-    return String.format("%d:%02d %s", hour12, at.get(java.util.Calendar.MINUTE), suffix)
+    return String.format(Locale.US, "%d:%02d %s", hour12, at.get(java.util.Calendar.MINUTE), suffix)
 }
 
 @Composable

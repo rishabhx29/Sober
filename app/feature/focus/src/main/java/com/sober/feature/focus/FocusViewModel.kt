@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -193,9 +194,9 @@ class FocusViewModel @Inject constructor(
                             val seconds = totalSeconds % 60
 
                             _remainingTimeText.value = if (hours > 0) {
-                                String.format("%d:%02d:%02d", hours, minutes, seconds)
+                                String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
                             } else {
-                                String.format("%02d:%02d", minutes, seconds)
+                                String.format(Locale.US, "%02d:%02d", minutes, seconds)
                             }
                         }
                     }
@@ -233,9 +234,9 @@ class FocusViewModel @Inject constructor(
         val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
         return if (hours > 0) {
-            String.format("%d:%02d:%02d", hours, minutes, seconds)
+            String.format(Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
         } else {
-            String.format("%02d:%02d", minutes, seconds)
+            String.format(Locale.US, "%02d:%02d", minutes, seconds)
         }
     }
 
