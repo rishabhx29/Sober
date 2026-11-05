@@ -12,15 +12,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sober.core.ui.components.SoberButton
-import com.sober.core.ui.components.SoberOutlinedButton
 import com.sober.core.ui.components.SoberSectionLabel
 import com.sober.core.ui.components.rememberBreathingScale
 import com.sober.core.ui.theme.JetBrainsMono
@@ -47,21 +44,22 @@ import kotlinx.coroutines.delay
 /**
  * The "take a breath" screen shown before a flagged app opens.
  *
- * It deliberately offers no dismiss by gesture: the window is not focusable, so
- * back does nothing, and the two buttons are the only exits. The countdown is
- * wall-clock based, so a dropped frame or a poked process cannot shorten it.
+ * It deliberately offers no buttons: the window is not focusable, so back does
+ * nothing, and Home is the only way out. Once the countdown ends the screen
+ * calls [onElapsed], and the enforcement engine takes over — the app opens, or
+ * the session picker replaces this window. The countdown is wall-clock based,
+ * so a dropped frame or a poked process cannot shorten it.
  */
 @Composable
 fun PauseOverlayScreen(
     appLabel: String,
     delaySeconds: Int,
-    passMinutes: Int,
-    onOpen: () -> Unit,
-    onClose: () -> Unit
+    onElapsed: () -> Unit
 ) {
     val colors = SoberTheme.colors
     val totalMillis = delaySeconds * 1_000L
     var remainingMillis by remember { mutableLongStateOf(totalMillis) }
+    val currentOnElapsed by rememberUpdatedState(onElapsed)
 
     LaunchedEffect(delaySeconds) {
         val deadline = SystemClock.elapsedRealtime() + totalMillis
@@ -71,6 +69,7 @@ fun PauseOverlayScreen(
             if (left <= 0L) break
             delay(100)
         }
+        currentOnElapsed()
     }
 
     val ready = remainingMillis <= 0L
@@ -160,35 +159,10 @@ fun PauseOverlayScreen(
                 )
             } else {
                 Text(
-                    text = "Still want to open $appLabel?",
+                    text = "The pause is over.",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = colors.textPrimary,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = colors.surface,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        SoberButton(
-                            text = "Open for $passMinutes min",
-                            onClick = onOpen
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        SoberOutlinedButton(
-                            text = "Not now — go back",
-                            onClick = onClose
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = "Opening again before the pass ends skips this pause.",
-                    fontSize = 12.sp,
-                    color = colors.textMuted,
                     textAlign = TextAlign.Center
                 )
             }

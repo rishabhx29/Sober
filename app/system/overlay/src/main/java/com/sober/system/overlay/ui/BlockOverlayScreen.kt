@@ -1181,11 +1181,11 @@ private fun reasonFor(decision: BlockDecision): String = when (decision.reason) 
         "Allow-only mode is on, so only the apps you picked can open right now."
     BlockReason.BEDTIME ->
         "Bedtime blocks distracting apps until morning."
-    // The timer's promise is symmetric: the rest is exactly as long as the
-    // session the user chose, so the number they picked explains the block.
+    // The session and the rest are separate numbers: the user chose how long
+    // to use the app, then chose how long it stays closed afterwards.
     BlockReason.SESSION_TIMER ->
-        "You gave it ${decision.usedMinutes} min, so it rests for the same before " +
-            "asking again."
+        "You gave it ${decision.usedMinutes} min. It now rests for " +
+            "${decision.limitMinutes} min before asking again."
 }
 
 /** Display name for the category behind a category-limit block. */

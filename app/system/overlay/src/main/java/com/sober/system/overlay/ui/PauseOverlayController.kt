@@ -1,7 +1,6 @@
 package com.sober.system.overlay.ui
 
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Handler
@@ -71,12 +70,24 @@ class PauseOverlayController @Inject constructor(
     @Volatile
     private var currentPackage: String? = null
 
+    /** Guards against the Compose clock and the handler both completing. */
+    @Volatile
+    private var completedPackage: String? = null
+
+    /** Told when the countdown ends, so the caller can decide what is next. */
+    @Volatile
+    private var onElapsed: (() -> Unit)? = null
+
     @Volatile
     private var themeMode = ThemeMode.SYSTEM
 
     /** Attachment, not just the field: the system can detach the window itself. */
     val isShowing: Boolean
         get() = overlayView?.let { it.isAttachedToWindow && it.isShown } == true
+
+    /** True while this window is counting down for [packageName]. */
+    fun isShowingFor(packageName: String): Boolean =
+        currentPackage == packageName && isShowing
 
     init {
         scope.launch {
@@ -88,10 +99,16 @@ class PauseOverlayController @Inject constructor(
      * Shows the countdown for [packageName]. Calling it again for the same app
      * while the window is up is a no-op: rebuilding would restart the clock and
      * a fifteen-second poll would then never let the user through.
+     *
+     * [onElapsed] runs once, after the pass has been granted and the window is
+     * gone, so it can safely evaluate the next rule (the session picker) for
+     * the same app.
      */
-    fun show(packageName: String, delaySeconds: Int) {
+    fun show(packageName: String, delaySeconds: Int, onElapsed: () -> Unit) {
         if (currentPackage == packageName && isShowing) return
         currentPackage = packageName
+        completedPackage = null
+        this.onElapsed = onElapsed
         mainHandler.post {
             if (!canDrawOverlays()) return@post
             attach(packageName, delaySeconds)
@@ -100,7 +117,32 @@ class PauseOverlayController @Inject constructor(
 
     fun hide() {
         currentPackage = null
+        completedPackage = null
+        onElapsed = null
         mainHandler.post { detach() }
+    }
+
+    /**
+     * The countdown reached zero. The pass is what stops the next poll from
+     * showing the pause again, so it is written before the window goes away.
+     */
+    private fun completePause(packageName: String) {
+        if (currentPackage != packageName) return
+        if (completedPackage == packageName) return
+        completedPackage = packageName
+        val callback = onElapsed ?: return
+        scope.launch {
+            runCatching {
+                pauseRulesRepository.grantPass(
+                    packageName = packageName,
+                    until = System.currentTimeMillis() + PASS_MINUTES * 60_000L
+                )
+            }
+            hide()
+            // hide() posts the detach; this post runs after it, so the callback
+            // never sees this window as still showing.
+            mainHandler.post(callback)
+        }
     }
 
     private fun canDrawOverlays(): Boolean = try {
@@ -154,12 +196,7 @@ class PauseOverlayController @Inject constructor(
                     PauseOverlayScreen(
                         appLabel = appLabel(packageName),
                         delaySeconds = delaySeconds,
-                        passMinutes = PASS_MINUTES,
-                        onOpen = { grantPassAndHide(packageName) },
-                        onClose = {
-                            hide()
-                            goHome()
-                        }
+                        onElapsed = { completePause(packageName) }
                     )
                 }
             }
@@ -185,28 +222,6 @@ class PauseOverlayController @Inject constructor(
         } catch (e: Exception) {
             // Overlay permission revoked between the check and addView.
             overlayView = null
-        }
-    }
-
-    private fun grantPassAndHide(packageName: String) {
-        scope.launch {
-            pauseRulesRepository.grantPass(
-                packageName = packageName,
-                until = System.currentTimeMillis() + PASS_MINUTES * 60_000L
-            )
-            hide()
-        }
-    }
-
-    private fun goHome() {
-        try {
-            context.startActivity(
-                Intent(Intent.ACTION_MAIN)
-                    .addCategory(Intent.CATEGORY_HOME)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
-        } catch (e: Exception) {
-            // No launcher resolved; the app stays open, which is not harmful.
         }
     }
 

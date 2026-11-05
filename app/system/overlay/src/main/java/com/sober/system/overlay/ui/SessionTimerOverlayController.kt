@@ -22,6 +22,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.sober.core.domain.model.AppLimit
+import com.sober.core.domain.repository.AppLimitRepository
 import com.sober.core.domain.repository.ThemeMode
 import com.sober.core.domain.repository.ThemePreferencesRepository
 import com.sober.core.domain.usecase.StartAppSessionUseCase
@@ -50,6 +52,7 @@ import javax.inject.Singleton
 class SessionTimerOverlayController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val startAppSessionUseCase: StartAppSessionUseCase,
+    private val appLimitRepository: AppLimitRepository,
     private val themePreferencesRepository: ThemePreferencesRepository
 ) : LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
@@ -95,14 +98,26 @@ class SessionTimerOverlayController @Inject constructor(
     /**
      * Shows the picker for [packageName]. Calling it again for the same app is
      * a no-op: rebuilding would reset an already-made selection.
+     *
+     * The app's configured block time is read first so the picker can state the
+     * real rest, instead of asserting a number the session will not honor.
      */
     fun show(packageName: String) {
         if (startingPackage == packageName) return
         if (currentPackage == packageName && isShowing) return
         currentPackage = packageName
-        mainHandler.post {
-            if (!canDrawOverlays()) return@post
-            attach(packageName)
+        scope.launch {
+            val restMinutes = runCatching {
+                appLimitRepository.getLimit(packageName)?.sessionRestMinutes
+            }.getOrNull()
+                ?.coerceIn(AppLimit.MIN_SESSION_REST_MINUTES, AppLimit.MAX_SESSION_REST_MINUTES)
+                ?: AppLimit.DEFAULT_SESSION_REST_MINUTES
+            mainHandler.post {
+                // The user may have left while the rule was being read.
+                if (currentPackage != packageName) return@post
+                if (!canDrawOverlays()) return@post
+                attach(packageName, restMinutes)
+            }
         }
     }
 
@@ -148,7 +163,7 @@ class SessionTimerOverlayController @Inject constructor(
             ?: packageName
     }
 
-    private fun attach(packageName: String) {
+    private fun attach(packageName: String, restMinutes: Int) {
         val wm = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
         windowManager = wm
         detach()
@@ -175,6 +190,7 @@ class SessionTimerOverlayController @Inject constructor(
                         appLabel = appLabel(packageName),
                         durations = DURATIONS,
                         defaultMinutes = DEFAULT_MINUTES,
+                        restMinutes = restMinutes,
                         onStart = { minutes -> start(packageName, minutes) },
                         onClose = {
                             hide()

@@ -41,6 +41,7 @@ fun SessionTimerOverlayScreen(
     appLabel: String,
     durations: List<Int>,
     defaultMinutes: Int,
+    restMinutes: Int,
     onStart: (Int) -> Unit,
     onClose: () -> Unit
 ) {
@@ -79,8 +80,8 @@ fun SessionTimerOverlayScreen(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "When the session ends, $appLabel rests for the same " +
-                    "amount of time before it asks again.",
+                text = "When the session ends, $appLabel closes for " +
+                    "$restMinutes min before it asks again.",
                 fontSize = 14.sp,
                 color = colors.textMuted,
                 textAlign = TextAlign.Center
